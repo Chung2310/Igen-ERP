@@ -33,7 +33,8 @@ import {suggestReferenceOptions} from './executor';
 import {AssistantInterpretationError} from './interpretation-error';
 import {assistantFunctionKey} from './function-context';
 import {parseAssistantResultTable} from '../../src/shared/assistant-result-table';
-import {parseSemanticRequest,bindSemanticRequest} from './semantic-request';
+import {parseSemanticRequest,bindSemanticRequest,attachSemanticProof} from './semantic-request';
+import {inheritReadConstraints} from './read-dialogue';
 const captures=JSON.parse(readFileSync(new URL('./testing/catalog-routing/captured-remaining25-retry.json',import.meta.url),'utf8'));
 const originals=JSON.parse(readFileSync(new URL('./testing/catalog-routing/captured-remaining-sheet.json',import.meta.url),'utf8'));
 const req:any={user:{id:'actor',uid:'actor',email:'qa@example.test',companyCode:'TEST',branchId:'507f1f77bcf86cd799439012',role:'admin'},headers:{authorization:'Bearer fixture'},socket:{localPort:4050,localAddress:'127.0.0.1'}};
@@ -47,6 +48,67 @@ beforeEach(()=>{
  vi.stubGlobal('fetch',fetcher);
 });
 afterEach(()=>{vi.unstubAllGlobals();vi.unstubAllEnvs();});
+
+it('runs grouped totals, having and ranking through the common dispatcher using only fixture GET requests',async()=>{
+ state.interpret.mockResolvedValue({intentType:'workflow',actionId:'inventory.balance.list',values:{analysis:{groupBy:'productName',aggregate:{operation:'sum',field:'quantity'},having:{field:'sum_quantity',operator:'gte',value:5},sort:{field:'sum_quantity',direction:'desc'},limit:1}}});
+ fetcher.mockImplementation(async(raw:any,init:any)=>{
+  expect(init?.method||'GET').toBe('GET');const url=new URL(String(raw));
+  if(url.pathname.endsWith('/auth/branches'))return json({branches:[{_id:req.user.branchId,name:'Trụ sở chính'}]});
+  expect(url.pathname).toBe('/api/v1/inventory/warehouses/balances');
+  return json({data:[{productName:'QA A',quantity:4},{productName:'QA A',quantity:4},{productName:'QA B',quantity:6}]});
+ });
+ const reply=await turn({text:'Cộng tồn theo sản phẩm, chỉ lấy sản phẩm tổng tồn ít nhất 5 rồi lấy sản phẩm tồn nhiều nhất'});
+ expect(reply.status,JSON.stringify(reply)).toBe('completed');
+ const table=parseAssistantResultTable(reply.reply)!;expect(table.rows).toHaveLength(1);expect(reply.reply).toContain('QA A');expect(reply.reply).not.toContain('QA B');
+ expect(state.session.pending).toBeNull();expect(state.provider).not.toHaveBeenCalled();
+});
+
+it('keeps the prior extreme cohort through a persisted conversation followup without widening it to the whole list',async()=>{
+ const op=operationById('inventory.balance.list')!;
+ let changed=false;
+ state.interpret.mockResolvedValueOnce({intentType:'workflow',actionId:op.id,values:{analysis:{extreme:{field:'quantity',direction:'max'}}}});
+ fetcher.mockImplementation(async(raw:any,init:any)=>{
+  expect(init?.method||'GET').toBe('GET');const url=new URL(String(raw));
+  if(url.pathname.endsWith('/auth/branches'))return json({branches:[{_id:req.user.branchId,name:'Trụ sở chính'}]});
+  expect(url.pathname).toBe('/api/v1/inventory/warehouses/balances');
+  return json({data:[{productName:'QA A',quantity:changed?99:8},{productName:'QA B',quantity:10},{productName:'QA C',quantity:10}]});
+ });
+ expect((await turn({text:'Sản phẩm nào đang tồn nhiều nhất'})).status).toBe('completed');
+ expect(state.session.readContext?.actionId).toBe(op.id);
+ const text='Trong nhóm đó, lọc tồn trên 9';
+ state.interpret.mockImplementation(()=>{
+  const request=parseSemanticRequest(text,{version:1,dialogue:{act:'followup',evidence:'Trong nhóm đó'},units:[{id:'u1',kind:'goal',quote:'lọc',concept:'Tra cứu',operator:'lookup',value:null},{id:'u2',kind:'condition',quote:'tồn trên 9',concept:'Tồn',operator:'gt',value:9}]});
+  request.readContinuation=structuredClone(state.session.readContext);
+  const source={operation:op,workflow:defaultWorkflow(op),values:{analysis:{filters:[{field:'quantity',operator:'gt',value:9}]}}};
+  const bindings=new Map([['u1',['action']],['u2',['analysis.filters.quantity']]]);inheritReadConstraints(request,[source],bindings);
+  return attachSemanticProof({intentType:'workflow',actionId:op.id,currentRequest:text,values:source.values},request,bindings);
+ });
+ const reply=await turn({text});expect(reply.status,JSON.stringify(reply)).toBe('completed');
+ expect(reply.reply).toContain('QA B');expect(reply.reply).toContain('QA C');expect(reply.reply).not.toContain('QA A');
+ expect(JSON.parse(state.session.readContext.values.analysis)).toMatchObject({within:{extreme:{field:'quantity',direction:'max'}}});expect(state.provider).not.toHaveBeenCalled();
+ expect(reply.reply).not.toContain(state.session.readContext.cohortDigest);
+ changed=true;const stale=await turn({text});expect(stale.status,JSON.stringify(stale)).toBe('failed');expect(stale.reply).toContain('đã thay đổi');
+});
+
+it('rejects model-invented cohort state before the primary business read',async()=>{
+ state.interpret.mockResolvedValue({intentType:'workflow',actionId:'inventory.balance.list',values:{analysis:{within:{limit:1}}}});
+ const reply=await turn({text:'Xem tồn kho'});
+ expect(reply.status).toBe('failed');expect(fetcher.mock.calls.some(([raw])=>String(raw).includes('/warehouses/balances'))).toBe(false);
+});
+
+it('summarizes a complete composite source with over 500 underlying rows before applying the display cap',async()=>{
+ const op=operationById('inventory.balance.list')!,text='Cộng tồn theo sản phẩm';
+ const request=parseSemanticRequest(text,{version:1,units:[{id:'u1',kind:'goal',quote:'Cộng tồn',concept:'Tổng hợp',operator:'report',value:null},{id:'u2',kind:'group',quote:'theo sản phẩm',concept:'Sản phẩm',operator:'none',value:null},{id:'u3',kind:'aggregate',quote:'Cộng tồn',concept:'Tổng tồn',operator:'sum',value:null}]});
+ const prefix=`query:${op.id}:`,bindings=new Map([['u1',[prefix+'action']],['u2',[prefix+'analysis.groupBy.productName']],['u3',[prefix+'analysis.aggregate.quantity']]]);
+ state.interpret.mockImplementation(()=>attachSemanticProof({intentType:'workflow',values:{},queryPlan:[{actionId:op.id,purpose:'Tồn theo sản phẩm',values:{analysis:{groupBy:'productName',aggregate:{operation:'sum',field:'quantity'}}},resultFields:['productName','sum_quantity']}]},request,bindings));
+ fetcher.mockImplementation(async(raw:any,init:any)=>{
+  expect(init?.method||'GET').toBe('GET');const url=new URL(String(raw));
+  if(url.pathname.endsWith('/auth/branches'))return json({branches:[{_id:req.user.branchId,name:'Trụ sở chính'}]});
+  expect(url.pathname).toBe('/api/v1/inventory/warehouses/balances');
+  return json({data:Array.from({length:600},(_,i)=>({_id:'fixture-'+i,productName:i%2?'QA A':'QA B',quantity:1}))});
+ });
+ const reply=await turn({text});expect(reply.status,JSON.stringify(reply)).toBe('completed');expect(reply.reply).toContain('300');expect(reply.reply).toContain('QA A');expect(reply.reply).toContain('QA B');expect(state.provider).not.toHaveBeenCalled();
+});
 
 it('collects the missing named-template content in the existing form and confirms a scoped server recipient snapshot',async()=>{
  const write='student.tuition.reminder.send';

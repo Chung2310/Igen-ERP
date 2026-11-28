@@ -19,6 +19,10 @@ export interface SocialIntegration {
   tokenExpiredAt?: string;
   appSecret?: string;
   verifyToken?: string;
+  zaloAppMode?: "default" | "custom";
+  zaloAppId?: string;
+  hasZaloAppSecret?: boolean;
+  hasZaloWebhookSecret?: boolean;
   isMock?: boolean;
   blotatoAccountId?: string;
   aiAutoReplyConfig?: Record<string, unknown>;
@@ -63,6 +67,16 @@ type ValidationResult = {
 };
 
 export const socialIntegrationService = {
+  async startZaloOAuth(input: { integrationId?: string; appMode: "default" | "custom"; appId?: string; appSecret?: string; webhookSecret?: string }): Promise<string> {
+    const response = await fetch("/api/v1/zalo/oauth-session", { method: "POST",
+      headers: { Authorization: `Bearer ${getAccessToken()}`, "Content-Type": "application/json" }, body: JSON.stringify(input),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.message || "Không thể tạo phiên cấp quyền Zalo OA.");
+    const url = new URL(result.authorizationUrl);
+    if (url.origin !== "https://oauth.zaloapp.com" || url.pathname !== "/v4/oa/permission") throw new Error("Đường dẫn cấp quyền Zalo không hợp lệ.");
+    return url.href;
+  },
   async resetCompanyChat(confirmCompanyCode: string): Promise<{ conversationCount: number; messageCount: number }> {
     const res = await fetch("/api/v1/social-integrations/reset-chat", {
       method: "POST",

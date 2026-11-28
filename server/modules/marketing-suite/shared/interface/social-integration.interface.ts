@@ -28,6 +28,12 @@ export interface ISocialIntegration extends Document {
   tokenExpiredAt?: Date;
   appSecret?: string;      // Facebook App Secret (Khóa bí mật từ Meta Developer)
   verifyToken?: string;
+  zaloAppMode?: "default" | "custom";
+  zaloAppId?: string;
+  zaloAppSecret?: string;
+  zaloWebhookSecret?: string;
+  zaloTokenAppId?: string;
+  zaloConnectionVersion?: number;
   isMock: boolean;
   aiAutoReplyConfig?: IAiAutoReplyConfig;
   orderSheetConfig?: IOrderSheetConfig;

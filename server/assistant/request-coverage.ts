@@ -1,6 +1,6 @@
 import type { AssistantWorkflow } from "../../src/shared/assistant-workflow";
 import type { AssistantOperation } from "./catalog";
-import { reconcileRequestedRanking, validateListAnalysis } from "./list-analysis";
+import { reconcileRequestedRanking, validateListAnalysis, analysisMappingIsRepresented } from "./list-analysis";
 import { assistantModuleContext, isKnownModuleContextClause, isModuleContextClause, mentionsCompatibleModule, matchesModuleContextEvidence, containsModuleContextEvidence } from "./module-context";
 import { scopeAssistantWorkflows } from "./module-scope";
 import { publicAssistantResultFields } from "./result-field-policy";
@@ -199,7 +199,7 @@ function requiredMappingMissing(evidence: string, targets: string[], composite =
   if (kinds.includes("ranking") && !rankingCoveredByAction && !mappings.some(mapping => mapping.startsWith("analysis.extreme.")
     || mapping.startsWith("analysis.sort.") || mapping.startsWith("analysis.limit"))) return "ranking";
   if (kinds.includes("filter") && !mappings.some(mapping => mapping.startsWith("values.")
-    || mapping.startsWith("analysis.filters."))) return "filter";
+    || mapping.startsWith("analysis.filters.") || mapping.startsWith("analysis.having."))) return "filter";
   return undefined;
 }
 
@@ -358,24 +358,7 @@ function parsedAnalysis(value: unknown): Record<string, any> | undefined {
 }
 
 function analysisTargetIsRepresented(target: string, operation: AssistantOperation, values: Record<string, unknown>) {
-  if (!operation.analysis || !target.startsWith("analysis.")) return false;
-  const [, kind, field, metric] = target.split(".");
-  const plan = parsedAnalysis(values.analysis);
-  if (!plan) return false;
-  if (kind === "limit") return Number.isInteger(plan.limit) && plan.limit > 0;
-  const aggregates = plan.aggregates || (plan.aggregate ? [plan.aggregate] : []);
-  if (kind==='aggregate' && ['sum','avg','count'].includes(field) && metric) return Object.hasOwn(operation.analysis.fields,metric) && aggregates.some((a:any)=>a.operation===field && a.field===metric);
-  if (kind === "aggregate" && field === "count") return aggregates.some((a:any) => a.operation === 'count');
-  if (kind === 'select') return field ? operation.resultFields.includes(field) && plan.select?.includes(field) : Array.isArray(plan.select) && plan.select.length > 0 && plan.select.every((key:string)=>Object.hasOwn(operation.analysis!.fields,key));
-  if (!field || !Object.hasOwn(operation.analysis.fields, field)) return false;
-  switch (kind) {
-    case "extreme": return plan.extreme?.field === field;
-    case "sort": return plan.sort?.field === field;
-    case "filters": return Array.isArray(plan.filters) && plan.filters.some((filter: any) => filter?.field === field);
-    case "aggregate": return aggregates.some((a:any) => a.field === field);
-    case "groupBy": return plan.groupBy === field;
-    default: return false;
-  }
+  return Boolean(operation.analysis && analysisMappingIsRepresented(target,operation.analysis,values.analysis));
 }
 
 /** Output labels describe the value being requested, not an extra state filter.

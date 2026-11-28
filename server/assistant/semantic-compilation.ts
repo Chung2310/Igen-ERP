@@ -241,7 +241,7 @@ export function compileSemanticResolutions(request:SemanticRequest,sources:Seman
     if(!['read_predicate','group_category','input_literal'].includes(p.role)&&p.predicates.length)throw Error('SEMANTIC_RESOLUTION_INVALID');
     const read=source.operation.method==='GET'||source.operation.readOnly;
     const contract=source.operation.analysis;
-    if(contract)p={...p,target:canonicalAnalysisTarget(contract,p.target)};
+    if(contract)p={...p,target:canonicalAnalysisTarget(contract,p.target,source.values.analysis)};
     if(p.target.startsWith('values.')){
       const address=assistantInputAddress(source.workflow,p.target.slice(7));
       if(address)p={...p,target:'values.'+address.canonical};

@@ -5,7 +5,8 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import CompanyIntegrationsTab from "./CompanyIntegrationsTab";
 import { socialIntegrationService, type SocialIntegration } from "../../services/socialIntegrationService";
 
-vi.mock("../../services/socialIntegrationService", () => ({ socialIntegrationService: {
+vi.mock("../../services/socialIntegrationService", async importOriginal => ({ socialIntegrationService: {
+  ...(await importOriginal<typeof import("../../services/socialIntegrationService")>()).socialIntegrationService,
   getIntegrations: vi.fn(), updateIntegration: vi.fn(), createIntegration: vi.fn(),
   validateFacebookIntegration: vi.fn(), validateZaloIntegration: vi.fn(), validateTikTokIntegration: vi.fn(),
 } }));
@@ -99,7 +100,8 @@ it("starts Zalo authorization without asking for credentials and shows server co
   expect((await screen.findByRole("alert")).textContent).toBe("Cần cấu hình APP_URL.");
   expect(fetch).toHaveBeenCalledWith("/api/v1/zalo/oauth-session", {
     method: "POST",
-    headers: { Authorization: "Bearer test-session" },
+    headers: { Authorization: "Bearer test-session", "Content-Type": "application/json" },
+    body: JSON.stringify({ appMode: "default" }),
   });
   expect(socialIntegrationService.createIntegration).not.toHaveBeenCalled();
 });

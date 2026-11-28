@@ -2,7 +2,8 @@ import { interpretRequest } from "./semantic-interpreter";
 import { AssistantInterpretationError, AssistantPlanningError } from './interpretation-error';
 import { revalidateSemanticProof } from './semantic-request';
 import {verifiedSemanticContexts,matchesSemanticExecutionContext,type SemanticExecutionContext} from './semantic-execution-context';
-import type {AssistantReadContext} from './read-dialogue';
+import {isReadCohort,validInheritedReadCohort,type AssistantReadContext} from './read-dialogue';
+import {readCohortDigest} from './read-cohort';
 import {collectPublicReadData,AssistantReadDataError} from './public-read-query';
 import {needsAssistantReferenceInput} from './collection-form';
 import { combineAssistantPlanResults } from "./plan-results";
@@ -45,7 +46,7 @@ import { formatQuotationResult, quotationResultLink, quotationValue } from "./qu
 import { formatAssistantTemporalValue, isAssistantTemporalField } from "../../src/shared/assistant-date";
 import { completeAssistantOperation, assistantDefaultedPresentationLabels, hasAssistantUpdatePayload as hasUpdatePayload, type AssistantCompletion } from "./completion";
 import {projectAssistantResultContract,publicAssistantResultFields} from './result-field-policy';
-import { collectAnalysisPages, renderListAnalysis, validateListAnalysis, reconcileRequestedValueFilters, selectAnalysisRows, analyzeList, canPresentPartialList, renderPartialListAnalysis } from "./list-analysis";
+import { collectAnalysisPages, renderListAnalysis, validateListAnalysis, reconcileRequestedValueFilters, selectAnalysisRows, selectAnalysisCohortRows, assertAnalysisCohort, analyzeList, canPresentPartialList, renderPartialListAnalysis } from "./list-analysis";
 import { assistantModuleContext } from './module-context';
 import { compositeQueryRequestText, compositeReportEnvelope, projectCompositeSourceData, validateCompositeQueryPlan, validateCompositeRequestCoverage } from "./composite-query";
 import { synthesizeCompositeAssistantReport } from "./composite-report";
@@ -2089,8 +2090,12 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
     if (op.partialUpdate && input.decision?.confirmed && values.__assistantExistingRecord !== checked.values.__assistantExistingRecord) {
       throw new AssistantError("Cấu hình đã thay đổi sau khi bạn xem bản xem trước. Mình chưa lưu. Bạn gửi lại yêu cầu để kiểm tra bản mới nhé.", 409);
     }
+    if(op.analysis&&checked.values.analysis!==undefined){
+      const plan=validateListAnalysis(checked.values.analysis,op.analysis);
+      if(plan.within&&(!semanticContextFor(workflow,requestIntent)||!validInheritedReadCohort({readContinuation:readContext},{operation:op,workflow:latest,values:checked.values},plan)))throw new AssistantError('Nhóm kết quả trước không còn khớp với phạm vi hiện tại. Bạn chọn lại phạm vi cần xem nhé.',409);
+    }
     if(!activeRelationSource&&isBusinessExcelRequest(requestIntent)&&(op.module!=='quotation'||op.id.endsWith('.list'))){
-      return exportBusinessList(req,op,checked.values,dispatch,{conversationId:input.conversationId,requestId:input.requestId,requestText:requestIntent});
+      return exportBusinessList(req,op,checked.values,dispatch,{conversationId:input.conversationId,requestId:input.requestId,requestText:requestIntent,readCohortDigest:readContext?.cohortDigest});
     }
     if (op.analysis && (!op.analysis.publicRead || checked.values.analysis !== undefined || op.analysis.publicRowsField || op.analysis.statusCoverage)) {
       const filters = semanticContextFor(workflow,requestIntent) || op.analysis.publicRead ? {kind:'none' as const} : reconcileRequestedValueFilters(requestIntent, op.analysis, checked.values.analysis);
@@ -2100,10 +2105,12 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
       const result = op.analysis.publicRead
         ? await collectPublicReadData(op,checked.values,dispatch,(response,values)=>projectRecords(op,response,req,values),{allowPartialRows:canPresentPartialList(plan)})
         : await collectAnalysisPages(op.analysis, checked.values, dispatch);
+      assertAnalysisCohort(op.analysis,result.data,plan,result.analysisComplete===true,readContext?.cohortDigest);
       // Keep the complete, bounded result for audited composite reads too; the
       // dispatch journal still records every page separately.
       if (completion?.operation.id === op.id) completion = { ...completion, values: checked.values, result:{analysisComplete:result.analysisComplete===true,
         data:selectAnalysisRows(op.analysis,result.data,plan,result.analysisComplete===true||canPresentPartialList(plan)).rows,
+        ...(isReadCohort(plan)&&result.analysisComplete===true?{__assistantReadCohortDigest:readCohortDigest(selectAnalysisCohortRows(op.analysis,result.data,plan,true))}:{}),
         ...(plan.aggregate||plan.aggregates?{__assistantAnalysisSummary:analyzeList(op.analysis,result.data,plan,result.analysisComplete===true).records}:{}),
       } };
       const period = String(checked.values.query_periodAnchor || "");
@@ -3365,13 +3372,13 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
               ? rawCompletion.data as Array<Record<string, unknown>>
               : (() => { throw new AssistantError(`ChÆ°a nháº­n Ä‘Æ°á»£c dá»¯ liá»‡u phÃ¢n tÃ­ch Ä‘áº§y Ä‘á»§ tá»« “${queryWorkflow.title}”. MÃ¬nh chÆ°a tá»•ng há»£p káº¿t quáº£.`, 502); })()
             : projectRecords(queryOperation, queryCompletion.result, req, queryCompletion.values));
-          if (projectedRecords.length > 500) {
-            throw new AssistantError(`Nguồn “${queryWorkflow.title}” trả quá nhiều dòng để tổng hợp an toàn. Hãy thu hẹp kỳ hoặc bộ lọc.`, 413);
-          }
           const rows = queryOperation.analysis && (!queryOperation.analysis.publicRead || queryCompletion.values.analysis !== undefined) && Array.isArray(rawCompletion?.__assistantAnalysisSummary)
             ? rawCompletion.__assistantAnalysisSummary as Array<Record<string,unknown>>
             : projectCompositeSourceData(projectedRecords as Array<Record<string, unknown>>, query.resultFields.filter(field=>
               outputContext?.requestedOutputs?.length?projectionOperation.resultFields.includes(field):publicAssistantResultFields(queryOperation).includes(field)), projectionOperation);
+          if (rows.length > 500) {
+            throw new AssistantError(`Nguồn “${queryWorkflow.title}” trả quá nhiều dòng để hiển thị cùng lúc. Bạn thu hẹp kỳ hoặc chọn cách tổng hợp nhé.`, 413);
+          }
           sources.push({ title: queryOperation.title, purpose: query.purpose, rows });
         }
         if (blockedReply) reply = blockedReply;
@@ -3603,7 +3610,8 @@ async function processTurnUnobserved(req: AuthenticatedRequest, input: TurnInput
     const finished=completion as AssistantCompletion;
     const intent=semanticContexts.get(finished.operation.id)?.intent||input.text||'';
     readContext=finished.operation.method==='GET'&&intent.length<=12000?{scope:goalScope,actionId:finished.operation.id,version:finished.workflow.version,text:intent,
-      values:Object.fromEntries(Object.entries(finished.values).filter(([key])=>finished.workflow.fields.some(f=>f.key===key)))}:undefined;
+      values:Object.fromEntries(Object.entries(finished.values).filter(([key])=>finished.workflow.fields.some(f=>f.key===key))),
+      ...((finished.result as any)?.__assistantReadCohortDigest?{cohortDigest:(finished.result as any).__assistantReadCohortDigest}:{})}:undefined;
   }
   if (reply.status === "failed" && !completedReplies.length) remainingRequests = replacedGoal ? [] : previousRemainingRequests;
   if (reply.status === "completed" && remainingRequests.length) {

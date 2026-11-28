@@ -6,7 +6,8 @@ import { privateAssistantResultField as privateField, publicAssistantResultField
 import { relationEvidenceSupported, validateReadRelations, normalizeReadRelationAnnotations, selectedRelationForQuery } from "./read-relations";
 import { combinedModuleContextIsValid, findUncoveredRequestTerms, reconciledRankingMappingTargets, requiredCompositeMappingIsMissing } from "./request-coverage";
 import {normalizeAssistantInputValues} from './input-contract';
-import {validateListAnalysis} from './list-analysis';
+import {validateListAnalysis,analysisMappingIsRepresented} from './list-analysis';
+import {aggregateOutputContract,readAggregates} from './read-aggregation';
 
 export interface AssistantCompositeQuery {
   actionId: string;
@@ -100,13 +101,15 @@ export function validateCompositeQueryPlan(
     }
     const publicFields = new Set(publicCompositeResultFields(operation));
     let resultFields = [...new Set(item.resultFields as string[])];
-    // A read plan may have one source and several requested measures. Count is
-    // a server-produced analysis value, never a new public API field. Validate
-    // the AST before removing that redundant projection token.
-    if(operation.analysis&&resultFields.includes('count')&&!publicFields.has('count')){
+    // Selected aggregate outputs are server-produced measures, not additional
+    // API columns. Validate their AST before removing redundant projection tokens.
+    if(operation.analysis){
       try{
         const analysis=validateListAnalysis(values.analysis,operation.analysis);
-        if(analysis.aggregate?.operation==='count'||analysis.aggregates?.some(a=>a.operation==='count'))resultFields=resultFields.filter(field=>field!=='count');
+        if(readAggregates(analysis).length){
+          const outputs=aggregateOutputContract(operation.analysis,analysis).fields;
+          resultFields=resultFields.filter(field=>publicFields.has(field)||!Object.hasOwn(outputs,field));
+        }
       }catch{/* Normal validation still rejects the unknown projection. */}
     }
     if (resultFields.some(field => !publicFields.has(field))) {
@@ -133,22 +136,7 @@ export function compositeQueryRequestText(rawCoverage: unknown, query: Assistant
 }
 
 function analysisTargetIsRepresented(target: string, query: AssistantCompositeQuery, operation: AssistantOperation) {
-  if (!operation.analysis || !target.startsWith("analysis.")) return false;
-  let plan: Record<string, any> = {};
-  try {
-    const parsed = typeof query.values.analysis === "string" ? JSON.parse(query.values.analysis) : query.values.analysis;
-    if (plain(parsed)) plan = parsed;
-  } catch { return false; }
-  const [, kind, field] = target.split(".");
-  if (kind === "limit") return Number.isInteger(plan.limit) && plan.limit > 0;
-  if (kind === "aggregate" && field === "count") return plan.aggregate?.operation === "count";
-  if (!field || !Object.hasOwn(operation.analysis.fields, field)) return false;
-  if (kind === "filters") return Array.isArray(plan.filters) && plan.filters.some((item: any) => item?.field === field);
-  if (kind === "extreme") return plan.extreme?.field === field;
-  if (kind === "sort") return plan.sort?.field === field;
-  if (kind === "aggregate") return plan.aggregate?.field === field;
-  if (kind === "groupBy") return plan.groupBy === field;
-  return false;
+  return Boolean(operation.analysis&&analysisMappingIsRepresented(target,operation.analysis,query.values.analysis));
 }
 
 /** Every stated filter or metric must map to the query that actually applies it. */

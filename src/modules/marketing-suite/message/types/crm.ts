@@ -1,4 +1,4 @@
-export type CRMSubTabType = "LEAD" | "OMNI-INBOX CHAT" | "AI COMMENT AUTO-REPLY" | "CHAT TEST";
+export type CRMSubTabType = "LEAD" | "OMNI-INBOX CHAT" | "AI COMMENT AUTO-REPLY" | "CHAT TEST" | "ZALO ZBS";
 
 export interface ChatMessage {
   id: string;

@@ -6,7 +6,8 @@ import { parseAssistantModelJson } from './model-json';
 import { requestAssistantInterpretation, type InterpretationBudget } from './interpretation-budget';
 import { assistantRequestReason } from './request-framing';
 import { analysisPredicates, validateListAnalysis, type ListAnalysis } from './list-analysis';
-import {filterPredicateKey,type FilterExpression,type ReadPredicate} from './filter-expression';
+import {aggregateOutputContract,aggregateOrderField,readAggregates} from './read-aggregation';
+import {filterLeaves,filterPredicateKey,type FilterExpression,type ReadPredicate} from './filter-expression';
 import {parseConditionLogic,logicSignature,logicIds,projectConditionLogic,nonConjunctiveGroups,type ConditionLogic} from './condition-logic';
 import { publicAssistantResultFields,publicAssistantResultTarget,assistantIdentityFields } from './result-field-policy';
 import { READ_RELATIONS } from './read-relations';
@@ -14,7 +15,7 @@ import {isBusinessExcelRequest,isWorkbookFormatQuote,isCollectionShapeQuote} fro
 import { parseAssistantResultTable } from '../../src/shared/assistant-result-table';
 import { AssistantPlanningError } from './interpretation-error';
 import {UnresolvedAssistantClarification} from './dialogue-clarification';
-import {inheritedReadTree,hasInheritedReadTree,sameReadTree,contextualReferenceGroups,readCalendarEnvelope,readPlanningValues,type AssistantReadContext} from './read-dialogue';
+import {inheritedReadTree,hasInheritedReadTree,sameReadTree,contextualReferenceGroups,readCalendarEnvelope,readPlanningValues,validInheritedReadCohort,type AssistantReadContext} from './read-dialogue';
 import {assistantInputAddress,normalizeAssistantFieldValue} from './input-contract';
 import {normalizeContractScalar,declaredContractKey} from './contract-normalization';
 import {normalizeAnalysisPlan,canonicalAnalysisTarget} from './analysis-normalization';
@@ -487,7 +488,7 @@ export function normalizeSemanticInputBindings(bindings:Map<string,string[]>,sou
   const source=sources.length===1?sources[0]:sources.find(s=>raw.startsWith(`query:${s.operation.id}:`));
   if(!source)return raw;
   const prefix=raw.startsWith(`query:${source.operation.id}:`)?`query:${source.operation.id}:`:'';
-  const target=source.operation.analysis?canonicalAnalysisTarget(source.operation.analysis,raw.slice(prefix.length)):raw.slice(prefix.length);
+  const target=source.operation.analysis?canonicalAnalysisTarget(source.operation.analysis,raw.slice(prefix.length),source.values.analysis):raw.slice(prefix.length);
   raw=prefix+target;
   const semanticUnit=request?.units.find(u=>u.id===id);
   if(target==='context.module'&&semanticUnit?.kind==='entity'&&semanticUnit.value===null&&!isBusinessModuleUnit(semanticUnit,source.operation.module)
@@ -517,7 +518,7 @@ export function validateSemanticPlan(request:SemanticRequest,bindings:Map<string
   const plans=new Map<SemanticSource,ListAnalysis>();
   const predicateUnits=new Map<SemanticSource,Map<ReadPredicate,string>>(sources.map(source=>[source,new Map()]));
   if(!request.units.some(u=>u.kind==='goal'&&!bindings.get(u.id)?.some(t=>t.startsWith('remainingRequests.')))&&sources.some(s=>s.operation.method!=='GET'&&!s.operation.readOnly&&s.operation.id!==request.continuingActionId))return fail();
-  try{for(const s of sources)if(s.operation.analysis)plans.set(s,validateListAnalysis(s.values.analysis,s.operation.analysis));}catch{return fail();}
+  try{for(const s of sources)if(s.operation.analysis){const plan=validateListAnalysis(s.values.analysis,s.operation.analysis);if(!validInheritedReadCohort(request,s,plan))return fail();plans.set(s,plan);}}catch{return fail();}
   for(const unit of request.units){
     const targets=bindings.get(unit.id);
     if(!targets?.length)return fail(unit);
@@ -619,7 +620,10 @@ export function validateSemanticPlan(request:SemanticRequest,bindings:Map<string
       }
       if(target.startsWith('analysis.')){
         if(!plan||!operation.analysis)return fail(unit);
-        const [,kind,key]=target.split('.'),definition=operation.analysis.fields[key];
+        const [,kind,rawKey]=target.split('.');
+        const outputFields=readAggregates(plan).length?aggregateOutputContract(operation.analysis,plan).fields:operation.analysis.fields;
+        const key=['having','sort','extreme'].includes(kind)&&readAggregates(plan).length?aggregateOrderField(operation.analysis,plan,rawKey):rawKey;
+        const definition=(['having','sort','extreme'].includes(kind)?outputFields:operation.analysis.fields)[key];
         if(kind==='limit'&&!key){
           if(unit.kind!=='ordering'||!['min','max'].includes(unit.operator)||unit.dimension!=='numeric'||!Number.isInteger(unit.value)||unit.value!==plan.limit)return fail(unit);
           mark.add('analysis.limit');proofs.push({source,target});continue;
@@ -632,7 +636,16 @@ export function validateSemanticPlan(request:SemanticRequest,bindings:Map<string
           &&targets.some(t=>['action','actionId',`action:${operation.id}`].includes(t))
           &&request.units.some(other=>other.id!==unit.id&&(kind==='aggregate'?other.kind==='aggregate':kind==='groupBy'&&other.kind==='group')
             &&(bindings.get(other.id)||[]).some(t=>t===target||t===`query:${operation.id}:${target}`)))continue;
-        if(kind==='filters'){
+        if(kind==='having'){
+          if(unit.kind!=='condition'||!plan.having)return fail(unit);
+          const normalized=normalizeContractScalar(unit.value,definition.type,definition.values,definition.format==='date');
+          const filter=filterLeaves(plan.having).find(f=>f.field===key&&(f.operator===unit.operator&&sameValue(normalized,f.value,definition.values)
+            ||f.operator==='between'&&unit.operator==='range'&&plain(unit.value)&&Array.isArray(f.value)&&f.value[0]===unit.value.from&&f.value[1]===unit.value.to));
+          if(!filter)return fail(unit);
+          const prior=predicateUnits.get(source)!.get(filter);if(prior&&prior!==unit.id)return fail(unit);
+          predicateUnits.get(source)!.set(filter,unit.id);
+          mark.add(`analysis.having.${key}.${filter.operator}.${JSON.stringify(filter.value)}`);proofs.push({source,target,value:filter.value});continue;
+        }else if(kind==='filters'){
           const approval=request.readPredicateProofs?.[unit.id];
           const reviewed=unit.kind==='condition'&&(operation.method==='GET'||operation.readOnly)&&approval?.actionId===operation.id&&approval.analysis===JSON.stringify(values.analysis)&&approval.fields.includes(key);
           if(reviewed){
@@ -827,9 +840,9 @@ export function validateSemanticPlan(request:SemanticRequest,bindings:Map<string
       }
     }
     if(plan){
-      if(analysisPredicates(plan).some(f=>!mark.has(`analysis.filters.${f.field}.${f.operator}.${JSON.stringify(f.value)}`))||plan.extreme&&!mark.has('analysis.extreme')||plan.sort&&!mark.has('analysis.sort')||plan.limit&&!mark.has('analysis.limit')||plan.groupBy&&!mark.has('analysis.groupBy'))return fail();
+      if(analysisPredicates(plan).some(f=>!mark.has(`analysis.filters.${f.field}.${f.operator}.${JSON.stringify(f.value)}`))||(plan.having?filterLeaves(plan.having):[]).some(f=>!mark.has(`analysis.having.${f.field}.${f.operator}.${JSON.stringify(f.value)}`))||plan.extreme&&!mark.has('analysis.extreme')||plan.sort&&!mark.has('analysis.sort')||plan.limit&&!mark.has('analysis.limit')||plan.groupBy&&!mark.has('analysis.groupBy'))return fail();
       const mapped=predicateUnits.get(source)!;
-      if(plan.where||request.conditionLogic){
+      if(plan.where||plan.having||request.conditionLogic){
         const toLogic=(node:FilterExpression):ConditionLogic|undefined=>{
           if(inherited&&sameReadTree(node,inherited)&&!analysisPredicates({where:node}).some(p=>mapped.has(p)))return;
           if('all' in node||'any'in node){const key='all'in node?'all':'any',parts=(key==='all'?(node as {all:FilterExpression[]}).all:(node as {any:FilterExpression[]}).any).map(toLogic).filter((v):v is ConditionLogic=>v!==undefined);return parts.length?key==='all'?{all:parts}:{any:parts}:undefined;}
@@ -845,7 +858,8 @@ export function validateSemanticPlan(request:SemanticRequest,bindings:Map<string
           const groups=contextualReferenceGroups(request).filter(group=>group.every(id=>implicitIds.includes(id)));
           const grouped=new Set(groups.flat()),parts:ConditionLogic[]=[...groups.map(group=>({any:group})),...implicitIds.filter(id=>!grouped.has(id))];
           const expected=request.conditionLogic?(parts.length?{all:[...(explicit?[explicit]:[]),...parts]}:explicit):parts.length?{all:parts}:undefined;
-          const actual=plan.where?toLogic(plan.where):toLogic({all:plan.filters||[]});
+          const stages=[...(plan.where?[plan.where]:plan.filters||[]),...(plan.having?[plan.having]:[])];
+          const actual=stages.length?toLogic({all:stages}):undefined;
           if(expected ? !actual||!ids.size||logicSignature(expected)!==logicSignature(actual) : ids.size>0)return fail();
         }catch{return fail();}
       }
