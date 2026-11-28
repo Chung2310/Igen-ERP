@@ -67,6 +67,13 @@ async function assertWorkersInScopeBulk(
   if (count !== workerIds.length) throw new Error("Worker not found.");
 }
 export const WorkerProjectService = {
+  async listWorkers(scope:WorkerScope,id:string){
+    const project=await WorkerProjectModel.findOne({_id:new Types.ObjectId(id),...buildWorkerProjectQuery(scope)}).select('workerIds name code').lean();
+    if(!project)throw Object.assign(new Error('Không tìm thấy dự án trong phạm vi hiện tại.'),{statusCode:404});
+    const workers=await WorkerModel.find({...buildWorkerQuery(scope),_id:{$in:project.workerIds||[]}}).select('fullName phone laborType status').limit(1001).lean();
+    if(workers.length>1000)throw Object.assign(new Error('Danh sách phân công vượt giới hạn đọc; chưa thể kết luận đầy đủ.'),{statusCode:413});
+    return {items:workers.map(worker=>({...worker,projectName:project.name,projectCode:project.code})),total:workers.length,page:1};
+  },
   async list(scope: WorkerScope, queryFilters: any = {}) {
     const { page, limit, search, status, ...filters } = queryFilters || {};
     const baseQuery = buildWorkerProjectQuery(scope);

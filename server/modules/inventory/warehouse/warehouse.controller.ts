@@ -4,7 +4,6 @@ import { InventoryBalanceModel } from "../../../model/inventory-balance.model";
 import { InventoryLedgerEntryModel } from "../../../model/inventory-ledger-entry.model";
 import { BranchModel } from "../../../model/branch.model";
 import { ProductCatalogModel } from "../../../model/product-catalog.model";
-import { ProductPriceModel } from "../../../model/product-price.model";
 import { ProductVariantModel } from "../../../model/product-variant.model";
 import { WarehouseModel } from "../../../model/warehouse.model";
 import { listWarehouses } from "./warehouse.service";
@@ -27,6 +26,23 @@ async function effectiveBranch(req: Request, companyCode: string, accountBranchI
 function error(res: Response, problem: any) { return res.status(Number(problem?.statusCode) || 400).json({ status: "error", message: problem?.message || "Không thể tải dữ liệu kho." }); }
 
 export const warehouseController = {
+  ledger: async (req: Request, res: Response) => {
+    try {
+      const companyCode=company(req);
+      if(!companyCode)throw Object.assign(new Error('Vui lòng chọn công ty.'),{statusCode:400});
+      const branchId=await effectiveBranch(req,companyCode,branch(req));
+      const page=Number(req.query.page??1),limit=Number(req.query.limit??100),warehouseId=String(req.query.warehouseId||'').trim();
+      if(!Number.isSafeInteger(page)||page<1||!Number.isSafeInteger(limit)||limit<1||limit>1000||!Number.isSafeInteger((page-1)*limit))throw Object.assign(new Error('Trang hoặc số dòng không hợp lệ.'),{statusCode:400});
+      const scope={companyCode,...(branchId?{branchId}:{})};
+      if(warehouseId&&(!Types.ObjectId.isValid(warehouseId)||!await WarehouseModel.exists({...scope,_id:warehouseId})))throw Object.assign(new Error('Không tìm thấy kho trong phạm vi được cấp quyền.'),{statusCode:404});
+      const query={...scope,...(warehouseId?{warehouseId}:{})};
+      const [items,total]=await Promise.all([
+        InventoryLedgerEntryModel.find(query).select('productName sku direction purpose quantity quantityDelta unitCost sourceCode operatorName reason createdAt -_id').sort({createdAt:-1,_id:-1}).skip((page-1)*limit).limit(limit).maxTimeMS(15000).lean(),
+        InventoryLedgerEntryModel.countDocuments(query).maxTimeMS(15000),
+      ]);
+      return res.json({status:'success',data:{items,total,page,limit}});
+    }catch(problem){return error(res,problem);}
+  },
   list: async (req: Request, res: Response) => {
     try {
       const companyCode = company(req); const branchId = branch(req);
@@ -45,29 +61,19 @@ export const warehouseController = {
       if (!companyCode) throw Object.assign(new Error("Vui lòng chọn công ty."), { statusCode: 400 });
       const branchId = await effectiveBranch(req, companyCode, accountBranchId);
       const warehouseId = String(req.query.warehouseId || "").trim();
+      const selectedProductId=String(req.query.productId||'').trim();
+      if(selectedProductId&&(!Types.ObjectId.isValid(selectedProductId)||!await ProductCatalogModel.exists({_id:selectedProductId,companyCode})))throw Object.assign(new Error('Không tìm thấy sản phẩm trong công ty hiện tại.'),{statusCode:404});
       const physicalWarehouses = await listWarehouses(companyCode, branchId || undefined);
       if (warehouseId && !physicalWarehouses.some((warehouse) => String(warehouse._id) === warehouseId)) {
         throw Object.assign(new Error("Không tìm thấy kho trong chi nhánh hiện tại."), { statusCode: 404 });
       }
       const warehouseIds = physicalWarehouses.map((warehouse) => String(warehouse._id)).filter((id) => !warehouseId || id === warehouseId);
       const branchScope = branchId ? { branchId } : {};
-      const items = await InventoryBalanceModel.find({ companyCode, ...branchScope, warehouseId: { $in: warehouseIds } }).sort({ sku: 1 }).lean();
-      const catalogProducts = await ProductCatalogModel.find({ companyCode, status: "active", productType: { $in: ["physical", "bundle"] } }).select("name mediaIds").lean();
+      const items = await InventoryBalanceModel.find({ companyCode, ...branchScope, warehouseId: { $in: warehouseIds },...(selectedProductId?{productId:selectedProductId}:{}) }).sort({ sku: 1 }).lean();
+      const catalogProducts = await ProductCatalogModel.find({ companyCode, status: "active", productType: { $in: ["physical", "bundle"] },...(selectedProductId?{_id:selectedProductId}:{}) }).select("name mediaIds").lean();
       const activeProductIds = catalogProducts.map((product) => String(product._id));
       const productIds = [...new Set([...items.map((i) => i.productId), ...activeProductIds])];
-      const branchVariantIds = branchId
-        ? await Promise.all([
-          ProductPriceModel.find({ companyCode, branchId, status: "active" }).distinct("variantId"),
-          InventoryLedgerEntryModel.distinct("variantId", { companyCode, branchId, warehouseId: { $in: warehouseIds } }),
-        ]).then(groups => [...new Set([...groups.flat(), ...items.map(item => item.variantId).filter(Boolean)])])
-        : undefined;
-      const activeVariants = await ProductVariantModel.find({
-        companyCode,
-        productId: { $in: activeProductIds },
-        ...(branchVariantIds ? { _id: { $in: branchVariantIds } } : {}),
-        status: "active",
-        trackingMode: { $in: ["quantity", "serial", "unit_barcode", "lot"] },
-      }).select("_id productId sku barcode displayName mediaIds trackingMode").sort({ sku: 1 }).lean();
+      const activeVariants = await ProductVariantModel.find({ companyCode, productId: { $in: activeProductIds }, status: "active", trackingMode: { $in: ["quantity", "serial", "unit_barcode", "lot"] } }).select("_id productId sku barcode displayName mediaIds trackingMode").sort({ sku: 1 }).lean();
       const variantIds = [...new Set([...items.map((item) => item.variantId).filter(Boolean), ...activeVariants.map((variant) => String(variant._id))])];
       const [products, variants] = await Promise.all([
         ProductCatalogModel.find({ _id: { $in: productIds }, companyCode }).select("name mediaIds status productType").lean(),
@@ -88,7 +94,7 @@ export const warehouseController = {
         const product = productMap.get(item.productId);
         const variant = item.variantId ? variantMap.get(item.variantId) : undefined;
         const warehouse = warehouseMap.get(String(item.warehouseId || ""));
-        return { ...item, availableQuantity: Math.max(0, Number(item.quantity || 0) - Number(item.reservedQuantity || 0)), hasBalanceRecord: true, hasMovementHistory: Boolean(item.variantId && moved.has(`${item.warehouseId}:${item.variantId}`)), productName: product?.name || "Sản phẩm không xác định", productMediaUrl: product?.mediaIds?.[0], variantMediaUrl: variant?.mediaIds?.[0], variantName: variant?.displayName, trackingMode: variant?.trackingMode, warehouseName: warehouse?.name || "", branchName: branchNames.get(String(item.branchId || warehouse?.branchId || "")) || "" };
+        return { ...item, hasBalanceRecord: true, hasMovementHistory: Boolean(item.variantId && moved.has(`${item.warehouseId}:${item.variantId}`)), productName: product?.name || "Sản phẩm không xác định", productMediaUrl: product?.mediaIds?.[0], variantMediaUrl: variant?.mediaIds?.[0], variantName: variant?.displayName, trackingMode: variant?.trackingMode, warehouseName: warehouse?.name || "", branchName: branchNames.get(String(item.branchId || warehouse?.branchId || "")) || "" };
       });
       const existing = new Set(items.map((item) => `${item.warehouseId}:${item.variantId || `legacy:${item.sku}`}`));
       if (String(req.query.includeCatalogZeroBalances || "") === "true") {
@@ -125,15 +131,12 @@ export const warehouseController = {
           }
         }
       }
-      const search = String(req.query.q || "").trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLocaleLowerCase("vi");
-      const matchingItems = enrichedItems.filter(item => {
-        if (!search) return true;
-        const haystack = [item.productName, item.variantName, item.sku].map(value => String(value || "")
-          .normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLocaleLowerCase("vi")).join(" ");
-        return search.split(/\s+/).every(term => haystack.includes(term));
-      });
-      matchingItems.sort((a, b) => String(a.sku).localeCompare(String(b.sku), "vi") || String(a.warehouseId).localeCompare(String(b.warehouseId)));
-      return res.json({ status: "success", data: matchingItems });
+      enrichedItems.sort((a, b) => String(a.sku).localeCompare(String(b.sku), "vi") || String(a.warehouseId).localeCompare(String(b.warehouseId)));
+      return res.json({ status: "success", data: enrichedItems.map(item=>{
+        const quantity=Number(item.quantity),reserved=Number(item.reservedQuantity),cost=Number(item.averageCost),stockValue=quantity*cost;
+        if(![quantity,reserved,cost,stockValue].every(Number.isFinite))throw Object.assign(new Error('Số lượng hoặc giá vốn tồn kho chưa hợp lệ.'),{statusCode:422});
+        return {...item,availableQuantity:quantity-reserved,stockValue};
+      }) });
     } catch (problem) { return error(res, problem); }
   },
   updateThresholds: async (req: Request, res: Response) => {

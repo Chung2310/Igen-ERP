@@ -11,6 +11,9 @@ function getScope(req: AuthenticatedRequest) {
 }
 
 export class WorkerProjectController {
+  static async getWorkers(req:AuthenticatedRequest,res:Response,next:NextFunction){
+    try{res.json({success:true,data:await WorkerProjectService.listWorkers(getScope(req),req.params.id)});}catch(error){next(error);}
+  }
   static async create(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
       const scope = getScope(req);

@@ -110,39 +110,10 @@ retailPartnerRoutes.get("/customers", manage, route(async (req) =>
   CustomerModel.find({ companyCode: companyCode(req), status: "active" })
     .select("customerCode name phone").sort({ name: 1 }).limit(1000).lean()));
 
-retailPartnerRoutes.get("/commission-policies", policyManage, route(async (req) => {
-  const result = await listRetailBasePolicies(companyCode(req));
-  if (String(req.query.currentOnly || "") !== "true") return result;
-  const today = new Date();
-  const latest = new Map<string, any>();
-  for (const item of result.items) {
-    const effectiveAt = new Date(item.effectiveAt);
-    if (!Number.isFinite(effectiveAt.valueOf()) || effectiveAt > today) continue;
-    const key = String(item.partnerId || "");
-    const existing = latest.get(key);
-    if (!existing || new Date(existing.effectiveAt).valueOf() < effectiveAt.valueOf()) latest.set(key, item);
-  }
-  const currentItems = [...latest.values()];
-  const currentLegacy = result.legacy.filter((item: any) => item.active !== false
-    && (!item.effectiveFrom || new Date(item.effectiveFrom).valueOf() <= today.valueOf()));
-  const currentIds = new Set([...currentItems, ...currentLegacy].map((item: any) => String(item._id)));
-  return { ...result, items: currentItems, legacy: currentLegacy,
-    assistantItems: result.assistantItems.filter((item: any) => currentIds.has(item._policyId)) };
-}));
+retailPartnerRoutes.get("/commission-policies", policyManage, route(async (req) => listRetailBasePolicies(companyCode(req))));
 retailPartnerRoutes.post("/commission-policies", policyManage, route(async (req) => saveRetailBasePolicy(companyCode(req), String(req.user.id), req.body || {}), true));
 retailPartnerRoutes.patch("/commission-policies/:id", policyManage, route(async (req) => saveRetailBasePolicy(companyCode(req), String(req.user.id), req.body || {}, id(req.params.id))));
-retailPartnerRoutes.get("/product-commissions", policyManage, route(async (req) => {
-  const result = await listRetailProductCommissions(companyCode(req));
-  const search = String(req.query.q || "").trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLocaleLowerCase("vi");
-  if (!search) return result;
-  const alternatives = search.split(/\s*\|\s*/).map(group => group.split(/\s+/).filter(Boolean)).filter(group => group.length);
-  result.assistantItems = result.assistantItems.filter((item: Record<string, unknown>) => {
-    const haystack = [item.productName, item.variantName, item.categoryName, item.categoryCode, item.sku].map(value => String(value || "")
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLocaleLowerCase("vi")).join(" ");
-    return alternatives.some(terms => terms.every(term => haystack.includes(term)));
-  });
-  return result;
-}));
+retailPartnerRoutes.get("/product-commissions", policyManage, route(async (req) => listRetailProductCommissions(companyCode(req))));
 retailPartnerRoutes.put("/product-commissions", policyManage, route(async (req) => saveRetailProductCommissions(companyCode(req), String(req.user.id), req.body || {})));
 
 retailPartnerRoutes.get("/policy-products", policyManage, route(async (req) => {
@@ -165,62 +136,33 @@ retailPartnerRoutes.get("/me", self, route(async (req) => {
   return partner;
 }));
 
-retailPartnerRoutes.get("/assistant-overview", read, route(async (req) => {
-  const companyCodeValue = companyCode(req);
-  const base = { companyCode: companyCodeValue };
-  const missing = (field: "phone" | "email" | "address") => ({
-    ...base,
-    $or: [{ [field]: { $exists: false } }, { [field]: null }, { [field]: "" }],
-  });
-  const [total, collaborators, dealers, suppliers, active, inactive, missingPhone, missingEmail, missingAddress] = await Promise.all([
-    RetailPartnerModel.countDocuments(base),
-    RetailPartnerModel.countDocuments({ ...base, roles: "collaborator" }),
-    RetailPartnerModel.countDocuments({ ...base, roles: "dealer" }),
-    RetailPartnerModel.countDocuments({ ...base, roles: "supplier" }),
-    RetailPartnerModel.countDocuments({ ...base, status: "active" }),
-    RetailPartnerModel.countDocuments({ ...base, status: "inactive" }),
-    RetailPartnerModel.countDocuments(missing("phone")),
-    RetailPartnerModel.countDocuments(missing("email")),
-    RetailPartnerModel.countDocuments(missing("address")),
+retailPartnerRoutes.get('/summary',read,route(async req=>{
+  const [summary]=await RetailPartnerModel.aggregate([
+    {$match:{companyCode:companyCode(req)}},{$group:{_id:null,totalCount:{$sum:1},
+      activeCount:{$sum:{$cond:[{$eq:['$status','active']},1,0]}},inactiveCount:{$sum:{$cond:[{$eq:['$status','inactive']},1,0]}},
+      collaboratorCount:{$sum:{$cond:[{$in:['collaborator',{$ifNull:['$roles',[]]}]},1,0]}},dealerCount:{$sum:{$cond:[{$in:['dealer',{$ifNull:['$roles',[]]}]},1,0]}},supplierCount:{$sum:{$cond:[{$in:['supplier',{$ifNull:['$roles',[]]}]},1,0]}}}},{$project:{_id:0}},
   ]);
-  return { total, collaborators, dealers, suppliers, active, inactive, missingPhone, missingEmail, missingAddress };
+  return summary||{totalCount:0,activeCount:0,inactiveCount:0,collaboratorCount:0,dealerCount:0,supplierCount:0};
 }));
-
 retailPartnerRoutes.get("/", read, route(async (req) => {
   const filter: Record<string, unknown> = { companyCode: companyCode(req) };
+  if(typeof req.query.search==='string'&&req.query.search.trim()){
+    const expression=req.query.search.trim().slice(0,120).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    filter.$or=[{name:{$regex:expression,$options:'i'}},{code:{$regex:expression,$options:'i'}}];
+  }
   if (req.query.role) {
     if (!RETAIL_PARTNER_ROLES.includes(req.query.role)) throw bad("Vai trò không hợp lệ.");
     filter.roles = req.query.role;
   }
-  const supplierLink = String(req.query.supplierLink || "");
-  if (supplierLink && !["linked", "missing"].includes(supplierLink)) throw bad("Trạng thái liên kết nhà cung cấp không hợp lệ.");
-  if (supplierLink) {
-    filter.roles = "supplier";
-    filter.supplierId = supplierLink === "linked" ? { $exists: true, $ne: "" } : { $in: [null, ""] };
-  }
-  const status = String(req.query.status || "");
-  if (status && !["active", "inactive"].includes(status)) throw bad("Trạng thái đối tác không hợp lệ.");
-  if (status) filter.status = status;
-  const missingContact = String(req.query.missingContact || "");
-  if (missingContact && missingContact !== "true") throw bad("Điều kiện thiếu thông tin liên hệ không hợp lệ.");
-  const conditions: Record<string, unknown>[] = [];
-  if (missingContact === "true") conditions.push({ $or: [
-    ...["phone", "email", "address"].flatMap((field) => [
-      { [field]: { $exists: false } }, { [field]: null }, { [field]: "" },
-    ]),
-  ] });
-  const search = String(req.query.search || "").trim();
-  if (search) {
-    const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const matcher = new RegExp(escaped, "i");
-    conditions.push({ $or: [{ code: matcher }, { name: matcher }, { phone: matcher }, { email: matcher }] });
-  }
-  if (conditions.length) filter.$and = conditions;
-  const partners = await RetailPartnerModel.find(filter).sort({ name: 1 }).limit(1000).lean();
+  const assistantRead=req.headers['x-assistant-read-only']==='true';
+  const page=assistantRead?Number(req.query.page||1):1,limit=assistantRead?Number(req.query.limit||100):1000;
+  if(!Number.isSafeInteger(page)||page<1||!Number.isSafeInteger(limit)||limit<1||limit>1000)throw bad('Phân trang không hợp lệ.');
+  const partners = await RetailPartnerModel.find(filter).sort({ name: 1,_id:1 }).skip((page-1)*limit).limit(limit).lean();
   const supplierIds = partners.flatMap((partner) => partner.supplierId ? [partner.supplierId] : []);
   const suppliers = await SupplierModel.find({ companyCode: filter.companyCode, _id: { $in: supplierIds } }).select("name code status").lean();
   const byId = new Map(suppliers.map((supplier) => [String(supplier._id), supplier]));
-  return partners.map((partner) => ({ ...partner, supplierLinked: Boolean(partner.supplierId), supplier: partner.supplierId ? byId.get(partner.supplierId) || null : null }));
+  const items=partners.map((partner) => ({ ...partner, supplier: partner.supplierId ? byId.get(partner.supplierId) || null : null }));
+  return assistantRead?{items,total:await RetailPartnerModel.countDocuments(filter),page,limit}:items;
 }));
 
 retailPartnerRoutes.post("/", manage, route(async (req) => {

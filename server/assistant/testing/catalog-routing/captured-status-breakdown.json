@@ -1,0 +1,121 @@
+{
+  "text": "Hiện tại có bao nhiêu đối tác tuyển sinh đang hoạt động và bao nhiêu đối tác đang tạm dừng",
+  "meaning": {
+    "version": 1,
+    "units": [
+      {
+        "id": "u1",
+        "kind": "goal",
+        "quote": "bao nhiêu đối tác tuyển sinh đang hoạt động và bao nhiêu đối tác đang tạm dừng",
+        "concept": "Báo cáo số lượng đối tác tuyển sinh theo trạng thái",
+        "operator": "report",
+        "value": null,
+        "dimension": "none"
+      },
+      {
+        "id": "u2",
+        "kind": "entity",
+        "quote": "đối tác tuyển sinh",
+        "concept": "Đối tác tuyển sinh",
+        "operator": "none",
+        "value": null,
+        "dimension": "none"
+      },
+      {
+        "id": "u3",
+        "kind": "condition",
+        "quote": "đang hoạt động",
+        "concept": "Trạng thái hoạt động",
+        "operator": "eq",
+        "value": "đang hoạt động",
+        "dimension": "none"
+      },
+      {
+        "id": "u4",
+        "kind": "aggregate",
+        "quote": "bao nhiêu đối tác tuyển sinh đang hoạt động",
+        "concept": "Đếm đối tác đang hoạt động",
+        "operator": "count",
+        "value": null,
+        "dimension": "none"
+      },
+      {
+        "id": "u5",
+        "kind": "condition",
+        "quote": "đang tạm dừng",
+        "concept": "Trạng thái tạm dừng",
+        "operator": "eq",
+        "value": "đang tạm dừng",
+        "dimension": "none"
+      },
+      {
+        "id": "u6",
+        "kind": "aggregate",
+        "quote": "bao nhiêu đối tác đang tạm dừng",
+        "concept": "Đếm đối tác đang tạm dừng",
+        "operator": "count",
+        "value": null,
+        "dimension": "none"
+      }
+    ],
+    "dialogue": {
+      "act": "request",
+      "evidence": "Hiện tại có bao nhiêu đối tác tuyển sinh đang hoạt động và bao nhiêu đối tác đang tạm dừng"
+    }
+  },
+  "plan": {
+    "intentType": "workflow",
+    "actionId": "partner.analysis",
+    "actionIntent": "report",
+    "values": {
+      "analysis": {
+        "groupBy": "isActive",
+        "aggregate": {
+          "operation": "count"
+        },
+        "select": [
+          "isActive"
+        ]
+      }
+    },
+    "meaningBindings": [
+      {
+        "unitId": "u1",
+        "targets": [
+          "action:partner.analysis"
+        ]
+      },
+      {
+        "unitId": "u2",
+        "targets": [
+          "action:partner.analysis",
+          "context.module"
+        ]
+      },
+      {
+        "unitId": "u3",
+        "targets": [
+          "analysis.groupBy.isActive"
+        ]
+      },
+      {
+        "unitId": "u4",
+        "targets": [
+          "analysis.aggregate.count"
+        ]
+      },
+      {
+        "unitId": "u5",
+        "targets": [
+          "analysis.groupBy.isActive"
+        ]
+      },
+      {
+        "unitId": "u6",
+        "targets": [
+          "analysis.aggregate.count"
+        ]
+      }
+    ]
+  }
+}

@@ -19,6 +19,7 @@ import {CommissionLevel} from '../modules/student-management/models/commission-l
 import {callOperation} from './executor';
 import {interpretRequest} from './semantic-interpreter';
 import {formatFriendlyAssistantResult} from './result-format';
+import {stripRequestFraming,isCompletionQuestionParticle} from './request-framing';
 
 const op=operationById('partner.analysis')!,contract=op.analysis!;
 const patches:Array<()=>void>=[];
@@ -29,6 +30,47 @@ function stub(object:any,key:string,implementation:any){
 }
 afterEach(()=>{for(const restore of patches.splice(0).reverse())restore();provider.mockReset();});
 describe('real partner failures: safe replay without provider/DB/network',()=>{
+  const fullyPaidQuestion='Có đối tác tuyển sinh nào đã được thanh toán đủ 100% hoa hồng chưa';
+  it.each([
+    [fullyPaidQuestion,'Có đối tác tuyển sinh nào đã được thanh toán đủ 100% hoa hồng'],
+    ['Học viên QA đã đóng học phí chưa?','Học viên QA đã đóng học phí'],
+    ['Nhân sự QA đã chấm công hay chưa ạ?','Nhân sự QA đã chấm công'],
+    ['Hôm nay có đơn nghỉ phép mới chưa?','Hôm nay có đơn nghỉ phép mới'],
+  ])('recognizes a terminal completion question without treating it as a negative filter: %s',(text,expected)=>{
+    expect(stripRequestFraming(text)).toBe(expected);
+    expect(isCompletionQuestionParticle(text,'chưa')).toBe(true);
+  });
+  it.each(['Đối tác nào chưa thanh toán hoa hồng','Có đối tác nào chưa thanh toán hoa hồng chưa?','Có dự án nào đã đặt tên Chưa','Có dự án nào đã đặt tên "Chưa"'])('preserves substantive negation and record names: %s',text=>{
+    expect(stripRequestFraming(text)).toContain('chưa'===text.slice(-4).toLowerCase()?text.slice(-4):text.includes('"Chưa"')?'"Chưa"':'chưa thanh toán');
+    expect(isCompletionQuestionParticle(text,'chưa')).toBe(false);
+  });
+  it('excludes zero-commission and partially paid records from paid-in-full results',()=>{
+    const reconciliation=reconcileRequestedValueFilters(fullyPaidQuestion,contract,{});
+    expect(reconciliation.kind).toBe('resolved');
+    if(reconciliation.kind!=='resolved')throw Error('Missing full-payment predicates');
+    const records=analyzeList(contract,[
+      {name:'QA Đã đủ',totalCommission:500,totalPaid:500,unpaidBalance:0},
+      {name:'QA Còn thiếu',totalCommission:500,totalPaid:100,unpaidBalance:400},
+      {name:'QA Chưa phát sinh',totalCommission:0,totalPaid:0,unpaidBalance:0},
+      {name:'QA Trả dư',totalCommission:500,totalPaid:600,unpaidBalance:-100},
+    ],{...reconciliation.analysis,select:['name','totalCommission','totalPaid','unpaidBalance']},true).records;
+    expect(records.map(row=>row['Đối tác'])).toEqual(['QA Đã đủ','QA Trả dư']);
+    const coverage=[{evidence:'đối tác tuyển sinh',requirement:'Đối tác',mappedTo:['context.module']},{evidence:'đã được thanh toán đủ 100% hoa hồng',requirement:'Có phát sinh hoa hồng và đã trả hết',mappedTo:['analysis.filters.totalCommission','analysis.filters.unpaidBalance']}];
+    expect(validateRequestCoverage(fullyPaidQuestion,coverage,defaultWorkflow(op),op,{analysis:reconciliation.analysis})).toEqual({ok:true});
+    expect(validateRequestCoverage(fullyPaidQuestion,[...coverage,{evidence:'chưa',requirement:'Đuôi hỏi',mappedTo:[],unresolved:true}],defaultWorkflow(op),op,{analysis:reconciliation.analysis})).toEqual({ok:true});
+    expect(validateRequestCoverage(fullyPaidQuestion+' ở Hà Nội',coverage,defaultWorkflow(op),op,{analysis:reconciliation.analysis})).toMatchObject({ok:false});
+  });
+  it('routes the screenshot question with no coverage repair and no model-generated execution',async()=>{
+    provider.mockResolvedValue({text:JSON.stringify({intentType:'workflow',actionId:op.id,actionIntent:'report',values:{analysis:{filters:[{field:'unpaidBalance',operator:'eq',value:0}]}},requestCoverage:[
+      {evidence:'đối tác tuyển sinh',requirement:'Chọn phân hệ',mappedTo:['context.module']},
+      {evidence:'đã được thanh toán đủ 100% hoa hồng',requirement:'Đã thanh toán đủ',mappedTo:['analysis.filters.unpaidBalance']},
+    ]})});
+    const result=await interpretRequest(fullyPaidQuestion,[defaultWorkflow(op)],null,[]);
+    expect(result).toMatchObject({actionId:op.id});
+    const values=validateListAnalysis(result.values.analysis,contract);
+    expect(values.filters).toEqual(expect.arrayContaining([{field:'totalCommission',operator:'gt',value:0},{field:'unpaidBalance',operator:'lte',value:0}]));
+    expect(provider).toHaveBeenCalledOnce();
+  });
   const captured=JSON.parse(readFileSync(new URL('./testing/catalog-routing/captured-partner-read.json',import.meta.url),'utf8'));
   it.each(captured)('checks the captured plan and coverage: $id',({text,output,rejected})=>{
     const selected=operationById(output.actionId)!;

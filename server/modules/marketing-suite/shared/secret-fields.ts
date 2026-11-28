@@ -30,4 +30,5 @@ export function protectMarketingSecrets(schema: Schema, paths: string[], options
   schema.post("find", function (rows: unknown[]) { for (const row of rows || []) reveal(row); });
   schema.post("findOne", function (row: unknown) { reveal(row); });
   schema.post("findOneAndUpdate", function (row: unknown) { reveal(row); });
+  schema.post("findOneAndDelete", function (row: unknown) { reveal(row); });
 }

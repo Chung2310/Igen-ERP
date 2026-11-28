@@ -4,8 +4,6 @@ import Joi from "joi";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import type { AssistantReply } from "../../src/shared/assistant-workflow";
 import { assistantDocumentFormats, type AssistantDocumentFormat, type AssistantGeneratedFile } from "../../src/shared/assistant-document";
-import { gymScope } from "../modules/gym/access";
-import { searchKnowledge } from "../modules/gym/knowledge-index";
 import { openrouterChat } from "../service/openrouter.service";
 import { AssistantDocumentModel } from "./models";
 import { actorScope } from "./workflows";
@@ -189,22 +187,13 @@ export async function answerAssistantConversation(req: AuthenticatedRequest, inp
     const refersToDocument = filePattern.test(prompt) || /\b(?:bang nay|cot|sheet|vua tao|ban truoc)\b/.test(prompt);
     const stored = source && refersToDocument ? await AssistantDocumentModel.findOne({ ...scope, documentId: source.documentId, version: source.version }).select("+content").lean() : null;
     const currentGoldPrices = shouldAutoResearchGoldPrices(input.question, input.messages);
-    let gymKnowledgeHits: Awaited<ReturnType<typeof searchKnowledge>> = [];
-    if (!currentGoldPrices) {
-      try {
-        const actor = await gymScope(req);
-        const rawHits = await searchKnowledge(actor, input.question, 5);
-        gymKnowledgeHits = rawHits.filter(hit => hit.score >= 0.25);
-      } catch {
-        // User has no gym branch context or knowledge index is unavailable; continue normally.
-      }
-    }
+    // Tạm thời tắt tự động tra cứu Kho tri thức Gym ở luồng trợ lý tổng quát
+    // để tránh khớp nhầm và gắn nguồn Gym vào các câu hỏi ngoài chủ đề.
     const answerInput = {
       ...input,
       ...(!input.documentContext && stored ? { documentContext: { title: stored.title, version: stored.version, content: stored.content } } : {}),
-      ...(gymKnowledgeHits.length ? { gymKnowledgeHits } : {}),
     };
-    if (input.documentContext || input.visualAttachments?.length || gymKnowledgeHits.length > 0) {
+    if (input.documentContext || input.visualAttachments?.length) {
       const reply: AssistantReply = { status: "completed", reply: await answerAssistantGeneralQuestion(answerInput) };
       return addRecommendedIllustration(answerInput, reply);
     }

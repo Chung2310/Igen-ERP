@@ -1,27 +1,24 @@
 import { randomUUID } from "node:crypto";
+import {publicReadRows,collectPublicReadData} from './public-read-query';
+import { observeAssistantOperation } from "./call-observer";
+import { businessCallFetch, withBusinessOperation } from "./business-call-gate";
 import { normalizeBusinessResult } from "./business-result";
 import { AssistantApiRejection } from "./api-rejection";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import type { AssistantField, AssistantValue } from "../../src/shared/assistant-workflow";
 import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
 import { PAYROLL_LINE_OVERRIDE_FIELDS } from "../interface/payroll-line-override.interface";
-import { ASSISTANT_OPERATIONS, operationById, type AssistantOperation, type AssistantResultFieldTree } from "./catalog";
+import { ASSISTANT_OPERATIONS, operationById, type AssistantOperation } from "./catalog";
 import { actorScope, assertOperation } from "./workflows";
 import { validateStructuredField } from "./structured-data";
 import { applyWorkWorkflowMutation } from "./workflow-mutations";
-import { AssistantError } from "./policy";
+import { AssistantError, AssistantReadInputRequired } from "./policy";
 import { callHealthcareOperation, HealthcareUncertainExecutionError, lookupHealthcareRecords, projectHealthcareRecords, resolveHealthcareReferences, suggestHealthcareReferences } from "./healthcare-executor";
 import { callQuotationOperation, lookupQuotationRecords, projectQuotationRecords, QuotationUncertainExecutionError, resolveQuotationReferences, suggestQuotationReferences } from "./quotation-executor";
-import { summarizeDailyAttendance } from "./timekeeping-summary";
 
 export class UncertainExecutionError extends Error {}
 export type AssistantRecord = Record<string, AssistantValue>;
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\u0111\u0110]/g, "d").toLowerCase().replace(/\s+/g, " ").trim();
-const retailOrderCodeFromSearch = (value: string) => {
-  const normalized = normalize(value);
-  return normalized.match(/\b(pos-[a-z0-9][a-z0-9_-]{3,})\b/)?.[1]
-    || normalized.match(/\bma\s+([a-z0-9][a-z0-9_-]{3,})\b/)?.[1];
-};
 const workerProfileStandardFieldKeys = new Set(["fullName", "phone", "email", "idCard", "birthday", "registrationDate", "address", "status", "laborType", "nationality", "workPermitNumber", "workPermitExpiry", "note"]);
 const payrollPaymentRequiredStatus: Record<string, string> = {
   "payroll.payment.cancel": "draft",
@@ -208,11 +205,9 @@ function safeRetailAfterSale(doc: any) {
   };
 }
 function isCommissionLevelOperation(op: AssistantOperation) { return op.path.startsWith("/partners/commission-levels"); }
-function isRetailPosOperation(op: AssistantOperation) { return op.path.startsWith("/retail/orders") || op.path.startsWith("/retail/shifts") || op.path.startsWith("/retail/invoices") || ["/retail/reports/summary", "/retail/reports/export"].includes(op.path); }
+function isRetailPosOperation(op: AssistantOperation) { return op.path.startsWith("/retail/orders") || op.path.startsWith("/retail/shifts") || op.path.startsWith("/retail/invoices") || op.path === "/retail/reports/summary"; }
 function isRetailCashbookOperation(op: AssistantOperation) { return op.path.startsWith("/retail/finance/cashbook"); }
-function isRetailFinanceCommissionOperation(op: AssistantOperation) {
-  return op.path.startsWith("/retail/finance/commission/") && op.path !== "/retail/finance/commission/balances";
-}
+function isRetailFinanceCommissionOperation(op: AssistantOperation) { return op.path.startsWith("/retail/finance/commission/"); }
 function isRetailReceivableOperation(op: AssistantOperation) { return op.path.startsWith("/retail/receivables/"); }
 function isRetailAfterSaleOperation(op: AssistantOperation) { return op.path.startsWith("/retail/after-sales"); }
 function isRecruitmentOperation(op: AssistantOperation) { return op.path.startsWith("/recruitment/"); }
@@ -230,10 +225,11 @@ function missingRecruitmentJobReadiness(job: Record<string, any>, now = new Date
   return missing;
 }
 function isBranchScopedAssistantOperation(op: AssistantOperation) {
-  return op.id.startsWith("inventory.serial.") || ["inventory.warehouse.locations.list", "inventory.stock-log.list", "inventory.stock-log.analysis", "inventory.receipt.analysis", "inventory.stock.analysis", "inventory.serial.analysis", "inventory.price.analysis", "inventory.stock-log.reverse", "inventory.stock-log.internal.issue.create", "finance.tax.from-invoice", "retail.invoice.list", "retail.warranty.serial.update", "retail.coupon.create", "retail.coupon.tier.list"].includes(op.id) || op.path === "/inventory/transfers" || op.path.startsWith("/inventory/transfers/") || isInventoryCountOperation(op) || op.path.startsWith("/inventory/reconciliation/") || op.path.startsWith("/finance/receivables") || op.path.startsWith("/finance/reporting/") || op.path.startsWith("/finance/reminders/") || op.path === "/finance/management/debts" || op.path === "/finance/management/payables" || op.path === "/finance/management/followups" || op.path.startsWith("/payroll/periods/") || op.path.startsWith("/payroll/runs") || op.id.startsWith("payroll.payment.") || op.path === "/retail/settings" || op.path.startsWith("/retail/debt-reminders/") || isRetailPosOperation(op) || isRetailCashbookOperation(op) || isRetailFinanceCommissionOperation(op) || isRetailReceivableOperation(op) || isRetailAfterSaleOperation(op) || isCommissionLevelOperation(op) || isRecruitmentOperation(op) || op.id === "repair.device.lookup" || op.id === "repair.notification.resend" || op.id === "repair.feedback.link.create";
+  if (['partner.analysis','partner.payouts.analysis'].includes(op.id)) return true;
+  return op.id.startsWith("inventory.serial.") || op.id === "inventory.warehouse.locations.list" || op.path === "/inventory/transfers" || op.path.startsWith("/inventory/transfers/") || op.id === "inventory.stock-log.list" || op.id === "inventory.stock-log.reverse" || op.id === "finance.tax.from-invoice" || op.id === "retail.invoice.list" || op.id === "retail.warranty.serial.update" || op.id === "retail.coupon.create" || op.id === "retail.coupon.tier.list" || isInventoryCountOperation(op) || op.path.startsWith("/inventory/reconciliation/") || op.path.startsWith("/finance/receivables") || op.path.startsWith("/finance/reporting/") || op.path.startsWith("/finance/reminders/") || op.path === "/finance/management/debts" || op.path === "/finance/management/payables" || op.path === "/finance/management/followups" || op.path.startsWith("/payroll/periods/") || op.path.startsWith("/payroll/runs") || op.id.startsWith("payroll.payment.") || op.path === "/retail/settings" || op.path.startsWith("/retail/debt-reminders/") || isRetailPosOperation(op) || isRetailCashbookOperation(op) || isRetailFinanceCommissionOperation(op) || isRetailReceivableOperation(op) || isRetailAfterSaleOperation(op) || isCommissionLevelOperation(op) || isRecruitmentOperation(op) || op.id === "repair.device.lookup" || op.id === "repair.notification.resend" || op.id === "repair.feedback.link.create";
 }
 function requiresBranchChoice(op: AssistantOperation) {
-  return op.id.startsWith("inventory.serial.") || ["inventory.warehouse.locations.list", "inventory.stock-log.list", "inventory.stock-log.analysis", "inventory.receipt.analysis", "inventory.stock.analysis", "inventory.serial.analysis", "inventory.price.analysis", "inventory.stock-log.reverse", "inventory.stock-log.internal.issue.create", "finance.tax.from-invoice"].includes(op.id) || op.path === "/inventory/transfers" || op.path.startsWith("/inventory/transfers/") || ["retail.invoice.list", "retail.invoice.bulk-pdf", "retail.order.payment-qr", "retail.report.top-products"].includes(op.id) || op.id === "retail.warranty.serial.update" || op.id === "retail.coupon.create" || op.id === "retail.coupon.tier.list" || isInventoryCountOperation(op) || op.path.startsWith("/inventory/reconciliation/") || op.path.startsWith("/finance/receivables") || op.path.startsWith("/finance/reporting/") || op.path.startsWith("/finance/reminders/") || op.path === "/finance/management/debts" || op.path === "/finance/management/payables" || op.path === "/finance/management/followups" || op.path.startsWith("/payroll/periods/") || op.path.startsWith("/payroll/runs") || op.id.startsWith("payroll.payment.") || op.path === "/retail/settings" || op.path.startsWith("/retail/debt-reminders/") || isRetailPosOperation(op) || isRetailCashbookOperation(op) || isRetailFinanceCommissionOperation(op) || isRetailReceivableOperation(op) || isRetailAfterSaleOperation(op) || (isCommissionLevelOperation(op) && op.method !== "GET") || isRecruitmentOperation(op) || op.id === "repair.device.lookup" || op.id === "repair.notification.resend" || op.id === "repair.feedback.link.create";
+  return op.id.startsWith("inventory.serial.") || op.id === "inventory.warehouse.locations.list" || op.path === "/inventory/transfers" || op.path.startsWith("/inventory/transfers/") || op.id === "inventory.stock-log.list" || op.id === "inventory.stock-log.reverse" || op.id === "finance.tax.from-invoice" || op.id === "retail.invoice.list" || op.id === "retail.warranty.serial.update" || op.id === "retail.coupon.create" || op.id === "retail.coupon.tier.list" || isInventoryCountOperation(op) || op.path.startsWith("/inventory/reconciliation/") || op.path.startsWith("/finance/receivables") || op.path.startsWith("/finance/reporting/") || op.path.startsWith("/finance/reminders/") || op.path === "/finance/management/debts" || op.path === "/finance/management/payables" || op.path === "/finance/management/followups" || op.path.startsWith("/payroll/periods/") || op.path.startsWith("/payroll/runs") || op.id.startsWith("payroll.payment.") || op.path === "/retail/settings" || op.path.startsWith("/retail/debt-reminders/") || isRetailPosOperation(op) || isRetailCashbookOperation(op) || isRetailFinanceCommissionOperation(op) || isRetailReceivableOperation(op) || isRetailAfterSaleOperation(op) || (isCommissionLevelOperation(op) && op.method !== "GET") || isRecruitmentOperation(op) || op.id === "repair.device.lookup" || op.id === "repair.notification.resend" || op.id === "repair.feedback.link.create";
 }
 
 function assertScheduledCampaignInput(input: Record<string, AssistantValue>) {
@@ -291,1054 +287,16 @@ function assertCampaignCalendarRange(input: Record<string, AssistantValue>) {
 
 /** Only calls a code-owned route on this Express listener. Host, URL and credentials are never model inputs. */
 export async function callOperation(req: AuthenticatedRequest, op: AssistantOperation, input: Record<string, AssistantValue>, password?: string, requestId?: string) {
+  return observeAssistantOperation(() => withBusinessOperation(() => callOperationUnobserved(req, op, input, password, requestId)));
+}
+async function callOperationUnobserved(req: AuthenticatedRequest, op: AssistantOperation, input: Record<string, AssistantValue>, password?: string, requestId?: string) {
   if (op.unavailableReason) throw new AssistantError(op.unavailableReason, 409);
-  const normalizedInput: Record<string, AssistantValue> = { ...input };
-  const aliasesFor = (field: AssistantField) => {
-    const key = String(field.key || "");
-    const apiKey = String(field.apiKey || "");
-    const aliases = new Set([apiKey, `query_${apiKey}`, key]);
-    if (["branchId", "targetBranch"].includes(apiKey)) { aliases.add("branchId"); aliases.add("targetBranch"); }
-    if (apiKey === "from") aliases.add("query_from");
-    if (apiKey === "to") aliases.add("query_to");
-    if (apiKey === "page") aliases.add("query_page");
-    if (apiKey === "limit") aliases.add("query_limit");
-    for (const alias of aliases) if (alias && normalizedInput[alias] !== undefined) return normalizedInput[alias];
-    return undefined;
-  };
-  for (const field of op.fields) {
-    if (normalizedInput[field.key] !== undefined) continue;
-    const value = aliasesFor(field);
-    if (value !== undefined) normalizedInput[field.key] = value;
-  }
-  const branchQueryField = op.fields.find(field => field.source === "query" && field.apiKey === "branchId");
-  const branchHeader = req.headers?.["x-branch-id"] || req.headers?.["X-Branch-Id"];
-  if (op.module === "inventory" && branchQueryField && normalizedInput[branchQueryField.key] === undefined
-    && !req.user?.branchId && typeof branchHeader === "string" && branchHeader) {
-    normalizedInput[branchQueryField.key] = branchHeader;
-  }
-  input = normalizedInput;
-  const collectPages = async (actionId: string, base: Record<string, AssistantValue>, pageSize = 100) => {
-    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.id === actionId);
-    if (!source) throw new AssistantError(`Thiếu nguồn dữ liệu ${actionId}.`, 503);
-    const rows: Record<string, any>[] = [];
-    let total: number | undefined;
-    for (let page = 1; page <= 100; page += 1) {
-      const response = await callOperation(req, source, { ...base, query_page: page, query_limit: pageSize }, password, requestId);
-      const batch = rawRecords(response);
-      rows.push(...batch);
-      const data = response?.data && typeof response.data === "object" ? response.data : {};
-      const parsedTotal = Number(data.total ?? response?.total);
-      if (Number.isSafeInteger(parsedTotal) && parsedTotal >= 0) total = parsedTotal;
-      if (batch.length < pageSize || (total !== undefined && rows.length >= total)) return rows;
-      if (page === 100) throw new AssistantError("Dữ liệu có quá 10.000 dòng; hãy thu hẹp kỳ tra cứu.");
-    }
-    return rows;
-  };
-  if (op.id === "retail.order.cancelled.report") {
-    const cancelledFrom = String(input.cancelledFrom || "");
-    const cancelledTo = String(input.cancelledTo || "");
-    if (!cancelledFrom || !cancelledTo) throw new AssistantError("Cần chọn đủ ngày bắt đầu và kết thúc cần kiểm tra đơn hủy.");
-    const items = await collectPages("retail.order.list", {
-      ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
-      cancelledFrom,
-      cancelledTo,
-      query_status: "cancelled",
-    });
-    return { success: true, data: { items, total: items.length, page: 1, limit: items.length, cancelledFrom, cancelledTo } };
-  }
-  if (op.id === "inventory.export.capability") {
-    const report = String(input.reportType || "stock-balance");
-    const finding = report === "stock-log"
-      ? "Trợ lý hiện chưa có API tạo tệp Excel cho toàn bộ lịch sử giao dịch kho. Tôi có thể lọc và hiển thị giao dịch trong cuộc trò chuyện theo kỳ hoặc loại phiếu."
-      : "Trợ lý hiện chưa có API tạo tệp Excel cho bảng tồn kho. Tôi có thể hiển thị số liệu tồn theo sản phẩm trong cuộc trò chuyện để bạn đối chiếu.";
-    return { success: true, data: { finding } };
-  }
-  if (op.id === "inventory.catalog.analysis") {
-    const reportType = String(input.reportType || "");
-    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.method === "GET" && candidate.path === "/inventory/catalog/prices");
-    if (!source) throw new AssistantError("Thiếu danh sách sản phẩm để thống kê danh mục.", 503);
-    const branchPrices = await collectPages(source.id, {}, 100);
-    const search = normalize(String(input.search ?? input.q ?? ""));
-    const matchingPrices = search ? branchPrices.filter(row => normalize(`${row.productName || ""} ${row.categoryCode || ""} ${row.sku || ""}`).includes(search)) : branchPrices;
-    const unique = new Map<string, Record<string, any>>();
-    for (const row of matchingPrices) {
-      const id = String(row.productId || row.productName || row.sku || "");
-      if (!unique.has(id)) unique.set(id, { ...row, name: row.productName, productCode: row.sku, status: row.status, productType: "physical" });
-    }
-    const products = [...unique.values()];
-    const resourceSource = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "inventory.catalog.resource.list");
-    const categoryNames = new Map<string, string>();
-    if (resourceSource) {
-      const categoryResponse = await callOperation(req, resourceSource, { path_kind: "categories" }, password, requestId);
-      for (const category of rawRecords(categoryResponse)) {
-        if (category.code && category.name) categoryNames.set(String(category.code), String(category.name));
-      }
-    }
-    const categories = new Map<string, number>();
-    for (const product of products) {
-      const categoryCode = String(product.categoryCode || "");
-      const categoryName = categoryNames.get(categoryCode) || "Chưa phân nhóm";
-      categories.set(categoryName, (categories.get(categoryName) || 0) + 1);
-    }
-    const categoryRows = [...categories].map(([categoryCode, productCount]) => ({ categoryCode, productCount }))
-      .sort((a, b) => b.productCount - a.productCount || a.categoryCode.localeCompare(b.categoryCode, "vi"));
-    if (reportType === "product-count") return { success: true, data: { reportType, summary: { productCount: products.length }, products: [], categories: [] } };
-    if (reportType === "category-count") return { success: true, data: { reportType, summary: { productCount: products.length }, categories: categoryRows, products: [] } };
-    if (reportType === "category-list") return { success: true, data: { reportType, summary: { productCount: products.length }, categories: [], products: products.slice(0, 100).map(product => ({ name: product.name, productCode: product.productCode, categoryCode: categoryNames.get(String(product.categoryCode || "")) || "Chưa phân nhóm", productType: product.productType, status: product.status })) } };
-    throw new AssistantError("Chưa xác định được dạng thống kê danh mục.");
-  }
-  if (op.id === "inventory.price.analysis") {
-    const reportType = String(input.reportType || "");
-    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.method === "GET" && candidate.path === "/inventory/catalog/prices");
-    if (!source) throw new AssistantError("Thiếu danh sách giá bán theo SKU.", 503);
-    const response = await callOperation(req, source, { ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }) }, password, requestId);
-    const prices = rawRecords(response).filter(row => typeof row.sku === "string");
-    const search = String(input.search ?? input.q ?? "").trim();
-    const searchTerms = search.split(/\s*\|\s*/).map(normalize).filter(Boolean);
-    const resourceSource = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "inventory.catalog.resource.list");
-    const categories = resourceSource && searchTerms.length
-      ? rawRecords(await callOperation(req, resourceSource, { path_kind: "categories" }, password, requestId))
-      : [];
-    const categoryCodes = new Set(searchTerms.flatMap(term => {
-      const categoryTerm = term === "phone" ? "dien thoai" : term === "case" ? "tam op nhua" : term;
-      return categories.filter(row => normalize(String(row.name || "")).includes(categoryTerm)
-        || normalize(String(row.code || "")) === term).map(row => normalize(String(row.code || "")));
-    }));
-    const exactPriceMatches = new Map(searchTerms.map(term => [term, prices.filter(row => normalize(String(row.productName || "")) === term || normalize(String(row.sku || "")) === term)] as const));
-    const matched = searchTerms.length ? prices.filter(row => {
-      const productName = normalize(String(row.productName || ""));
-      const searchable = normalize(`${row.productName || ""} ${row.categoryCode || ""} ${row.variantName || ""} ${row.sku || ""}`);
-      const sku = normalize(String(row.sku || ""));
-      if (categoryCodes.has(normalize(String(row.categoryCode || "")))) return true;
-      if (categoryCodes.size && searchTerms.every(term => !exactPriceMatches.get(term)?.length
-        && !normalize(`${row.productName || ""} ${row.variantName || ""} ${row.sku || ""}`).includes(term))) return false;
-      return searchTerms.some(term => exactPriceMatches.get(term)?.length
-        ? productName === term || sku === term
-        : searchable.includes(term));
-    }) : prices;
-    let products = matched.map(row => ({ productName: row.productName, categoryCode: row.categoryCode, variantName: row.variantName, sku: row.sku, sellingPrice: Number(row.sellingPrice) || 0, costPrice: Number(row.costPrice) || 0, status: row.status }));
-    if (input.includeAvailability === true || input.includeAvailability === "true") {
-      const balanceOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "inventory.warehouse.balances.list");
-      if (!balanceOperation) throw new AssistantError("Thiếu nguồn tra cứu tồn kho.", 503);
-      const balanceResponse = await callOperation(req, balanceOperation, {
-        ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
-        query_includeCatalogZeroBalances: "true",
-      }, password, requestId);
-      const availabilityBySku = new Map(rawRecords(balanceResponse).map(row => [normalize(String(row.sku || "")), Number(row.availableQuantity) || 0] as const));
-      products = products.map(row => ({ ...row, availableQuantity: availabilityBySku.get(normalize(String(row.sku || ""))) || 0 }));
-    }
-    if (reportType === "zero-price") products = products.filter(row => row.sellingPrice === 0);
-    else if (reportType === "highest-price") {
-      products.sort((a, b) => b.sellingPrice - a.sellingPrice);
-      const highest = products[0]?.sellingPrice;
-      products = highest === undefined ? [] : products.filter(row => row.sellingPrice === highest);
-    } else if (reportType !== "product-prices") throw new AssistantError("Chưa xác định được dạng tra cứu giá.");
-    return { success: true, data: { reportType, products: products.slice(0, 100), finding: products.length ? undefined : "Không có SKU phù hợp trong danh sách giá của chi nhánh." } };
-  }
-  if (op.id === "inventory.stock.analysis") {
-    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "inventory.warehouse.balances.list");
-    if (!source) throw new AssistantError("Thiếu nguồn tra cứu tồn kho.", 503);
-    const reportType = String(input.reportType || "");
-    const targetBranch = input.targetBranch;
-    const balanceResponse = await callOperation(req, source, {
-      ...(targetBranch === undefined ? {} : { targetBranch }),
-      ...(input.warehouseId === undefined ? {} : { query_warehouseId: input.warehouseId }),
-      ...((input.search ?? input.q) === undefined ? {} : { query_q: input.search ?? input.q }),
-      query_includeCatalogZeroBalances: "true",
-    }, password, requestId);
-    const balanceRows = rawRecords(balanceResponse).filter(row => typeof row.productName === "string");
-    const byProduct = new Map<string, Record<string, any>>();
-    for (const row of balanceRows) {
-      const name = String(row.productName || "").trim();
-      const key = String(row.productId || "").trim() || normalize(name);
-      const current = byProduct.get(key) || { productName: name, sku: [], warehouseName: [], quantity: 0, reservedQuantity: 0, availableQuantity: 0, inventoryValue: 0, minimum: 0, productId: String(row.productId || ""), hasBalanceRecord: false };
-      const quantity = Number(row.quantity) || 0;
-      const averageCost = Number(row.averageCost) || 0;
-      current.quantity += quantity;
-      current.reservedQuantity += Number(row.reservedQuantity) || 0;
-      current.availableQuantity += Number(row.availableQuantity) || 0;
-      current.inventoryValue += quantity * averageCost;
-      current.minimum += Number(row.minStock) || 0;
-      current.hasBalanceRecord ||= row.hasBalanceRecord === true;
-      if (row.sku && !current.sku.includes(String(row.sku))) current.sku.push(String(row.sku));
-      if (row.warehouseName && !current.warehouseName.includes(String(row.warehouseName))) current.warehouseName.push(String(row.warehouseName));
-      if (quantity > 0) current.averageCost = current.inventoryValue / current.quantity;
-      byProduct.set(key, current);
-    }
-    const products: Array<Record<string, any>> = [...byProduct.values()].map(row => ({
-      productName: row.productName,
-      sku: row.sku.join(", "),
-      warehouseName: row.warehouseName.join(", "),
-      quantity: row.quantity,
-      reservedQuantity: row.reservedQuantity,
-      availableQuantity: row.availableQuantity,
-      minStock: row.minimum,
-      averageCost: row.quantity > 0 ? Math.round(row.inventoryValue / row.quantity) : 0,
-      inventoryValue: row.inventoryValue,
-      productId: row.productId,
-      hasBalanceRecord: row.hasBalanceRecord,
-    }));
-    const search = String(input.search ?? input.q ?? "").trim();
-    const searchTerms = search.split(/\s*\|\s*/).map(normalize).filter(Boolean);
-    let filtered = searchTerms.length ? products.filter(row => {
-      const name = normalize(String(row.productName || ""));
-      const skus = String(row.sku || "").split(/\s*,\s*/).map(normalize);
-      return searchTerms.some(term => name === term || skus.includes(term));
-    }) : products;
-    if (searchTerms.length && !filtered.length) {
-      filtered = products.filter(row => searchTerms.some(term => normalize(String(row.productName || "")).includes(term)));
-    }
-    const from = String(input.from || "");
-    const to = String(input.to || "");
-    if (reportType === "count-variance") {
-      const physicalCount = Number(input.physicalCount);
-      if (!search || !Number.isFinite(physicalCount) || physicalCount < 0) throw new AssistantError("Cần nêu dòng sản phẩm và số lượng kiểm đếm thực tế để đối chiếu.");
-      if (!filtered.length) return { success: true, data: { reportType, range: { from, to }, summary: {}, products: [], finding: "Không tìm thấy đúng dòng sản phẩm trong sổ tồn nên chưa thể tính chênh lệch." } };
-      if (filtered.length > 1) return { success: true, data: { reportType, range: { from, to }, summary: {}, products: [], finding: "Tên sản phẩm khớp với nhiều dòng hàng; cần chọn đúng phiên bản hoặc SKU trước khi tính chênh lệch." } };
-      const bookQuantity = filtered.reduce((sum, row) => sum + row.quantity, 0);
-      const variance = physicalCount - bookQuantity;
-      const summary = { productCount: filtered.length, stockQuantity: bookQuantity, availableQuantity: filtered.reduce((sum, row) => sum + row.availableQuantity, 0), inventoryValue: filtered.reduce((sum, row) => sum + row.inventoryValue, 0), physicalCount, variance, varianceStatus: variance === 0 ? "Khớp sổ sách" : variance > 0 ? "Thực tế nhiều hơn sổ sách" : "Thực tế ít hơn sổ sách" };
-      const products = filtered.map(row => ({ ...row, physicalCount, variance }));
-      return { success: true, data: { reportType, range: { from, to }, summary, products: products.slice(0, 100) } };
-    }
-    const needsSales = ["no-sales-with-stock", "days-cover", "slow-moving", "forecast-30d", "reorder-status", "reorder-within-14", "stability-assessment"].includes(reportType);
-    let salesRange = { from, to };
-    if (needsSales) {
-      const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-      const toDay = to || today;
-      const startDay = new Date(`${toDay}T00:00:00Z`);
-      if (!from) startDay.setUTCDate(startDay.getUTCDate() - 29);
-      const fromDay = from || startDay.toISOString().slice(0, 10);
-      const salesOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.report.summary");
-      if (!salesOperation) throw new AssistantError("Thiếu báo cáo bán hàng để tính tốc độ bán.", 503);
-      const salesResponse = await callOperation(req, salesOperation, {
-        ...(targetBranch === undefined ? {} : { targetBranch }),
-        query_from: fromDay,
-        query_to: toDay,
-      }, password, requestId);
-      const salesData = salesResponse?.data && typeof salesResponse.data === "object" ? salesResponse.data : {};
-      const salesRows = Array.isArray(salesData.products) ? salesData.products : [];
-      const salesByName = new Map<string, number>();
-      for (const row of salesRows) {
-        const key = normalize(String(row.productName || ""));
-        if (!key) continue;
-        salesByName.set(key, (salesByName.get(key) || 0) + Math.max(0, Number(row.netQuantity) || 0));
-      }
-      const days = Math.max(1, Math.floor((Date.parse(`${toDay}T00:00:00Z`) - Date.parse(`${fromDay}T00:00:00Z`)) / 86_400_000) + 1);
-      salesRange = { from: fromDay, to: toDay };
-      for (const row of filtered) {
-        row.soldQuantity = salesByName.get(normalize(row.productName)) || 0;
-        row.averageDailySales = row.soldQuantity / days;
-        row.estimatedDaysRemaining = row.averageDailySales > 0 ? Math.floor(row.availableQuantity / row.averageDailySales) : null;
-        row.forecastSales30d = row.averageDailySales * 30;
-        row.projectedRemainingQuantity = row.availableQuantity - row.forecastSales30d;
-        row.reorderStatus = row.minStock > 0 && row.quantity <= row.minStock
-          ? "Dưới ngưỡng tồn tối thiểu"
-          : row.averageDailySales > 0 && row.estimatedDaysRemaining <= 30
-            ? "Có thể cần bổ sung trong 30 ngày"
-            : row.minStock > 0 || row.averageDailySales > 0 ? "Chưa cần bổ sung theo ngưỡng hiện có" : "Chưa đủ dữ liệu để khuyến nghị";
-      }
-    }
-    let ranked = filtered;
-    if (reportType === "no-available-stock") ranked = filtered.filter(row => !row.hasBalanceRecord || row.availableQuantity <= 0);
-    else if (reportType === "capital-ranking") ranked = [...filtered].sort((a, b) => b.inventoryValue - a.inventoryValue);
-    else if (reportType === "stock-summary" || reportType === "product-summary" || reportType === "stability-assessment") ranked = [...filtered];
-    else if (reportType === "product-capital") ranked = [...filtered];
-    else if (reportType === "capital-over-threshold") {
-      const threshold = Number(input.thresholdAmount);
-      if (!Number.isFinite(threshold) || threshold <= 0) throw new AssistantError("Cần nêu ngưỡng tiền vốn tồn để lọc đúng mặt hàng.");
-      ranked = filtered.filter(row => row.inventoryValue >= threshold).sort((a, b) => b.inventoryValue - a.inventoryValue);
-    } else if (reportType === "highest-stock") ranked = [...filtered].sort((a, b) => b.availableQuantity - a.availableQuantity);
-    else if (reportType === "lowest-stock") ranked = [...filtered].filter(row => row.quantity > 0).sort((a, b) => a.quantity - b.quantity);
-    else if (reportType === "below-minimum") ranked = filtered.filter(row => row.minStock > 0 && row.quantity <= row.minStock).sort((a, b) => a.quantity - b.quantity);
-    else if (reportType === "no-sales-with-stock") ranked = filtered.filter(row => row.quantity > 0 && row.soldQuantity === 0).sort((a, b) => b.quantity - a.quantity);
-    else if (reportType === "days-cover") ranked = filtered.filter(row => row.averageDailySales > 0).sort((a, b) => a.estimatedDaysRemaining - b.estimatedDaysRemaining);
-    else if (reportType === "slow-moving") ranked = filtered.filter(row => row.quantity > 0).sort((a, b) => (b.estimatedDaysRemaining ?? Number.POSITIVE_INFINITY) - (a.estimatedDaysRemaining ?? Number.POSITIVE_INFINITY));
-    else if (reportType === "forecast-30d") ranked = [...filtered].sort((a, b) => b.forecastSales30d - a.forecastSales30d);
-    else if (reportType === "reorder-status") ranked = filtered.sort((a, b) => a.estimatedDaysRemaining - b.estimatedDaysRemaining);
-    else if (reportType === "reorder-within-14") ranked = filtered.filter(row => row.minStock > 0 && row.quantity <= row.minStock || row.estimatedDaysRemaining !== null && row.estimatedDaysRemaining <= 14).sort((a, b) => (a.estimatedDaysRemaining ?? 0) - (b.estimatedDaysRemaining ?? 0));
-    else throw new AssistantError("Chưa xác định được dạng phân tích tồn kho.");
-    const firstValue = reportType === "capital-ranking" ? ranked[0]?.inventoryValue
-      : reportType === "highest-stock" ? ranked[0]?.availableQuantity
-        : reportType === "lowest-stock" ? ranked[0]?.quantity : undefined;
-    if (["capital-ranking", "highest-stock", "lowest-stock"].includes(reportType) && firstValue !== undefined) {
-      const field = reportType === "capital-ranking" ? "inventoryValue" : reportType === "highest-stock" ? "availableQuantity" : "quantity";
-      ranked = ranked.filter(row => row[field] === firstValue);
-    }
-    const summary = {
-      productCount: filtered.length,
-      stockQuantity: filtered.reduce((sum, row) => sum + row.quantity, 0),
-      availableQuantity: filtered.reduce((sum, row) => sum + row.availableQuantity, 0),
-      inventoryValue: filtered.reduce((sum, row) => sum + row.inventoryValue, 0),
-      ...(needsSales ? { forecastSales30d: filtered.reduce((sum, row) => sum + row.forecastSales30d, 0) } : {}),
-    };
-    const finding = reportType === "no-available-stock" && !ranked.length ? "Không có sản phẩm nào thiếu số liệu tồn hoặc đang hết số lượng khả dụng ở chi nhánh này."
-      : reportType === "stability-assessment"
-      ? "Chưa có lịch sử tồn kho theo ngày để kết luận mặt hàng nào duy trì mức tồn ổn định. Bảng dưới đây thể hiện tồn hiện tại; có thể đối chiếu số tồn với ngưỡng tối thiểu và tốc độ bán."
-      : reportType === "no-sales-with-stock" && !ranked.length ? "Không có dòng máy nào vừa còn tồn vừa không ghi nhận bán ròng trong kỳ." : undefined;
-    return { success: true, data: { reportType, range: needsSales ? salesRange : { from, to }, summary, products: ranked.slice(0, 100), ...(finding ? { finding } : {}) } };
-  }
-  if (op.id === "inventory.receipt.analysis") {
-    const reportType = String(input.reportType || "");
-    const rows = await collectPages("inventory.receipt.list", {
-      ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
-      ...(input.from === undefined ? {} : { query_from: input.from }),
-      ...(input.to === undefined ? {} : { query_to: input.to }),
-      ...((input.search ?? input.q) === undefined ? {} : { query_q: input.search ?? input.q }),
-    }, 100);
-    const confirmed = rows.filter(row => row.status === "confirmed");
-    const pending = rows.filter(row => ["draft", "pending", "receiving"].includes(String(row.status || "")));
-    const receiptSummary = (row: any) => ({ receiptCode: row.receiptCode, supplierName: row.supplierName, status: row.status, subtotal: row.subtotal, createdAt: row.createdAt, receivedAt: row.receivedAt,
-      productsSummary: Array.isArray(row.items) ? row.items.map((item: any) => `${Number(item.quantity) || 0} × ${item.productName || item.sku || "mặt hàng"}`).join("; ") : "" });
-    const bySupplier = new Map<string, { supplierName: string; receiptCount: number; totalAmount: number }>();
-    for (const row of confirmed) {
-      const supplierName = String(row.supplierName || "Nhà cung cấp chưa ghi tên");
-      const key = normalize(supplierName);
-      const value = bySupplier.get(key) || { supplierName, receiptCount: 0, totalAmount: 0 };
-      value.receiptCount += 1;
-      value.totalAmount += Number(row.subtotal) || 0;
-      bySupplier.set(key, value);
-    }
-    const suppliers = [...bySupplier.values()].sort((a, b) => b.totalAmount - a.totalAmount || a.supplierName.localeCompare(b.supplierName, "vi"));
-    let receipts: any[] = [];
-    if (reportType === "period-summary") receipts = confirmed.map(receiptSummary);
-    else if (reportType === "supplier-spend") receipts = suppliers as any[];
-    else if (reportType === "paid-total") receipts = confirmed.map(receiptSummary);
-    else if (reportType === "top-supplier") receipts = suppliers.length ? [suppliers[0]] : [];
-    else if (reportType === "largest-receipt") receipts = confirmed.length ? [receiptSummary([...confirmed].sort((a, b) => Number(b.subtotal || 0) - Number(a.subtotal || 0))[0])] : [];
-    else if (reportType === "latest-receipt") receipts = confirmed.length ? [receiptSummary([...confirmed].sort((a, b) => String(b.receivedAt || b.createdAt || "").localeCompare(String(a.receivedAt || a.createdAt || "")))[0])] : [];
-    else if (reportType === "pending-receipts") receipts = pending.map(receiptSummary);
-    else throw new AssistantError("Chưa xác định được dạng thống kê phiếu nhập.");
-    const paidRecords = confirmed.filter(row => Number.isFinite(Number(row.financeTerms?.paidAmount)));
-    const summary = {
-      receiptCount: confirmed.length,
-      totalAmount: confirmed.reduce((sum, row) => sum + (Number(row.subtotal) || 0), 0),
-      paidAmount: paidRecords.reduce((sum, row) => sum + (Number(row.financeTerms?.paidAmount) || 0), 0),
-      paidRecordCount: paidRecords.length,
-      unrecordedPaymentCount: confirmed.length - paidRecords.length,
-    };
-    return { success: true, data: { reportType, range: { from: input.from || "", to: input.to || "" }, summary, receipts: ["supplier-spend", "top-supplier"].includes(reportType) ? [] : receipts, suppliers: ["supplier-spend", "top-supplier"].includes(reportType) ? receipts : [], finding: receipts.length || suppliers.length ? undefined : "Không có phiếu nhập phù hợp trong phạm vi đã chọn." } };
-  }
-  if (op.id === "inventory.stock-log.analysis") {
-    const reportType = String(input.reportType || "");
-    if (reportType === "monthly-comparison") {
-      const readPeriod = (from: AssistantValue | undefined, to: AssistantValue | undefined) => collectPages("inventory.stock-log.list", {
-        ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
-        ...(from === undefined ? {} : { createdFrom: from }),
-        ...(to === undefined ? {} : { createdTo: to }),
-      }, 1000);
-      const [current, previous] = await Promise.all([
-        readPeriod(input.createdFrom, input.createdTo),
-        readPeriod(input.previousFrom, input.previousTo),
-      ]);
-      const summarizePeriod = (rows: Record<string, any>[], period: string, from: unknown, to: unknown) => {
-        const outbound = rows.filter(row => row.type === "xuất");
-        return { period, from: String(from || ""), to: String(to || ""), documentCount: outbound.length, totalQuantity: outbound.reduce((sum, row) => sum + (Array.isArray(row.items) ? row.items.reduce((lineTotal: number, item: any) => lineTotal + (Number(item.quantity) || 0), 0) : Number(row.quantity) || 0), 0) };
-      };
-      return { success: true, data: { reportType, range: { from: input.createdFrom || "", to: input.createdTo || "" }, summary: [summarizePeriod(current, "Kỳ hiện tại", input.createdFrom, input.createdTo), summarizePeriod(previous, "Kỳ trước", input.previousFrom, input.previousTo)], transactions: [], operators: [] } };
-    }
-    const searchByOperator = ["operator-ranking", "operator-history"].includes(reportType);
-    const rows = await collectPages("inventory.stock-log.list", {
-      ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
-      ...(input.createdFrom === undefined ? {} : { createdFrom: input.createdFrom }),
-      ...(input.createdTo === undefined ? {} : { createdTo: input.createdTo }),
-    }, 1000);
-    const search = normalize(String(input.search ?? input.q ?? ""));
-    const eligibleRows = input.purpose ? rows.filter(row => normalize(String(row.purpose || "")) === normalize(String(input.purpose))) : rows;
-    const matchesProduct = (row: any) => searchByOperator || !search || normalize(`${row.productName || ""} ${row.sku || ""} ${Array.isArray(row.items) ? row.items.map((item: any) => `${item.productName || ""} ${item.sku || ""}`).join(" ") : ""}`).includes(search);
-    const records = eligibleRows.flatMap(row => {
-      const lines = Array.isArray(row.items) ? row.items : [];
-      const selected = lines.filter(matchesProduct);
-      if (search && lines.length && !selected.length && !matchesProduct(row)) return [];
-      const quantity = selected.length ? selected.reduce((sum: number, item: any) => sum + (Number(item.quantity) || 0), 0) : Number(row.quantity) || 0;
-      return [{ title: row.title, type: row.type, purpose: row.purpose, status: row.status, operatorName: row.operatorName, customerName: row.customerName, productName: selected.length ? [...new Set(selected.map((item: any) => String(item.productName || item.sku || "")))].join(", ") : row.productName, sku: selected.length ? [...new Set(selected.map((item: any) => String(item.sku || "")))].join(", ") : row.sku, quantity, createdAt: row.createdAt, notes: row.notes }];
-    });
-    let transactions = records;
-    let operators: Array<{ operatorName: string; documentCount: number; totalQuantity: number }> = [];
-    let summary: any[] = [];
-    if (reportType === "issue-counts") {
-      const issueRows = records.filter(row => row.type === "xuất");
-      summary = ["bán", "nội bộ"].map(purpose => ({ documentType: purpose === "bán" ? "Phiếu xuất bán hàng" : "Phiếu xuất dùng nội bộ", documentCount: issueRows.filter(row => row.purpose === purpose).length, totalQuantity: issueRows.filter(row => row.purpose === purpose).reduce((sum, row) => sum + row.quantity, 0) }));
-      transactions = [];
-    } else if (reportType === "outbound-total") {
-      const outbound = records.filter(row => row.type === "xuất");
-      summary = [{ documentType: "Tổng phiếu xuất kho", documentCount: outbound.length, totalQuantity: outbound.reduce((sum, row) => sum + row.quantity, 0) }];
-      transactions = outbound;
-    } else if (reportType === "product-outbound" || reportType === "recipient-history" || reportType === "daily-flow") {
-      transactions = reportType === "product-outbound" ? records.filter(row => row.type === "xuất")
-      : reportType === "recipient-history" ? records.filter(row => row.type === "xuất")
-          : records;
-      if (reportType === "daily-flow") summary = [{ documentType: "Phiếu nhập/xuất", documentCount: records.length, totalQuantity: records.reduce((sum, row) => sum + row.quantity, 0) }];
-    } else if (reportType === "pending-status") {
-      transactions = records.filter(row => /(?:dang cho|cho duyet|chua hoan thanh|dang xuat|xuat do|dang xu ly|pending|draft|processing)/u.test(normalize(String(row.status || ""))));
-    } else if (reportType === "operator-ranking" || reportType === "operator-history") {
-      const selectedOperators = records.filter(row => String(row.operatorName || "").trim() && (!search || normalize(String(row.operatorName || "")).includes(search)));
-      const byOperator = new Map<string, { operatorName: string; documentCount: number; totalQuantity: number }>();
-      for (const row of selectedOperators) {
-        const operatorName = String(row.operatorName).trim();
-        const key = normalize(operatorName);
-        const current = byOperator.get(key) || { operatorName, documentCount: 0, totalQuantity: 0 };
-        current.documentCount += 1;
-        current.totalQuantity += Number(row.quantity) || 0;
-        byOperator.set(key, current);
-      }
-      operators = [...byOperator.values()].sort((a, b) => b.documentCount - a.documentCount || a.operatorName.localeCompare(b.operatorName, "vi"));
-      if (reportType === "operator-ranking") {
-        const highest = operators[0]?.documentCount;
-        operators = highest === undefined ? [] : operators.filter(row => row.documentCount === highest);
-        transactions = [];
-      } else transactions = selectedOperators;
-    } else if (reportType === "flow-reconciliation") {
-      const outbound = records.filter(row => row.type === "xuất");
-      const receiptRows = await collectPages("inventory.receipt.list", { ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }), query_status: "confirmed", ...(input.createdFrom === undefined ? {} : { query_from: input.createdFrom }), ...(input.createdTo === undefined ? {} : { query_to: input.createdTo }) }, 100);
-      const inboundQuantity = receiptRows.reduce((total, receipt) => total + (Array.isArray(receipt.items) ? receipt.items.reduce((sum: number, item: any) => sum + (Number(item.quantity) || 0), 0) : 0), 0);
-      let sold = 0;
-      if (input.createdFrom || input.createdTo) {
-        const retailReport = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.report.summary");
-        const retailResponse = retailReport ? await callOperation(req, retailReport, { ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }), ...(input.createdFrom === undefined ? {} : { query_from: input.createdFrom }), ...(input.createdTo === undefined ? {} : { query_to: input.createdTo }) }, password, requestId) : null;
-        sold = Array.isArray(retailResponse?.data?.products) ? retailResponse.data.products.reduce((sum: number, item: any) => sum + Math.max(0, Number(item.netQuantity) || 0), 0) : 0;
-      } else {
-        const orderRows = await collectPages("retail.order.list", { ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }) }, 100);
-        sold = orderRows.filter(row => ["confirmed", "completed"].includes(String(row.status || "")))
-          .reduce((sum, row) => sum + (Array.isArray(row.items) ? row.items.reduce((lineTotal: number, item: any) => lineTotal + Math.max(0, Number(item.quantity) || 0), 0) : 0), 0);
-      }
-      summary = [{ documentType: "Tổng biến động trong kỳ", documentCount: records.length, inboundQuantity, posQuantity: sold, internalQuantity: outbound.filter(row => row.purpose === "nội bộ").reduce((sum, row) => sum + row.quantity, 0), totalQuantity: outbound.reduce((sum, row) => sum + row.quantity, 0) }];
-      transactions = [];
-    } else throw new AssistantError("Chưa xác định được dạng thống kê giao dịch kho.");
-    const finding = reportType.startsWith("operator") && !operators.length && !transactions.some(row => row.operatorName)
-      ? "Phiếu kho trong phạm vi hiện tại không có tên người lập để xếp hạng." : undefined;
-    return { success: true, data: { reportType, range: { from: input.createdFrom || "", to: input.createdTo || "" }, summary, transactions: transactions.slice(0, 100), operators, ...(finding ? { finding } : {}) } };
-  }
-  if (op.id === "inventory.transfer.analysis") {
-    const reportType = String(input.reportType || "");
-    const rows = await collectPages("inventory.transfer.list", {
-      ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
-      ...(input.status === undefined ? {} : { query_status: input.status }),
-      ...(input.from === undefined ? {} : { query_from: input.from }),
-      ...(input.to === undefined ? {} : { query_to: input.to }),
-    }, 500);
-    const fromWarehouse = normalize(String(input.fromWarehouseName || ""));
-    const toWarehouse = normalize(String(input.toWarehouseName || ""));
-    const product = normalize(String(input.search || ""));
-    const filtered = rows.filter(row => (!fromWarehouse || normalize(String(row.fromWarehouseName || "")).includes(fromWarehouse))
-      && (!toWarehouse || normalize(String(row.toWarehouseName || "")).includes(toWarehouse))
-      && (!product || normalize(Array.isArray(row.items) ? row.items.map((item: any) => `${item.productName || ""} ${item.sku || ""}`).join(" ") : "").includes(product)));
-    const ordered = [...filtered].sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
-    const summary = {
-      transferCount: filtered.length,
-      inTransitCount: filtered.filter(row => row.status === "in_transit").length,
-      receivedCount: filtered.filter(row => row.status === "received").length,
-      cancelledCount: filtered.filter(row => row.status === "cancelled").length,
-    };
-    const selected = reportType === "latest-to-warehouse" ? ordered.slice(0, 1) : reportType === "period-summary" ? [] : ordered;
-    const transfers = selected.slice(0, 100).map(row => ({
-      transferCode: row.transferCode || row.code,
-      status: row.status,
-      reason: row.reason,
-      fromWarehouseName: row.fromWarehouseName,
-      toWarehouseName: row.toWarehouseName,
-      createdAt: row.createdAt,
-      items: Array.isArray(row.items) ? row.items.map((item: any) => ({ productName: item.productName, sku: item.sku, quantity: item.quantity })) : [],
-    }));
-    return { success: true, data: { reportType, range: { from: input.from || "", to: input.to || "" }, summary, transfers, finding: rows.length ? undefined : "Không có phiếu điều chuyển phù hợp trong phạm vi đã chọn." } };
-  }
-  if (op.id === "inventory.serial.analysis") {
-    const reportType = String(input.reportType || "");
-    const all = await collectPages("inventory.serial.list", {
-      ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
-      ...(input.warehouseId === undefined ? {} : { query_warehouseId: input.warehouseId }),
-      ...(["identifier-detail", "identifier-history"].includes(reportType) && input.search !== undefined ? { query_serial: input.search } : {}),
-      query_trackingMode: "serial",
-    }, 100);
-    if (["identifier-detail", "identifier-history"].includes(reportType)) {
-      const identifier = normalize(String(input.search || ""));
-      const serial = all.find(row => normalize(String(row.serialNumber || "")) === identifier || normalize(String(row.internalBarcode || "")) === identifier);
-      if (!serial) return { success: true, data: { reportType, serialNumber: String(input.search || ""), finding: `Không tìm thấy IMEI/serial ${String(input.search || "")} trong phạm vi chi nhánh hiện tại.` } };
-      const summary = { serialNumber: serial.serialNumber, productName: serial.productName, sku: serial.sku, status: serial.status, warehouseName: serial.warehouseName, soldAt: serial.soldAt };
-      if (reportType === "identifier-detail") return { success: true, data: { reportType, ...summary } };
-      const historyOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "inventory.serial.history");
-      if (!historyOperation) throw new AssistantError("Thiếu nguồn tra cứu lịch sử IMEI/serial.", 503);
-      const historyResponse = await callOperation(req, historyOperation, {
-        path_id: String(serial._id || serial.id || ""),
-        ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
-      }, password, requestId);
-      const events = rawRecords(historyResponse).map(event => ({ eventType: event.eventType, fromStatus: event.fromStatus, toStatus: event.toStatus, reason: event.reason, occurredAt: event.occurredAt, actorName: event.actorName }));
-      return { success: true, data: { reportType, ...summary, events, finding: events.length ? undefined : "Đã tìm thấy máy nhưng hệ thống chưa ghi nhận sự kiện lịch sử." } };
-    }
-    const search = normalize(String(input.search || ""));
-    const selected = search ? all.filter(row => normalize(`${row.productName || ""} ${row.sku || ""}`).includes(search)) : all;
-    const statusFields: Record<string, string> = { in_stock: "inStock", sold: "sold", repairing: "repairing", defective: "defective", in_transit: "inTransit", internal_use: "internalUse", returned: "returned", scrapped: "scrapped", lost: "lost" };
-    const summarize = (rows: Record<string, any>[]) => {
-      const summary: Record<string, number> = { total: rows.length, inStock: 0, sold: 0, repairing: 0, defective: 0, inTransit: 0, internalUse: 0, returned: 0, scrapped: 0, lost: 0 };
-      for (const row of rows) { const key = statusFields[String(row.status || "")]; if (key) summary[key] += 1; }
-      return summary;
-    };
-    if (reportType === "product-stock-and-serial") {
-      const balanceOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "inventory.warehouse.balances.list");
-      if (!balanceOperation) throw new AssistantError("Thiếu nguồn tra cứu tồn kho.", 503);
-      const balanceResponse = await callOperation(req, balanceOperation, {
-        ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
-        ...(input.warehouseId === undefined ? {} : { query_warehouseId: input.warehouseId }),
-        ...(input.search === undefined ? {} : { query_q: input.search }),
-        query_includeCatalogZeroBalances: "true",
-      }, password, requestId);
-      const productName = selected[0]?.productName || rawRecords(balanceResponse)[0]?.productName || String(input.search || "");
-      const nameKey = normalize(String(productName));
-      const availableQuantity = rawRecords(balanceResponse).filter(row => normalize(String(row.productName || "")) === nameKey)
-        .reduce((sum, row) => sum + (Number(row.availableQuantity) || 0), 0);
-      const serialSummary = summarize(selected);
-      return { success: true, data: { reportType, productName, summary: { ...serialSummary, skuAvailableQuantity: availableQuantity }, products: [{ productName, skuAvailableQuantity: availableQuantity, total: serialSummary.total, inStock: serialSummary.inStock, repairing: serialSummary.repairing, defective: serialSummary.defective }], devices: [] } };
-    }
-    const byProduct = new Map<string, Record<string, any>[]>();
-    for (const row of selected) {
-      const name = String(row.productName || "").trim();
-      if (!name) continue;
-      const key = normalize(name);
-      byProduct.set(key, [...(byProduct.get(key) || []), row]);
-    }
-    const products = ([...byProduct.values()].map(rows => ({ productName: String(rows[0]?.productName || ""), ...summarize(rows) })) as Array<Record<string, any>>).sort((a, b) => b.total - a.total || a.productName.localeCompare(b.productName, "vi"));
-    if (reportType === "reconciliation") {
-      const balanceOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "inventory.warehouse.balances.list");
-      if (!balanceOperation) throw new AssistantError("Thiếu dữ liệu tồn kho để đối chiếu số IMEI.", 503);
-      const balanceResponse = await callOperation(req, balanceOperation, {
-        ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
-        ...(input.warehouseId === undefined ? {} : { query_warehouseId: input.warehouseId }),
-        ...(input.search === undefined ? {} : { query_q: input.search }),
-        query_includeCatalogZeroBalances: "true",
-      }, password, requestId);
-      const quantities = new Map<string, { productName: string; quantity: number }>();
-      for (const row of rawRecords(balanceResponse)) {
-        const sku = String(row.sku || "").trim();
-        if (!sku) continue;
-        const current = quantities.get(sku) || { productName: String(row.productName || ""), quantity: 0 };
-        current.quantity += Number(row.quantity) || 0;
-        quantities.set(sku, current);
-      }
-      const serialCounts = new Map<string, { productName: string; total: number; inStock: number; repairing: number; defective: number }>();
-      for (const row of selected) {
-        const sku = String(row.sku || "").trim();
-        if (!sku) continue;
-        const current = serialCounts.get(sku) || { productName: String(row.productName || ""), total: 0, inStock: 0, repairing: 0, defective: 0 };
-        current.total += 1;
-        if (row.status === "in_stock") current.inStock += 1;
-        if (row.status === "repairing") current.repairing += 1;
-        if (row.status === "defective") current.defective += 1;
-        serialCounts.set(sku, current);
-      }
-      const skuSet = new Set([...quantities.keys(), ...serialCounts.keys()]);
-      const reconciled = [...skuSet].map(sku => {
-        const quantity = quantities.get(sku);
-        const serial = serialCounts.get(sku);
-        const physicalQuantity = quantity?.quantity || 0;
-        const inStock = serial?.inStock || 0;
-        return { productName: quantity?.productName || serial?.productName || "", sku, total: serial?.total || 0, inStock, repairing: serial?.repairing || 0, defective: serial?.defective || 0, physicalQuantity, variance: inStock - physicalQuantity, matches: inStock === physicalQuantity };
-      }).sort((a, b) => Math.abs(b.variance) - Math.abs(a.variance) || a.productName.localeCompare(b.productName, "vi") || a.sku.localeCompare(b.sku, "vi"));
-      const variance = reconciled.reduce((sum, row) => sum + row.variance, 0);
-      const matchedSkuCount = reconciled.filter(row => row.matches).length;
-      const mismatchedSkuCount = reconciled.length - matchedSkuCount;
-      return { success: true, data: { reportType, summary: { total: selected.length, inStock: selected.filter(row => row.status === "in_stock").length, repairing: selected.filter(row => row.status === "repairing").length, defective: selected.filter(row => row.status === "defective").length, physicalQuantity: reconciled.reduce((sum, row) => sum + row.physicalQuantity, 0), variance, matches: matchedSkuCount, mismatches: mismatchedSkuCount }, products: reconciled } };
-    }
-    const devices = reportType === "repair-list" ? selected.filter(row => ["repairing", "defective"].includes(String(row.status || "")))
-      : reportType === "available-list" ? selected.filter(row => row.status === "in_stock") : [];
-    const deviceRows = devices.map(row => ({ productName: row.productName, serialNumber: row.serialNumber, sku: row.sku, status: row.status, createdAt: row.createdAt, warehouseName: row.warehouseName }));
-    return { success: true, data: { reportType, summary: summarize(selected), products: ["product-status-counts", "reconciliation"].includes(reportType) ? products : [], devices: deviceRows } };
-  }
-  const branchFromInput = () => input.targetBranch ?? input.branchId;
-  const dateInput = () => ({
-    ...(branchFromInput() === undefined ? {} : { targetBranch: branchFromInput() }),
-    ...(input.from === undefined ? (input.query_from === undefined ? {} : { query_from: input.query_from }) : { query_from: input.from }),
-    ...(input.to === undefined ? (input.query_to === undefined ? {} : { query_to: input.query_to }) : { query_to: input.to }),
-  });
-  if (op.id === "retail.report.margin-watch") {
-    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.report.summary")!;
-    const response = await callOperation(req, source, dateInput(), password, requestId);
-    const data = response?.data && typeof response.data === "object" ? response.data : {};
-    const products = Array.isArray(data.products) ? data.products : [];
-    const threshold = Math.max(0, Math.min(100, Number(input.marginThresholdPercent) || 10));
-    const belowCost = products.filter((row: any) => Number.isFinite(Number(row.profit)) && Number(row.profit) < 0)
-      .map((row: any) => ({ productName: row.productName, sku: row.sku, netSales: row.netSales, profit: row.profit }));
-    const lowMargin = products.filter((row: any) => Number.isFinite(Number(row.profit)) && Number(row.profit) >= 0
-      && Number(row.netSales) > 0 && Number(row.profit) / Number(row.netSales) * 100 < threshold)
-      .map((row: any) => ({ productName: row.productName, sku: row.sku, netSales: row.netSales, profit: row.profit, marginPercent: Number(row.profit) / Number(row.netSales) * 100 }));
-    const missingCost = products.filter((row: any) => !Number.isFinite(Number(row.profit))).map((row: any) => ({ productName: row.productName, sku: row.sku }));
-    return { success: true, data: { range: data.range, thresholdPercent: threshold, belowCost, lowMargin, missingCost } };
-  }
-  if (op.id === "retail.shift.variance-report") {
-    const shifts = await collectPages("retail.shift.list", {
-      ...(branchFromInput() === undefined ? {} : { targetBranch: branchFromInput() }),
-      ...(input.query_from === undefined ? {} : { query_from: input.query_from }),
-      ...(input.query_to === undefined ? {} : { query_to: input.query_to }),
-      query_status: "closed",
-    });
-    const matched = shifts.filter(row => ["closed", "reconciled"].includes(String(row.status || "").toLowerCase())
-      && Number.isFinite(Number(row.varianceAmount)) && Number(row.varianceAmount) !== 0)
-      .map(row => ({ shiftCode: row.shiftCode, cashierName: row.cashierName, businessDate: row.businessDate, expectedCash: row.expectedCash, countedCash: row.countedCash, varianceAmount: row.varianceAmount, varianceReason: row.varianceReason }))
-      .sort((left, right) => String(right.businessDate || "").localeCompare(String(left.businessDate || "")));
-    return { success: true, data: { from: input.query_from, to: input.query_to, shifts: matched } };
-  }
-  if (op.id === "retail.shift.latest-close-report") {
-    const shifts = await collectPages("retail.shift.list", { ...(branchFromInput() === undefined ? {} : { targetBranch: branchFromInput() }), query_status: "closed" });
-    const latest = shifts.filter(row => ["closed", "reconciled"].includes(String(row.status || "").toLowerCase()))
-      .sort((left, right) => String(right.businessDate || "").localeCompare(String(left.businessDate || ""))
-        || String(right.closedAt || right.openedAt || "").localeCompare(String(left.closedAt || left.openedAt || "")))[0];
-    if (!latest) return { success: true, data: { shift: null, cashExpenses: [], cashbookEntriesAvailable: true } };
-    const shiftId = String(latest._id || latest.id || latest.__assistantRef?.id || "");
-    let detail = latest;
-    const detailOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.path === "/retail/shifts/:id" && candidate.method === "GET");
-    if (shiftId && detailOperation) {
-      const detailPath = detailOperation.fields.find(field => field.source === "path");
-      if (detailPath) {
-        const detailResponse = await callOperation(req, detailOperation, { [detailPath.key]: shiftId }, password, requestId);
-        detail = detailResponse?.data?.shift || detailResponse?.data || latest;
-      }
-    }
-    const cashbook = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.finance.cashbook.list")!;
-    const cashResponse = await callOperation(req, cashbook, { ...dateInput(), query_from: String(latest.businessDate || ""), query_to: String(latest.businessDate || "") }, password, requestId);
-    const entries = Array.isArray(cashResponse?.data?.entries) ? cashResponse.data.entries : [];
-    return { success: true, data: {
-      shift: { shiftCode: detail.shiftCode, cashierName: detail.cashierName, status: detail.status, businessDate: detail.businessDate,
-        openingFloat: detail.openingFloat, grossSales: detail.grossSales, expectedCash: detail.expectedCash, countedCash: detail.countedCash, varianceAmount: detail.varianceAmount },
-      cashExpenses: entries.filter((entry: any) => entry.direction === "out" && entry.account === "cash").map((entry: any) => ({ businessDate: entry.businessDate, amount: entry.amount, description: entry.description })),
-      cashbookEntriesAvailable: true,
-    } };
-  }
-  if (op.id === "retail.after-sale.customer-return-summary") {
-    const rows = await collectPages("retail.after-sale.list", { ...dateInput(), query_type: "return" });
-    const returns = rows.filter(row => row.type === "return" && row.status === "completed");
-    const customers = new Set(returns.map(row => String(row.customerName || "").trim().toLocaleLowerCase("vi")).filter(Boolean));
-    return { success: true, data: { range: { from: input.from, to: input.to }, customerCount: customers.size, returnCount: returns.length,
-      refundTotal: returns.reduce((sum, row) => sum + Math.max(0, Number(row.totalAmount) || 0), 0) } };
-  }
-  if (op.id === "retail.after-sale.return-product-analysis") {
-    const rows = await collectPages("retail.after-sale.list", { ...dateInput(), query_type: "return" });
-    const returns = rows.filter(row => row.type === "return" && row.status === "completed");
-    const products = new Map<string, { productName: string; returnedQuantity: number; returnCount: number }>();
-    const reasons = new Map<string, number>();
-    for (const row of returns) {
-      const reason = String(row.reason || "").trim();
-      if (reason) reasons.set(reason, (reasons.get(reason) || 0) + 1);
-      const summary = String(row.itemsSummary || "");
-      for (const item of summary.split(/;\s*/).filter(Boolean)) {
-        const match = item.match(/^\s*(\d+(?:\.\d+)?)\s*[×x]\s*(.+?)(?:\s+\([^)]*\))?\s*$/u);
-        if (!match) continue;
-        const productName = match[2].trim();
-        const aggregate = products.get(productName) || { productName, returnedQuantity: 0, returnCount: 0 };
-        aggregate.returnedQuantity += Number(match[1]) || 0;
-        aggregate.returnCount += 1;
-        products.set(productName, aggregate);
-      }
-    }
-    const ranked = [...products.values()].sort((left, right) => right.returnedQuantity - left.returnedQuantity || left.productName.localeCompare(right.productName));
-    return { success: true, data: { range: { from: input.from, to: input.to }, products: ranked.slice(0, 10), reasons: [...reasons].map(([reason, count]) => ({ reason, count })).sort((left, right) => right.count - left.count), returnCount: returns.length } };
-  }
-  if (op.id === "retail.order.installment-balances") {
-    const rows = await collectPages("retail.order.list", { ...dateInput() });
-    const orders = rows.filter(row => row.status === "completed" && Number(row.dueAmount) > 0)
-      .map(row => ({ orderCode: row.orderCode, customerName: row.customerName, businessDate: row.businessDate, grandTotal: row.grandTotal, paidAmount: row.paidAmount, dueAmount: row.dueAmount }))
-      .sort((left, right) => Number(right.dueAmount) - Number(left.dueAmount));
-    return { success: true, data: { range: { from: input.query_from, to: input.query_to }, orders, installmentTypeTracked: false } };
-  }
-  if (op.id === "retail.order.debt-ranking") {
-    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "finance.debt.list")!;
-    const response = await callOperation(req, source, { ...(branchFromInput() === undefined ? {} : { targetBranch: branchFromInput() }) }, password, requestId);
-    const rows = rawRecords(response).filter(row => Number(row.balance) > 0 && (!row.partyKind || /customer|khach/i.test(String(row.partyKind)))
-      && (!row.direction || /receivable|phai thu/i.test(String(row.direction))));
-    const byCustomer = new Map<string, { customerName: string; balance: number }>();
-    for (const row of rows) {
-      const name = String(row.partyName || "Khách hàng chưa ghi tên");
-      const key = normalize(name);
-      const value = byCustomer.get(key) || { customerName: name, balance: 0 };
-      value.balance += Number(row.balance) || 0;
-      byCustomer.set(key, value);
-    }
-    const highestBalance = [...byCustomer.values()].sort((left, right) => right.balance - left.balance)[0] || null;
-    const overdueRows = rows.filter(row => Number(row.daysOverdue) > 0).sort((left, right) => Number(right.daysOverdue) - Number(left.daysOverdue));
-    const oldest = overdueRows[0];
-    return { success: true, data: { highestBalance, oldestOverdue: oldest ? { customerName: oldest.partyName, reference: oldest.reference, balance: oldest.balance, daysOverdue: oldest.daysOverdue } : null, overdueAgeAvailable: rows.some(row => Number.isFinite(Number(row.daysOverdue))) } };
-  }
-  if (op.id === "retail.report.employee-cancelled-cash-variance") {
-    const [orders, shifts] = await Promise.all([
-      collectPages("retail.order.list", dateInput()),
-      collectPages("retail.shift.list", dateInput()),
-    ]);
-    const cancelled = orders.filter(row => ["cancelled", "canceled"].includes(String(row.status || "").toLowerCase()));
-    const cancellationsByEmployee = new Map<string, { employeeName: string; cancelledOrders: number }>();
-    for (const order of cancelled) {
-      const employeeName = String(order.cancelledByName || order.cancelledByDisplayName || "").trim();
-      if (!employeeName) continue;
-      const key = normalize(employeeName);
-      const value = cancellationsByEmployee.get(key) || { employeeName, cancelledOrders: 0 };
-      value.cancelledOrders += 1;
-      cancellationsByEmployee.set(key, value);
-    }
-    const cancellationLeader = [...cancellationsByEmployee.values()]
-      .sort((left, right) => right.cancelledOrders - left.cancelledOrders || left.employeeName.localeCompare(right.employeeName))[0] || null;
-    const varianceByCashier = new Map<string, { cashierName: string; shiftCount: number; totalAbsoluteVariance: number; netVariance: number }>();
-    for (const shift of shifts) {
-      if (!["closed", "reconciled"].includes(String(shift.status || "").toLowerCase())) continue;
-      const variance = Number(shift.varianceAmount);
-      if (!Number.isFinite(variance) || variance === 0) continue;
-      const cashierName = String(shift.cashierName || "").trim();
-      if (!cashierName) continue;
-      const key = normalize(cashierName);
-      const value = varianceByCashier.get(key) || { cashierName, shiftCount: 0, totalAbsoluteVariance: 0, netVariance: 0 };
-      value.shiftCount += 1;
-      value.totalAbsoluteVariance += Math.abs(variance);
-      value.netVariance += variance;
-      varianceByCashier.set(key, value);
-    }
-    const varianceLeader = [...varianceByCashier.values()]
-      .sort((left, right) => right.totalAbsoluteVariance - left.totalAbsoluteVariance || left.cashierName.localeCompare(right.cashierName))[0] || null;
-    return { success: true, data: { range: { from: input.from || input.query_from, to: input.to || input.query_to }, cancellationLeader, varianceLeader,
-      unattributedCancelledOrders: cancelled.length - [...cancellationsByEmployee.values()].reduce((sum, row) => sum + row.cancelledOrders, 0) } };
-  }
-  if (["retail.customer.purchase-warranty-summary", "retail.customer.profile-summary"].includes(op.id)) {
-    const customerQuery = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "customer.list")!;
-    const queryValue = String(input.path_phone || input.query_q || input.query_search || "").trim();
-    const customerResponse = await callOperation(req, customerQuery, { query_q: queryValue, query_status: "active", query_page: 1, query_limit: 100 }, password, requestId);
-    const customers = rawRecords(customerResponse);
-    const customerName = (row: Record<string, any>) => String(row.name || row.fullName || row.customerName || row.displayName || "");
-    const branchHeader = req.headers?.["x-branch-id"] || req.headers?.["X-Branch-Id"];
-    const selectedBranch = String(input.targetBranch || input.branchId || req.user?.branchId || branchHeader || "");
-    const branchScopedCustomers = selectedBranch && customers.some(row => row.branchId)
-      ? customers.filter(row => String(row.branchId || "") === selectedBranch)
-      : customers;
-    const matched = branchScopedCustomers.filter(row => normalize(String(row.phone || row.normalizedPhone || "")) === normalize(queryValue)
-      || normalize(customerName(row)) === normalize(queryValue)
-      || (queryValue.replace(/\D/g, "").length >= 8 && String(row.phone || "").replace(/\D/g, "").endsWith(queryValue.replace(/\D/g, ""))));
-    if (matched.length !== 1) return { success: true, data: { found: false, matches: matched.slice(0, 5).map(row => ({ customerName: customerName(row), phone: row.phone })), ambiguous: matched.length > 1 } };
-    const customer = matched[0];
-    const result: Record<string, any> = { found: true, customerName: customerName(customer) };
-    if (op.id === "retail.customer.purchase-warranty-summary") {
-      const history = ASSISTANT_OPERATIONS.find(candidate => candidate.path === "/customers/:id/purchase-history" && candidate.method === "GET");
-      if (history) {
-        const pathField = history.fields.find(field => field.source === "path")!;
-        const purchase = await callOperation(req, history, { [pathField.key]: String(customer._id || customer.id) }, password, requestId);
-        const data = purchase?.data && typeof purchase.data === "object" ? purchase.data : {};
-        const summary = data.summary && typeof data.summary === "object" ? data.summary : {};
-        result.orderCount = Number(summary.orderCount) || 0;
-        result.totalPurchased = Number(summary.totalPurchased) || 0;
-        result.currentDebt = Number(summary.currentDebt) || 0;
-        result.orders = Array.isArray(data.items) ? data.items.filter((row: any) => !["cancelled", "canceled"].includes(String(row.status || "").toLowerCase()))
-          .map((row: any) => ({ orderCode: row.orderCode, status: row.status, businessDate: row.businessDate, grandTotal: row.grandTotal, itemCount: row.itemCount })) : [];
-        result.warrantyDevices = Array.isArray(data.devices) ? data.devices.map((row: any) => ({ productName: row.productName, orderCode: row.orderCode, soldAt: row.soldAt, warrantyStartAt: row.warrantyStartAt, warrantyEndAt: row.warrantyEndAt })) : [];
-      }
-      result.warrantyRequestsAvailable = false;
-      return { success: true, data: result };
-    }
-    const detailOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.path === "/customers/:id" && candidate.method === "GET");
-    const historyOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.path === "/customers/:id/purchase-history" && candidate.method === "GET");
-    const customerId = String(customer._id || customer.id || "");
-    const detailField = detailOperation?.fields.find(field => field.source === "path");
-    const historyField = historyOperation?.fields.find(field => field.source === "path");
-    const [detail, history] = await Promise.all([
-      detailOperation && detailField ? callOperation(req, detailOperation, { [detailField.key]: customerId }, password, requestId) : null,
-      historyOperation && historyField ? callOperation(req, historyOperation, { [historyField.key]: customerId }, password, requestId) : null,
-    ]);
-    const customerDetail = detail?.data || customer;
-    result.tier = customerDetail.tierName || customerDetail.tier?.name || customer.tier?.name || customer.tier?.code || "Chưa xếp hạng";
-    result.totalSpent = Number(history?.data?.summary?.totalPurchased ?? history?.data?.summary?.totalSpent ?? customer.tierTotalSales ?? 0);
-    result.unusedCoupons = [];
-    result.couponUsageStatusAvailable = false;
-    return { success: true, data: result };
-  }
-  if (op.id === "retail.partner.supplier-dealer-directory") {
-    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.partner.list")!;
-    const response = await callOperation(req, source, {}, password, requestId);
-    const partners = new Map<string, { name: string; phone?: string; role: string }>();
-    for (const row of rawRecords(response)) {
-      if (row.status && String(row.status).toLowerCase() !== "active") continue;
-      const roles = Array.isArray(row.roles) ? row.roles : [row.role || row.type];
-      const role = roles.map((value: unknown) => String(value).toLowerCase()).find((value: string) => ["supplier", "dealer"].includes(value));
-      if (!role || typeof row.name !== "string" || !row.name.trim()) continue;
-      const phone = typeof row.phone === "string" ? row.phone : undefined;
-      const key = `${role}:${normalize(row.name)}:${String(phone || "").replace(/\D/g, "")}`;
-      if (!partners.has(key)) partners.set(key, { name: row.name, ...(phone ? { phone } : {}), role });
-    }
-    return { success: true, data: { partners: [...partners.values()].map(({ role, ...partner }) => ({ ...partner, partnerType: role })) } };
-  }
-  if (op.id === "retail.finance.cashbook.expense-report") {
-    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.finance.cashbook.list")!;
-    const response = await callOperation(req, source, { ...dateInput() }, password, requestId);
-    const data = response?.data && typeof response.data === "object" ? response.data : {};
-    const expenses = (Array.isArray(data.entries) ? data.entries : []).filter((row: any) => row.direction === "out")
-      .map((row: any) => ({ businessDate: row.businessDate, amount: row.amount, description: row.description, account: row.account }));
-    return { success: true, data: { range: { from: input.from, to: input.to }, expenses, total: expenses.reduce((sum: number, row: any) => sum + Math.max(0, Number(row.amount) || 0), 0) } };
-  }
-  if (op.id === "retail.report.business-overview") {
-    const summaryOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.report.summary")!;
-    const orderOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.order.list")!;
-    const afterSaleOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.after-sale.list")!;
-    const commissionOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "api.get.78da159ec226e07e");
-    const summaryResponse = await callOperation(req, summaryOperation, dateInput(), password, requestId);
-    const range = { from: String(input.from || input.query_from || ""), to: String(input.to || input.query_to || "") };
-    const [orders, returns, commissionResponse] = await Promise.all([
-      collectPages(orderOperation.id, { ...dateInput() }),
-      collectPages(afterSaleOperation.id, { ...dateInput(), query_type: "return" }),
-      commissionOperation ? callOperation(req, commissionOperation, { ...range, ...(branchFromInput() === undefined ? {} : { targetBranch: branchFromInput() }), analysis: JSON.stringify({ aggregate: { operation: "sum", field: "commission" } }) }, password, requestId) : null,
-    ]);
-    const summary = summaryResponse?.data?.summary || {};
-    const commissionRows = rawRecords(commissionResponse);
-    const commissionTotal = commissionRows.reduce((sum, row) => sum + Math.max(0, Number(row.commission) || 0), 0);
-    const returnRows = returns.filter(row => row.type === "return" && row.status === "completed");
-    return { success: true, data: { range, grossSales: summary.grossSales, grossProfit: summary.grossProfit,
-      cancelledOrders: orders.filter(row => row.status === "cancelled" || row.status === "canceled").length,
-      returns: { count: returnRows.length, amount: returnRows.reduce((sum, row) => sum + Math.max(0, Number(row.totalAmount) || 0), 0) },
-      customerDebt: Number(summary.dueAmount ?? summary.debt?.totalDebt ?? 0), collaboratorCommission: commissionTotal } };
-  }
-  if (op.id === "retail.order.invoice-debt-exceptions") {
-    const orders = await collectPages("retail.order.list", { ...dateInput() });
-    const invoicesOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.invoice.list")!;
-    const invoices = await collectPages(invoicesOperation.id, { ...dateInput() });
-    const invoicedOrders = new Set(invoices.filter(row => row.status === "issued").map(row => String(row.orderCode || "")));
-    const exceptions = orders.filter(row => row.status === "completed" && (!invoicedOrders.has(String(row.orderCode || "")) || Number(row.dueAmount) > 0))
-      .map(row => ({ orderCode: row.orderCode, customerName: row.customerName, grandTotal: row.grandTotal, dueAmount: row.dueAmount, invoiceIssued: invoicedOrders.has(String(row.orderCode || "")), businessDate: row.businessDate }));
-    return { success: true, data: { orders: exceptions, total: exceptions.length } };
-  }
-  if (op.id === "retail.order.warranty-match") {
-    const orders = await collectPages("retail.order.list", { ...dateInput() });
-    const exactTotal = Number(input.exactTotal) || 0;
-    const matches = orders.filter(row => row.status === "completed" && Number(row.grandTotal) === exactTotal);
-    const warrantyOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.path === "/retail/warranty/orders" && candidate.method === "GET");
-    const warrantyItems = warrantyOperation ? rawRecords(await callOperation(req, warrantyOperation, { ...(branchFromInput() === undefined ? {} : { targetBranch: branchFromInput() }), status: "all", page: 1, limit: 100 }, password, requestId)) : [];
-    return { success: true, data: { range: { from: input.query_from, to: input.query_to }, exactTotal,
-      matches: matches.map(order => ({ orderCode: order.orderCode, customerName: order.customerName, businessDate: order.businessDate, grandTotal: order.grandTotal,
-        warrantyDevices: warrantyItems.filter((device: any) => device.orderCode === order.orderCode).map((device: any) => ({ productName: device.productName, warrantyEndAt: device.warrantyEndAt, status: device.status })) })) } };
-  }
-  if (op.id === "retail.after-sale.warranty-audit") {
-    const range = { from: String(input.from || ""), to: String(input.to || "") };
-    const orders = await collectPages("retail.order.list", { targetBranch: branchFromInput() as any, query_from: range.from, query_to: range.to });
-    const returns = await collectPages("retail.after-sale.list", { targetBranch: branchFromInput() as any, query_type: "return" });
-    const orderCodes = new Set(orders.map(row => String(row.orderCode || "")));
-    const matchingReturns = returns.filter(row => row.type === "return" && orderCodes.has(String(row.orderCode || "")));
-    const warrantyOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.path === "/retail/warranty/orders" && candidate.method === "GET");
-    const warrantyItems = warrantyOperation ? await collectPages(warrantyOperation.id, { ...(branchFromInput() === undefined ? {} : { targetBranch: branchFromInput() }), status: "all" }) : [];
-    const matchingDevices = warrantyItems.filter(row => orderCodes.has(String(row.orderCode || ""))).map(row => ({ orderCode: row.orderCode, productName: row.productName, warrantyEndAt: row.warrantyEndAt, status: row.status }));
-    return { success: true, data: { range, returns: matchingReturns.map(row => ({ code: row.code, orderCode: row.orderCode, customerName: row.customerName, totalAmount: row.totalAmount, reason: row.reason })), warrantyDevices: matchingDevices, warrantyRequestsAvailable: false } };
-  }
-  if (op.id === "retail.report.top-products-return-status") {
-    const summary = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.report.summary")!;
-    const summaryResponse = await callOperation(req, summary, dateInput(), password, requestId);
-    const data = summaryResponse?.data && typeof summaryResponse.data === "object" ? summaryResponse.data : {};
-    const products = (Array.isArray(data.products) ? data.products : []).map((row: any) => ({ productName: row.productName, netQuantity: row.netQuantity, netSales: row.netSales, profit: row.profit }))
-      .sort((left: any, right: any) => Number(right.netQuantity || 0) - Number(left.netQuantity || 0)).slice(0, 3);
-    const returns = await collectPages("retail.after-sale.list", { ...dateInput(), query_type: "return" });
-    const returnRows = returns.filter(row => row.status === "completed" && row.type === "return").map(row => ({ orderCode: row.orderCode, customerName: row.customerName, itemsSummary: row.itemsSummary, reason: row.reason, totalAmount: row.totalAmount }));
-    return { success: true, data: { range: data.range, products, returns: returnRows } };
-  }
-  if (op.id === "retail.warranty.status-counts") {
-    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.path === "/retail/warranty/orders" && candidate.method === "GET");
-    if (!source) throw new AssistantError("Thiếu danh sách thiết bị bán ra để thống kê bảo hành.", 503);
-    const countStatus = async (status: string) => {
-      let quantity = 0;
-      let pageTotal = 0;
-      for (let page = 1; page <= 100; page += 1) {
-        const response = await callOperation(req, source, {
-          ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
-          query_status: status,
-          query_page: page,
-          query_limit: 100,
-        }, password, requestId);
-        const rows = rawRecords(response);
-        quantity += rows.reduce((sum, row) => sum + Math.max(0, Number(row.quantity) || 0), 0);
-        const data = response?.data && typeof response.data === "object" ? response.data : {};
-        const total = Number(data.total ?? response?.total);
-        if (Number.isSafeInteger(total) && total >= 0) pageTotal = total;
-        if (rows.length < 100 || page * 100 >= pageTotal) return quantity;
-      }
-      throw new AssistantError("Có quá 10.000 dòng thiết bị bảo hành; chưa thể đếm đầy đủ.");
-    };
-    const [activeQuantity, expiringQuantity, expiredQuantity, unrecordedQuantity] = await Promise.all([
-      countStatus("active"), countStatus("expiring"), countStatus("expired"), countStatus("unrecorded"),
-    ]);
-    return { success: true, data: {
-      asOf: new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()),
-      activeQuantity, expiringQuantity, inWarrantyQuantity: activeQuantity + expiringQuantity, expiredQuantity, unrecordedQuantity,
-    } };
-  }
-  if (op.id === "retail.report.daily-extremes" || op.id === "retail.report.category-brand-summary") {
-    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.report.summary");
-    if (!source) throw new AssistantError("Thiếu báo cáo bán lẻ để tổng hợp.", 503);
-    const response = await callOperation(req, source, input, password, requestId);
-    const data = response?.data && typeof response.data === "object" ? response.data : {};
-    const timeSeries = Array.isArray(data.timeSeries) ? data.timeSeries.filter((row: any) => row && typeof row.businessDate === "string") : [];
-    if (op.id === "retail.report.daily-extremes") {
-      if (!timeSeries.length) throw new AssistantError("Báo cáo chưa trả chuỗi ngày đầy đủ để tìm ngày bán cao nhất và thấp nhất.", 502);
-      const byRevenueHigh = [...timeSeries].sort((left: any, right: any) => Number(right.netSales || 0) - Number(left.netSales || 0) || left.businessDate.localeCompare(right.businessDate));
-      const byRevenueLow = [...timeSeries].sort((left: any, right: any) => Number(left.netSales || 0) - Number(right.netSales || 0) || left.businessDate.localeCompare(right.businessDate));
-      const byFewestOrders = [...timeSeries].sort((left: any, right: any) => Number(left.orderCount || 0) - Number(right.orderCount || 0)
-        || Number(left.netSales || 0) - Number(right.netSales || 0) || left.businessDate.localeCompare(right.businessDate));
-      const projectDay = (row: any) => ({ businessDate: row.businessDate, netSales: Number(row.netSales || 0), orderCount: Number(row.orderCount || 0) });
-      return { success: true, data: { range: data.range, highestRevenueDay: projectDay(byRevenueHigh[0]), lowestRevenueDay: projectDay(byRevenueLow[0]), fewestOrdersDay: projectDay(byFewestOrders[0]) } };
-    }
-    const products = Array.isArray(data.products) ? data.products : [];
-    const summarize = (key: "category" | "brand") => {
-      const groups = new Map<string, { name: string; netSales: number; netQuantity: number; products: Set<string> }>();
-      for (const item of products) {
-        const name = typeof item?.[key] === "string" && item[key].trim() ? item[key].trim() : "Chưa phân loại";
-        const group = groups.get(name) || { name, netSales: 0, netQuantity: 0, products: new Set<string>() };
-        group.netSales += Number(item?.netSales || 0);
-        group.netQuantity += Number(item?.netQuantity || 0);
-        group.products.add(String(item?.productId || item?.sku || item?.productName || name));
-        groups.set(name, group);
-      }
-      return [...groups.values()].map(group => ({ name: group.name, netSales: group.netSales, netQuantity: group.netQuantity, productCount: group.products.size }))
-        .sort((left, right) => right.netSales - left.netSales || right.netQuantity - left.netQuantity || left.name.localeCompare(right.name))[0] || null;
-    };
-    return { success: true, data: { range: data.range, categoryLeader: summarize("category"), brandLeader: summarize("brand") } };
-  }
-  if (["retail.order.top-value", "retail.order.top-customers", "retail.order.top-customers.completed", "retail.order.discount-anomalies"].includes(op.id)) {
-    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.order.list");
-    if (!source) throw new AssistantError("Thiếu danh sách đơn bán lẻ để xếp hạng.", 503);
-    const pageSize = 100;
-    const rows: Record<string, any>[] = [];
-    let total: number | undefined;
-    for (let page = 1; page <= 100; page += 1) {
-      const response = await callOperation(req, source, {
-        ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
-        ...(input.query_from === undefined ? {} : { query_from: input.query_from }),
-        ...(input.query_to === undefined ? {} : { query_to: input.query_to }),
-        ...(op.id === "retail.order.top-customers.completed" ? { query_status: "completed" } : {}),
-        query_page: page,
-        query_limit: pageSize,
-      }, password, requestId);
-      const batch = rawRecords(response);
-      rows.push(...batch);
-      const data = response?.data && typeof response.data === "object" ? response.data : {};
-      const parsedTotal = Number(data.total ?? response?.total);
-      if (Number.isSafeInteger(parsedTotal) && parsedTotal >= 0) total = parsedTotal;
-      if (batch.length < pageSize || (total !== undefined && rows.length >= total)) break;
-      if (page === 100) throw new AssistantError("Có quá 10.000 đơn bán trong kỳ; hãy thu hẹp khoảng thời gian để xếp hạng đầy đủ.");
-    }
-    const sales = rows.filter(row => !["cancelled", "canceled", "draft", "held"].includes(String(row.status || "").toLowerCase())
-      && (op.id !== "retail.order.top-customers.completed" || String(row.status || "").toLowerCase() === "completed"));
-    if (op.id === "retail.order.discount-anomalies") {
-      const thresholdPercent = Math.min(100, Math.max(1, Number(input.thresholdPercent) || 20));
-      const orders = sales.flatMap(order => {
-        const subtotal = Number(order.subtotal || 0);
-        if (subtotal <= 0) return [];
-        const itemDiscount = Array.isArray(order.items) ? order.items.reduce((sum: number, item: any) => sum + Number(item?.discountAmount || 0), 0) : 0;
-        const discountAmount = Number(order.orderDiscount || 0) + itemDiscount;
-        const discountPercent = discountAmount / subtotal * 100;
-        return discountPercent >= thresholdPercent ? [{
-          orderCode: String(order.orderCode || ""), customerName: String(order.customerName || ""), businessDate: String(order.businessDate || ""),
-          grandTotal: Number(order.grandTotal || 0), discountAmount, discountPercent,
-        }] : [];
-      }).sort((left, right) => right.discountPercent - left.discountPercent || right.discountAmount - left.discountAmount || left.orderCode.localeCompare(right.orderCode));
-      return { success: true, data: { range: { from: String(input.query_from || ""), to: String(input.query_to || "") }, thresholdPercent, orders, total: orders.length } };
-    }
-    if (op.id === "retail.order.top-value") {
-      const highest = sales.sort((left, right) => Number(right.grandTotal || 0) - Number(left.grandTotal || 0)
-        || String(left.businessDate || "").localeCompare(String(right.businessDate || ""))
-        || String(left.orderCode || "").localeCompare(String(right.orderCode || "")))[0];
-      return { success: true, data: highest ? {
-        orderCode: highest.orderCode, customerName: highest.customerName, grandTotal: Number(highest.grandTotal || 0),
-        businessDate: highest.businessDate, status: highest.status, paymentStatus: highest.paymentStatus,
-      } : {} };
-    }
-    const customers = new Map<string, { customerName: string; totalSpent: number; orderCount: number }>();
-    for (const order of sales) {
-      const customerName = typeof order.customerName === "string" ? order.customerName.trim() : "";
-      if (!customerName) continue;
-      const key = normalize(customerName);
-      const customer = customers.get(key) || { customerName, totalSpent: 0, orderCount: 0 };
-      customer.totalSpent += Math.max(0, Number(order.grandTotal || 0) - Number(order.refundedAmount || 0));
-      customer.orderCount += 1;
-      customers.set(key, customer);
-    }
-    const limit = Math.min(50, Math.max(1, Number(input.topN) || 10));
-    const ranked = [...customers.values()].sort((left, right) => right.totalSpent - left.totalSpent || left.customerName.localeCompare(right.customerName)).slice(0, limit);
-    return { success: true, data: { customers: ranked, total: ranked.length } };
-  }
-  if (op.id === "retail.report.top-products") {
-    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.report.summary");
-    if (!source) throw new AssistantError("Thiếu báo cáo bán lẻ để xếp hạng mặt hàng.", 503);
-    const response = await callOperation(req, source, input, password, requestId);
-    const data = response?.data && typeof response.data === "object" ? response.data : {};
-    const products = Array.isArray(data.products) ? data.products.filter((row: any) => row && typeof row === "object"
-      && typeof row.productName === "string" && typeof row.netQuantity === "number" && Number.isFinite(row.netQuantity)) : [];
-    const limit = Math.min(50, Math.max(1, Number(input.topN) || 10));
-    products.sort((left: any, right: any) => right.netQuantity - left.netQuantity
-      || Number(right.netSales || 0) - Number(left.netSales || 0)
-      || String(left.sku || left.productName).localeCompare(String(right.sku || right.productName)));
-    return { ...response, data: { ...data, products: products.slice(0, limit) } };
-  }
-  if (op.id === "inventory.serial.stock-ranking") {
-    const serials = await collectPages("inventory.serial.list", {
-      ...(branchFromInput() === undefined ? {} : { targetBranch: branchFromInput() }),
-      query_status: "in_stock",
-      query_trackingMode: "serial",
-    });
-    const byProduct = new Map<string, { productName: string; imeiCount: number }>();
-    for (const serial of serials) {
-      if (serial.status !== "in_stock") continue;
-      const productName = typeof serial.productName === "string" ? serial.productName.trim() : "";
-      if (!productName) continue;
-      const productId = String(serial.productId || "").trim();
-      const key = productId || productName.toLocaleLowerCase("vi");
-      const current = byProduct.get(key) || { productName, imeiCount: 0 };
-      current.imeiCount += 1;
-      byProduct.set(key, current);
-    }
-    const ranked = [...byProduct.values()].sort((left, right) => right.imeiCount - left.imeiCount
-      || left.productName.localeCompare(right.productName, "vi"));
-    const highestCount = ranked[0]?.imeiCount || 0;
-    return { success: true, data: { products: ranked.filter(product => product.imeiCount === highestCount && highestCount > 0) } };
-  }
-  if (op.id === "retail.report.compare") {
-    const summaryOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.report.summary");
-    if (!summaryOperation) throw new AssistantError("Thiếu thao tác nguồn để so sánh báo cáo bán lẻ.", 503);
-    const readPeriod = async (from: unknown, to: unknown) => {
-      const response = await callOperation(req, summaryOperation, {
-        ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
-        from: String(from || ""),
-        to: String(to || ""),
-      }, password, requestId);
-      const data = response?.data;
-      const summary = data?.summary;
-      if (!summary || typeof summary !== "object"
-        || typeof summary.grossSales !== "number" || !Number.isFinite(summary.grossSales)
-        || typeof summary.netSales !== "number" || !Number.isFinite(summary.netSales)
-        || typeof summary.orderCount !== "number" || !Number.isFinite(summary.orderCount)) {
-        throw new AssistantError("Báo cáo bán lẻ chưa trả đủ doanh thu và số đơn cho hai kỳ; chưa thể so sánh.", 502);
-      }
-      const row: Record<string, unknown> = {
-        from: String(data.range?.from || from || ""),
-        to: String(data.range?.to || to || ""),
-        grossSales: summary.grossSales,
-        netSales: summary.netSales,
-        orderCount: summary.orderCount,
-      };
-      for (const key of ["grossProfit", "grossMarginPercent"] as const) {
-        if (typeof summary[key] === "number" && Number.isFinite(summary[key])) row[key] = summary[key];
-      }
-      return row;
-    };
-    const current = await readPeriod(input.currentFrom, input.currentTo);
-    const previous = await readPeriod(input.previousFrom, input.previousTo);
-    return { status: "success", data: { current, previous } };
-  }
   if (op.id === "student.batch.attendance.summary") {
     const detail = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "student.batch.detail")!;
     const response = await callOperation(req, detail, { path_id: input.path_id }, password, requestId);
     const date = String(input.date || new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()));
     const { studentAttendanceSummary } = await import("./student-attendance-report");
-    const batch = response.data?.batch || response.data;
-    const summary = studentAttendanceSummary(batch, date);
-    const absentStudentIds = new Set<string>((batch.attendanceSessions || [])
-      .filter((session: any) => session.date === date)
-      .flatMap((session: any) => (session.records || [])
-        .filter((record: any) => record.status === "absent")
-        .map((record: any) => String(record.studentId))));
-    if (absentStudentIds.size) {
-      const students = await lookupRecords(req, "student.list");
-      const absentStudents = [...new Set(students
-        .filter(student => absentStudentIds.has(String(student.id || student._id || "")))
-        .map(student => String(student.fullName || "").trim())
-        .filter(Boolean))];
-      if (absentStudents.length) return { data: { ...summary, absentStudents: absentStudents.join(", ") } };
-    }
-    return { data: summary };
+    return { data: studentAttendanceSummary(response.data, date) };
   }
   if (op.id === "hr.training.progress") {
     const response = await callOperation(req, ASSISTANT_OPERATIONS.find(candidate => candidate.id === "hr.training.incomplete.list")!, input, password, requestId);
@@ -1624,9 +582,8 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
   const queryBranchField = op.fields.find(field => field.source === "query" && field.apiKey === "branchId");
   const branchField = branchScopedOperation ? queryBranchField : undefined;
   const requestedBranch = queryBranchField && input[queryBranchField.key] !== undefined ? String(input[queryBranchField.key]) : "";
-  let effectiveBranchId = req.user?.branchId || (op.module === "inventory" && typeof branchHeader === "string" ? branchHeader : "");
+  let effectiveBranchId = req.user?.branchId || "";
   if (branchScopedOperation) {
-    if (req.user?.role === "admin" && requestedBranch) effectiveBranchId = requestedBranch;
     if (requestedBranch && effectiveBranchId && requestedBranch !== effectiveBranchId) throw new AssistantError("Tài khoản này chỉ được thao tác trong chi nhánh đã được gán.");
     if (req.user?.role === "admin") effectiveBranchId = requestedBranch || effectiveBranchId;
     if (!effectiveBranchId && requiresBranchChoice(op)) {
@@ -1688,8 +645,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     });
   } else if (route.includes(":")) {
     route = route.replace(/:([A-Za-z0-9_]+)/g, (_match, key: string) => {
-      const pathField = op.fields.find(field => field.source === "path" && field.apiKey === key);
-      const value = String((pathField ? input[pathField.key] : input[key]) || "");
+      const value = String(input[key] || "");
       const identifier = /^(?:id|.*Id)$/.test(key);
       if (identifier ? !/^[a-f\d]{24}$/i.test(value) : !/^[A-Za-z0-9_-]{1,120}$/.test(value)) {
         throw new AssistantError(identifier ? "Chưa xác định được bản ghi cần thao tác." : "Tham số workflow không hợp lệ.");
@@ -1706,19 +662,17 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     url.searchParams.set("revision", String(revision));
   }
   const strictPayrollRunList = op.id === "payroll.run.list";
-  const studentBranchHeaderOperation = [
-    "batch.list",
-    "batch.capacity.report",
-    "student.learning-roadmap.waitlist.list",
-    "student.learning-roadmap.waitlist.count",
-  ].includes(op.id);
   // These schemas reject otherwise implicit query scope; auth claims and x-branch-id remain authoritative.
-  const rejectsImplicitScopeQuery = op.path === "/student-quality"
-    || op.path === "/learning-roadmaps/waitlist"
-    || op.path === "/learning-roadmaps/batches/:batchId/progression";
+  const rejectsImplicitScopeQuery = op.path === "/student-quality" || op.path === "/learning-roadmaps/waitlist"
+    || op.path === "/learning-roadmaps/batches/:batchId/progression" || op.path === "/learning-roadmaps/:id/steps";
   for (const field of op.fields) if (field.source === "query" && input[field.key] !== undefined && !op.assistantOnlyFields?.includes(field.key)) {
-    if ((strictPayrollRunList || studentBranchHeaderOperation) && field.apiKey === "branchId") continue;
+    if (strictPayrollRunList && field.apiKey === "branchId") continue;
     url.searchParams.set(field.apiKey!, String(input[field.key]));
+  }
+  for(const [key,value] of Object.entries(op.fixedQueryValues||{})){
+    if(op.method!=='GET'&&!op.readOnly)throw new AssistantError('Điều kiện nguồn đọc không hợp lệ.');
+    if(url.searchParams.has(key)&&url.searchParams.get(key)!==value)throw new AssistantError('Điều kiện truy vấn mâu thuẫn với phạm vi nguồn đọc.');
+    url.searchParams.set(key,value);
   }
   if (op.contextQuery?.includes("terminalId") && typeof req.headers["x-device-id"] === "string") url.searchParams.set("terminalId", req.headers["x-device-id"]);
   const companyWideWorkflowOperation = op.path === "/crud/workflows" || op.path.startsWith("/crud/workflows/");
@@ -1744,9 +698,8 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
   }
   if (input.search && op.id === "customer.list") url.searchParams.set("q", String(input.search));
   const headers: Record<string, string> = { "Content-Type": "application/json", Authorization: req.headers.authorization || "" };
-  const branchId = branchScopedOperation
-    ? effectiveBranchId
-    : req.user?.branchId || (studentBranchHeaderOperation ? String(input.targetBranch || "") : typeof input.branchId === "string" ? input.branchId : "");
+  if(op.method==='GET'||op.readOnly)headers['x-assistant-read-only']='true';
+  const branchId = branchScopedOperation ? effectiveBranchId : req.user?.branchId || (typeof input.branchId === "string" ? input.branchId : "");
   if (branchId) headers["x-branch-id"] = branchId;
   if (["employee.count", "employee.list", "employee.birthday.next-month"].includes(op.id)) {
     const target = op.fields.find(field => field.source === "query" && field.apiKey === "branchId");
@@ -1824,6 +777,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     body.aiAutoReplyConfig = config;
   }
   if (op.adapter === "contract" && op.fixedBodyValues) Object.assign(body, op.fixedBodyValues);
+  if(op.id==='inventory.stock-log.internal.create')body.operatorName=String(req.user?.displayName||req.user?.email||req.user?.id||'');
   // The project API requires this key but explicitly accepts an empty value.
   if (op.id === "architect.project.create" && body.requirements === undefined) body.requirements = "";
   if (op.id === "hr.calendar.event.create") {
@@ -2021,6 +975,10 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
   }
   for (const key of op.systemBodyFields || []) {
     const value = input[key];
+    if(key===op.confirmationRead?.tokenField){
+      if(typeof value!=='string'||!value)throw new AssistantError('Cần xem trước và xác nhận danh sách trước khi thực hiện.',409);
+      body[key]=value;
+    }
     if (op.adapter === "contract" && key === "expectedRevision") {
       const expectedRevision = Number(value);
       if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0) throw new AssistantError("Không đọc được phiên bản hiện tại của Order; chưa thể ghi thay đổi an toàn.");
@@ -2241,41 +1199,29 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
   }
   let response: globalThis.Response;
   try {
-    response = await fetch(url, { method: op.method, headers, redirect: "error", signal: AbortSignal.timeout(45_000), ...(op.method === "GET" || (op.method === "DELETE" && !op.fields.some(f => f.source === "body")) ? {} : { body: JSON.stringify(body) }) });
-  } catch {
+    response = await businessCallFetch(req, op, input, url, { method: op.method, headers, redirect: "error", ...(op.method === "GET" || (op.method === "DELETE" && !op.fields.some(f => f.source === "body")) ? {} : { body: JSON.stringify(body) }) });
+  } catch (error) {
+    if (error instanceof AssistantError) throw error;
     if (op.method !== "GET" && !op.readOnly) throw new UncertainExecutionError("Chưa xác định được thao tác đã hoàn tất hay chưa. Hãy kiểm tra dữ liệu trước khi tạo yêu cầu mới; hệ thống sẽ không tự chạy lại.");
     throw new AssistantError("Không thể kết nối API nghiệp vụ. Vui lòng thử lại.", 503);
   }
-  if (op.assistantFileFormat && response.ok) {
-    const contentType = (response.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
-    const fileTypes = {
-      pdf: { mimeType: "application/pdf", extension: ".pdf", fallback: "hoa-don-ban-le.pdf" },
-      xlsx: { mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", extension: ".xlsx", fallback: "bao-cao-ban-le.xlsx" },
-    } as const;
-    const fileType = fileTypes[op.assistantFileFormat];
-    if (contentType !== fileType.mimeType) throw new AssistantError(`API xuất tệp không trả đúng định dạng ${op.assistantFileFormat.toUpperCase()}.`, 502);
-    const bytes = Buffer.from(await response.arrayBuffer());
-    if (!bytes.length || bytes.length > 20 * 1024 * 1024) throw new AssistantError("Tệp xuất rỗng hoặc vượt quá 20 MB. Hãy thu hẹp khoảng ngày.", 422);
-    const header = response.headers.get("content-disposition") || "";
-    const matched = header.match(/filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i);
-    let fileName = matched?.[1] || matched?.[2] || fileType.fallback;
-    try { fileName = decodeURIComponent(fileName); } catch { /* Keep the plain filename. */ }
-    fileName = fileName.replace(/[\\/\r\n]/g, "_").replace(/[a-f\d]{24}/gi, "hoa-don").slice(0, 200);
-    if (!fileName.toLowerCase().endsWith(fileType.extension)) fileName += fileType.extension;
-    return { success: true, data: { fileName, format: op.assistantFileFormat }, __assistantFile: {
-      bytes, format: op.assistantFileFormat, fileName, mimeType: fileType.mimeType,
-    } };
-  }
   const result = await response.json().catch(() => null) as any;
-  if (response.ok && result?.success !== false && result?.status !== "error"
-    && op.path === "/retail/finance/commission/balances" && op.analysis) {
-    const rows = Array.isArray(result?.data) ? result.data : [];
-    const data = rows.flatMap((row: any) => typeof row?.partnerName === "string" && typeof row?.partnerCode === "string"
-      && typeof row?.balance === "number" && Number.isFinite(row.balance)
-      ? [{ partnerName: row.partnerName, partnerCode: row.partnerCode, balance: row.balance }]
-      : []);
-    if (data.length !== rows.length) throw new AssistantError("Số dư hoa hồng thiếu tên, mã hoặc số tiền hợp lệ để tổng hợp.", 502);
-    return { data, analysisComplete: true };
+  if (response.ok && result?.success !== false && op.id === 'partner.payouts.analysis') {
+    if (result.analysisComplete !== true || !Array.isArray(result.data)) throw new AssistantError('Chưa đọc được lịch sử chi trả đầy đủ.',502);
+    const data=result.data.map((row:any)=>Object.fromEntries(Object.entries(op.analysis!.fields).map(([key,definition])=>{
+      const value=row?.[key];
+      if (definition.type==='number' ? typeof value!=='number'||!Number.isFinite(value) : typeof value!=='string') throw new AssistantError('Dữ liệu chi trả chưa hợp lệ để phân tích.',502);
+      return [key,value];
+    })));
+    return {data,analysisComplete:true};
+  }
+  if (response.ok && result?.success !== false && op.id === 'partner.referrals') {
+    const partner = result?.data;
+    if (!partner || typeof partner.name !== 'string' || !Array.isArray(partner.referredStudents) || typeof partner.totalReferredTuition !== 'number') throw new AssistantError('Chưa lấy đủ danh sách học viên giới thiệu của đối tác.', 502);
+    return {data:partner.referredStudents.map((student:any) => ({partnerName:partner.name,fullName:student.fullName,registrationDate:student.registrationDate,fee:student.fee,totalReferredTuition:partner.totalReferredTuition}))};
+  }
+  if (response.ok && result?.success !== false && op.method==='GET' && op.path==='/partners/:id' && result?.data) {
+    result.data.bankAccountStatus=String(result.data.bankAccountNo || '').trim()?'Đã cập nhật':'Chưa cập nhật';
   }
   if (response.ok && result?.success !== false && result?.status !== "error" && op.analysis
     && ["partner.analysis", "api.get.78da159ec226e07e"].includes(op.id)) {
@@ -2283,12 +1229,10 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     if (!Array.isArray(rows)) throw new AssistantError("Không đọc được danh sách đối tác đầy đủ.", 502);
     const data = rows.map((row: any) => Object.fromEntries(Object.entries(op.analysis!.fields).map(([key, definition]) => {
       let value = row?.[key];
-      if (op.id === "partner.analysis" && definition.type === "text" && key !== "name" && value == null) value = "";
-      if (op.id === "partner.analysis" && key === "isActive") value = row?.isActive === true ? "active" : "inactive";
-      if (op.id === "partner.analysis" && key === "hasBankAccount") value = (row?.hasBankAccount ?? Boolean(String(row?.bankAccountNo || "").trim())) ? "has" : "missing";
-      if (op.id === "partner.analysis" && key === "bankAccountNo") {
-        const digits = String(row?.bankAccountNo || "").replace(/\D/g, "");
-        value = digits ? `•••• ${digits.slice(-4)}` : "";
+      if (op.id === 'partner.analysis') {
+        if (key === 'isActive') value = row.isActive === false ? 'inactive' : row.isActive === true ? 'active' : '';
+        if (key === 'bankConfigured') value = String(row.bankAccountNo || '').trim() ? 1 : 0;
+        if (definition.type === 'text' && value == null) value = '';
       }
       if (definition.type === "number" && (typeof value !== "number" || !Number.isFinite(value))) throw new AssistantError(`Thiếu dữ liệu ${definition.label.toLowerCase()} để phân tích.`, 502);
       if (definition.type === "text" && typeof value !== "string") throw new AssistantError(`Thiếu dữ liệu ${definition.label.toLowerCase()} để phân tích.`, 502);
@@ -2297,84 +1241,6 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     return op.id === "partner.analysis"
       ? { data, analysisPage: { total: result.total, page: result.page, keys: rows.map((row: any) => String(row._id || "")) } }
       : { data, analysisComplete: true };
-  }
-  if (response.ok && result?.success !== false && result?.status !== "error" && op.id === "batch.capacity.report" && op.analysis) {
-    const batches = Array.isArray(result?.batches) ? result.batches : [];
-    const total = Number(result?.total);
-    const page = Number(result?.page);
-    if (!Number.isSafeInteger(total) || total < 0 || !Number.isSafeInteger(page) || page < 1) {
-      throw new AssistantError("Không đọc được tổng số lớp để kiểm tra sĩ số đầy đủ.", 502);
-    }
-    const data = batches.map((batch: any) => {
-      const remainingSlots = typeof batch.remainingSlots === "number" && Number.isFinite(batch.remainingSlots) ? batch.remainingSlots : null;
-      return {
-        code: String(batch.code || ""),
-        name: String(batch.name || ""),
-        courseCode: String(batch.courseCode || ""),
-        courseTitle: String(batch.courseTitle || ""),
-        instructorName: String(batch.instructorName || ""),
-        enrolledCount: Number(batch.enrolledCount) || 0,
-        maxLearners: Number(batch.maxLearners) || 0,
-        remainingSlots,
-        capacityStatus: remainingSlots === null || remainingSlots > 0 ? "available" : "full",
-        status: String(batch.status || ""),
-      };
-    });
-    const keys = batches.map((batch: any) => String(batch._id || batch.id || ""));
-    if (keys.some((key: string) => !key)) throw new AssistantError("Thiếu khóa đối chiếu phân trang lớp học; chưa lọc dữ liệu.", 502);
-    return { data, analysisPage: { total, page, keys } };
-  }
-  if (response.ok && result?.success !== false && result?.status !== "error" && op.id === "inventory.transfer.list" && op.analysis && input.analysis) {
-    const source = result?.data && typeof result.data === "object" ? result.data : {};
-    const items = Array.isArray(source.items) ? source.items : [];
-    const total = Number(source.total), page = Number(source.page);
-    if (!Number.isSafeInteger(total) || total < 0 || !Number.isSafeInteger(page) || page < 1) {
-      throw new AssistantError("Không đọc được tổng số phiếu điều chuyển để thống kê đầy đủ.", 502);
-    }
-    const data = items.map((item: any) => {
-      if (!item || typeof item.status !== "string" || !["in_transit", "received", "cancelled", "reversed"].includes(item.status)) {
-        throw new AssistantError("Phiếu điều chuyển thiếu trạng thái hợp lệ để thống kê.", 502);
-      }
-      return { code: typeof item.transferCode === "string" ? item.transferCode : String(item.code || ""), status: item.status };
-    });
-    const keys = items.map((item: any) => String(item?._id || item?.id || ""));
-    if (keys.some((key: string) => !key)) throw new AssistantError("Thiếu mã đối chiếu phân trang phiếu điều chuyển; chưa tính kết quả.", 502);
-    return { data, analysisPage: { total, page, keys } };
-  }
-  if (response.ok && result?.success !== false && result?.status !== "error"
-    && op.id === "retail.order.completed-unpaid.report" && op.analysis) {
-    const source = result?.data && typeof result.data === "object" ? result.data : {};
-    const items = Array.isArray(source.items) ? source.items : [];
-    const total = Number(source.total);
-    const page = Number(source.page);
-    if (!Number.isSafeInteger(total) || total < 0 || !Number.isSafeInteger(page) || page < 1) {
-      throw new AssistantError("Không đọc được tổng số đơn bán lẻ để kiểm tra công nợ đầy đủ.", 502);
-    }
-    const data = items.map((item: any) => {
-      if (!item || typeof item.orderCode !== "string" || !item.orderCode.trim()
-        || typeof item.status !== "string" || typeof item.paymentStatus !== "string"
-        || ![item.grandTotal, item.paidAmount, item.dueAmount].every(value => typeof value === "number" && Number.isFinite(value))) {
-        throw new AssistantError("Thiếu trạng thái hoặc số tiền của đơn bán lẻ; chưa thể lọc đơn còn nợ.", 502);
-      }
-      return {
-        orderCode: item.orderCode,
-        customerName: typeof item.customerName === "string" ? item.customerName : "",
-        status: item.status,
-        paymentStatus: item.paymentStatus,
-        grandTotal: item.grandTotal,
-        paidAmount: item.paidAmount,
-        dueAmount: item.dueAmount,
-        businessDate: typeof item.businessDate === "string" ? item.businessDate : "",
-      };
-    });
-    const keys = items.map((item: any) => String(item?._id || item?.id || ""));
-    if (keys.some((key: string) => !key)) throw new AssistantError("Thiếu khóa đối chiếu phân trang đơn bán lẻ; chưa lọc dữ liệu.", 502);
-    return { data, analysisPage: { total, page, keys } };
-  }
-  if (response.ok && result?.success !== false && result?.status !== "error" && op.id === "student.learning-roadmap.waitlist.count" && op.analysis) {
-    const total = Number(result?.total);
-    if (!Number.isSafeInteger(total) || total < 0) throw new AssistantError("Không đọc được tổng số học viên trong danh sách chờ lớp.", 502);
-    return { data: [{ waitingCount: total }], analysisComplete: true };
   }
   if (response.ok && result?.success !== false && result?.status !== "error" && op.analysis && op.path === "/worker-management/partners/kpi") {
     const source = result?.data;
@@ -2391,23 +1257,6 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     // This endpoint returns the complete scoped partner population, without pagination.
     return { data: rows, analysisComplete: true, periodStart: source.periodStart, periodEnd: source.periodEnd };
   }
-  if (response.ok && result?.success !== false && result?.status !== "error" && op.id === "worker.partner.settlements.list") {
-    if (!Array.isArray(result?.data)) throw new AssistantError("Không đọc được đầy đủ các kỳ đối soát hoa hồng.", 502);
-    const rows = result.data.map((row: any) => {
-      const partner = row?.partnerId && typeof row.partnerId === "object" ? row.partnerId : {};
-      return {
-        partnerName: typeof partner.name === "string" ? partner.name : "",
-        partnerCode: typeof partner.code === "string" ? partner.code : "",
-        periodStart: typeof row.periodStart === "string" ? row.periodStart : "",
-        periodEnd: typeof row.periodEnd === "string" ? row.periodEnd : "",
-        status: typeof row.status === "string" ? row.status : "",
-        totalAmount: typeof row.totalAmount === "number" && Number.isFinite(row.totalAmount) ? row.totalAmount : null,
-        paidAmount: typeof row.paidAmount === "number" && Number.isFinite(row.paidAmount) ? row.paidAmount : null,
-        balanceAmount: typeof row.balanceAmount === "number" && Number.isFinite(row.balanceAmount) ? row.balanceAmount : null,
-      };
-    });
-    return { data: rows, analysisComplete: true };
-  }
   if (response.ok && result?.success !== false && op.id === "student.resource.bookings.list") {
     const resource = result?.data && typeof result.data === "object" ? result.data : {};
     const bookings = Array.isArray(resource.bookings) ? resource.bookings : [];
@@ -2419,10 +1268,15 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
   }
   if (response.ok && result?.success !== false && op.id === "student.learning-roadmap.progression.list") {
     const progression = result?.data && typeof result.data === "object" ? result.data : {};
-    const rows = Array.isArray(progression.rows) ? progression.rows : [];
+    if(progression.selectedRoadmapId===''){
+      if(!input.query_roadmapId)throw new AssistantReadInputRequired(['query_roadmapId'],'Bạn chọn lộ trình để mình kiểm tra điều kiện lên lớp nhé.');
+      throw new AssistantError('Chưa có thông tin đánh giá theo lộ trình đã chọn. Mình chưa kết luận học viên nào đủ điều kiện.');
+    }
+    if(!Array.isArray(progression.rows))throw new AssistantError('Nguồn đánh giá lên lớp chưa trả đúng danh sách học viên. Mình chưa kết luận kết quả.');
+    const rows = progression.rows;
     return { status: "success", data: rows.flatMap((row: any) => {
       const id = String(row?.studentId || "");
-      if (!/^[a-f\d]{24}$/i.test(id) || typeof row?.studentName !== "string") return [];
+      if (!/^[a-f\d]{24}$/i.test(id) || typeof row?.studentName !== "string"||typeof row.eligible!=='boolean') throw new AssistantError('Dữ liệu đánh giá học viên chưa đầy đủ. Mình chưa kết luận kết quả.');
       return [{
         id,
         studentName: row.studentName,
@@ -2505,7 +1359,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
       return safe;
     }) };
   }
-  if (op.id === "student.email.send" && (!response.ok || !result || result.success === false || result.status === "error")) {
+  if (["student.email.send","student.tuition.reminder.send"].includes(op.id) && (!response.ok || !result || result.success === false || result.status === "error")) {
     if (response.status >= 500 || !result) throw new UncertainExecutionError("Chưa xác định được email đã gửi hay chưa. Hãy kiểm tra trước khi gửi yêu cầu mới; hệ thống không tự gửi lại.");
     throw new AssistantError("Không gửi được email. Hãy kiểm tra địa chỉ nhận và cấu hình gửi thư của công ty.", response.status >= 400 && response.status < 500 ? response.status : 502);
   }
@@ -4214,8 +3068,18 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
       checkOut: log?.checkOut,
     } };
   }
-  if (op.id === "timekeeping.records.list" && Array.isArray(result?.data)) {
-    return { ...result, data: result.data.map((record: any) => ({
+  if (["timekeeping.records.list", "timekeeping.records.overview", "timekeeping.records.late", "timekeeping.records.absent", "timekeeping.records.unrecorded", "timekeeping.records.leave"].includes(op.id) && Array.isArray(result?.data)) {
+    // Apply the source's intrinsic condition before both analytics and rendering.
+    // Previously only the prose formatter filtered these specialized aliases.
+    const matches=(record:any)=>{
+      const status=normalize(String(record?.attendanceStatus||''));
+      if(op.id==='timekeeping.records.late')return status.includes('di muon');
+      if(op.id==='timekeeping.records.absent')return status==='vang';
+      if(op.id==='timekeeping.records.unrecorded')return status.startsWith('chua ghi nhan');
+      if(op.id==='timekeeping.records.leave')return status==='nghi phep';
+      return true;
+    };
+    return { ...result, data: result.data.filter(matches).map((record: any) => ({
       date: record?.date,
       employeeName: record?.employeeName,
       attendanceStatus: record?.attendanceStatus,
@@ -4399,162 +3263,14 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
   }
   return normalizeBusinessResult(op.module, op.id, result);
 }
-function projectApprovedReportValue(value: unknown, schema: AssistantResultFieldTree): unknown {
-  if (Array.isArray(schema)) {
-    const projectRecord = (candidate: unknown) => {
-      if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return undefined;
-      const source = candidate as Record<string, unknown>;
-      const safe: Record<string, unknown> = {};
-      for (const key of schema) {
-        if (!Object.hasOwn(source, key)) continue;
-        const child = source[key];
-        if (typeof child === "string" || typeof child === "number" || typeof child === "boolean") safe[key] = child;
-        else if (child instanceof Date && Number.isFinite(child.valueOf())) safe[key] = child.toISOString();
-      }
-      return Object.keys(safe).length ? safe : undefined;
-    };
-    if (Array.isArray(value)) return value.flatMap(candidate => {
-      const projected = projectRecord(candidate);
-      return projected ? [projected] : [];
-    });
-    return projectRecord(value);
-  }
-  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
-  const source = value as Record<string, unknown>;
-  const safe: Record<string, unknown> = {};
-  for (const [key, childSchema] of Object.entries(schema)) {
-    if (!Object.hasOwn(source, key)) continue;
-    const projected = projectApprovedReportValue(source[key], childSchema);
-    if (projected !== undefined) safe[key] = projected;
-  }
-  return Object.keys(safe).length ? safe : undefined;
-}
-
-function projectApprovedReportRecord(source: unknown, op: AssistantOperation): AssistantRecord {
-  if (!source || typeof source !== "object" || Array.isArray(source)) return {};
-  const record = source as Record<string, unknown>;
-  const safe: AssistantRecord = {};
-  for (const key of op.resultFields) {
-    if (!Object.hasOwn(record, key)) continue;
-    const value = record[key];
-    const schema = op.resultChildFields?.[key];
-    if (schema) {
-      const projected = projectApprovedReportValue(value, schema);
-      if (projected !== undefined) safe[key] = projected as AssistantValue;
-    } else if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-      safe[key] = value;
-    } else if (value instanceof Date && Number.isFinite(value.valueOf())) {
-      safe[key] = value.toISOString();
-    }
-  }
-  return safe;
-}
-
 export function projectRecords(op: AssistantOperation, response: any, req: AuthenticatedRequest, input: Record<string, AssistantValue> = {}): AssistantRecord[] {
+  if(op.analysis?.publicRead&&op.analysis.publicRowsField){
+    const rows=publicReadRows(op,response);
+    if(rows){response={data:rows};op={...op,resultFields:Object.keys(op.analysis.fields)};}
+  }
   if (op.module === "quotation") return projectQuotationRecords(op, response);
   if (op.module === "healthcare") return projectHealthcareRecords(op, response);
   const responseData = response?.data ?? response?.user ?? response?.worker ?? response;
-  if (op.id === "retail.partner.overview") {
-    const summary = responseData && typeof responseData === "object" ? responseData as Record<string, unknown> : {};
-    const fields = ["total", "collaborators", "dealers", "suppliers", "active", "inactive", "missingPhone", "missingEmail", "missingAddress"];
-    const projected: AssistantRecord = {};
-    for (const field of fields) {
-      const value = Number(summary[field]);
-      if (Number.isSafeInteger(value) && value >= 0) projected[field] = value;
-    }
-    return Object.keys(projected).length ? [projected] : [];
-  }
-  if (op.id === "retail.partner.commission.policy.list") {
-    const items = Array.isArray(responseData?.assistantItems) ? responseData.assistantItems : [];
-    return items.flatMap((item: any) => {
-      if (!item || typeof item !== "object") return [];
-      const projected: AssistantRecord = {};
-      for (const key of ["partnerName", "scope", "kind", "sku", "status"]) {
-        if (typeof item[key] === "string") projected[key] = item[key];
-      }
-      for (const key of ["ratePercent"]) {
-        const value = Number(item[key]);
-        if (Number.isFinite(value)) projected[key] = value;
-      }
-      for (const key of ["effectiveAt", "effectiveFrom"]) {
-        const value = item[key];
-        if (value instanceof Date && Number.isFinite(value.valueOf())) projected[key] = value.toISOString();
-        else if (typeof value === "string" && value.length <= 40) projected[key] = value;
-      }
-      if (item.config && typeof item.config === "object") {
-        for (const key of ["phoneAmount", "accessoryBps", "repairBps"]) {
-          const value = Number(item.config[key]);
-          if (Number.isFinite(value)) projected[key] = value;
-        }
-      }
-      return Object.keys(projected).length ? [projected] : [];
-    });
-  }
-  if (op.id === "student.batch.attendance.summary") {
-    const projected = projectApprovedReportRecord(responseData, op);
-    return Object.keys(projected).length ? [projected] : [];
-  }
-  if (["retail.report.summary", "retail.report.daily.summary", "retail.report.compare", "retail.report.cashier-ranking"].includes(op.id) || op.path === "/retail/finance/profit") {
-    const projected = projectApprovedReportRecord(responseData, op);
-    return Object.keys(projected).length ? [projected] : [];
-  }
-  if (op.method === "GET" && /^\/retail\/finance\/commission\/partners\/[^/]+\/statement$/.test(op.path)) {
-    const projected = projectApprovedReportRecord(responseData, op);
-    return Object.keys(projected).length ? [projected] : [];
-  }
-  if (op.id === "recruitment.report") {
-    const projected = projectApprovedReportRecord(responseData, op);
-    return Object.keys(projected).length ? [projected] : [];
-  }
-  if (op.id === "timekeeping.records.overview") {
-    const summary = summarizeDailyAttendance(rawRecords(responseData));
-    return [{ ...summary, ...(summary.date || typeof input.query_date !== "string" ? {} : { date: input.query_date }) }];
-  }
-  if (op.id === "partner.payout.history.list") {
-    const history = rawRecords(responseData).flatMap((partner: any) => {
-      const name = typeof partner?.name === "string" ? partner.name.trim().slice(0, 160) : "";
-      if (!name || !Array.isArray(partner.payoutHistory)) return [];
-      return partner.payoutHistory.flatMap((payout: any) => {
-        if (!payout || typeof payout !== "object") return [];
-        const amount = typeof payout.amount === "number" ? payout.amount : NaN;
-        const date = payout.date instanceof Date && Number.isFinite(payout.date.valueOf())
-          ? payout.date.toISOString()
-          : typeof payout.date === "string" && payout.date.length <= 40 ? payout.date : "";
-        return date && Number.isFinite(amount) && amount >= 0 ? [{ name, date, amount }] : [];
-      });
-    }).sort((left: any, right: any) => String(right.date).localeCompare(String(left.date)) || left.name.localeCompare(right.name, "vi"));
-    const limit = Number(input.query_limit);
-    return Number.isInteger(limit) && limit > 0 ? history.slice(0, Math.min(limit, 1000)) : history;
-  }
-  // This endpoint is optimized for the retail settings screen and returns
-  // several sibling collections. Generic rawRecords() prefers `variants`,
-  // which discards the commission configuration and legacy partner rules.
-  // Consume the explicit assistant projection instead.
-  if (op.method === "GET" && op.path === "/retail/partners/product-commissions") {
-    const items = Array.isArray(responseData?.assistantItems) ? responseData.assistantItems : [];
-    const quantity = Number(input.query_quantity);
-    const summary: AssistantRecord = {
-      productCategoryCount: Array.isArray(responseData?.categories) ? responseData.categories.length : 0,
-      productCount: Array.isArray(responseData?.products) ? responseData.products.length : 0,
-      variantCount: Array.isArray(responseData?.variants) ? responseData.variants.length : 0,
-      configuredSkuCount: items.filter((item: any) => item?.status === "configured").length,
-    };
-    const projectedItems = items.flatMap((item: any) => {
-      if (!item || typeof item !== "object") return [];
-      const safe: AssistantRecord = {};
-      for (const key of op.resultFields) {
-        const value = item[key];
-        if (["string", "boolean", "number"].includes(typeof value)) safe[key] = value;
-        else if (value instanceof Date && !Number.isNaN(value.valueOf())) safe[key] = value.toISOString();
-      }
-      if (Number.isSafeInteger(quantity) && quantity > 0 && item?.commissionType === "fixed"
-        && Number.isSafeInteger(Number(item?.commissionValue)) && Number(item.commissionValue) >= 0) {
-        safe.commissionTotal = quantity * Number(item.commissionValue);
-      }
-      return Object.keys(safe).length ? [safe] : [];
-    });
-    return op.resultFields.includes("productCategoryCount") && !String(input.query_q || "").trim() ? [summary, ...projectedItems] : projectedItems;
-  }
   if (op.id === "employee.count") {
     const candidates = [responseData, responseData?.data, responseData?.result, response?.data?.data, response?.result, response];
     const countRecord = candidates.find(candidate => candidate && typeof candidate === "object"
@@ -4629,7 +3345,7 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
       for (const key of ["type", "requestKind", "reason", "status", "location", "description"]) {
         if (typeof record?.[key] === "string") safe[key] = record[key].slice(0, key === "description" ? 500 : 200);
       }
-      for (const key of ["startDate", "endDate"]) {
+      for (const key of ["startDate", "endDate", ...(op.id === 'hr.leave.applications.list' ? ['createdAt'] : [])]) {
         const value = record?.[key];
         if (value instanceof Date && Number.isFinite(value.valueOf())) safe[key] = value.toISOString();
         else if (typeof value === "string" && value.length <= 40) safe[key] = value;
@@ -4669,13 +3385,8 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
     }
     return rows;
   }
-  if (op.id.startsWith("leave.balances.")) {
-    const employeeSearch = typeof input.query_search === "string"
-      ? input.query_search.split(/\s*[|;]\s*/).map(value => normalize(value)).filter(Boolean)
-      : [];
-    const sourceBalances = Array.isArray(responseData?.balances) ? responseData.balances : [];
-    const balances = sourceBalances.flatMap((record: any) => typeof record?.employeeName === "string" && record.employeeName.trim()
-      && (!employeeSearch.length || employeeSearch.some(search => normalize(record.employeeName).includes(search))) ? [{
+  if (op.id === "leave.balances.minimum") {
+    const balances = Array.isArray(responseData?.balances) ? responseData.balances.flatMap((record: any) => typeof record?.employeeName === "string" && record.employeeName.trim() ? [{
       employeeName: record.employeeName.trim().slice(0, 160),
       ...(typeof record.department === "string" ? { department: record.department.slice(0, 100) } : {}),
       entitlement: Number(record.entitlement) || 0,
@@ -4683,8 +3394,8 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
       pending: Number(record.pending) || 0,
       unexcused: Number(record.unexcused) || 0,
       remaining: Number(record.remaining) || 0,
-    }] : []);
-    return [{ year: Number(responseData?.year), ...(op.id === "leave.balances.minimum" ? { thresholdDays: Number(input.thresholdDays) } : {}), balances } as unknown as AssistantRecord];
+    }] : []) : [];
+    return [{ year: Number(responseData?.year), thresholdDays: Number(input.thresholdDays), balances } as unknown as AssistantRecord];
   }
   if (op.id === "hr.training.incomplete.list") {
     const enrollments = rawRecords(responseData);
@@ -4854,23 +3565,14 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
   const treasuryCollection = treasuryCollectionByOperation[op.id];
   const treasuryItems = treasuryCollection && Array.isArray(responseData?.[treasuryCollection])
     ? responseData[treasuryCollection].filter((item: any) => item && typeof item === "object")
-    : rawRecords(sourceData);
+    : op.resultSingleton&&sourceData&&typeof sourceData==='object'&&!Array.isArray(sourceData)?[sourceData]:rawRecords(sourceData);
   const items = op.id === "finance.treasury.bank-lines.list"
     ? treasuryItems.filter((item: any) => !item.voucherId)
     : treasuryItems;
   const companyWideCategoryOperation = op.id.startsWith("category.") || op.id === "hr.workflow.list";
-  const branchHeader = req.headers?.["x-branch-id"] || req.headers?.["X-Branch-Id"];
-  const selectedBranchId = isBranchScopedAssistantOperation(op)
-    ? String(input.targetBranch || input.branchId || (op.module === "inventory" && typeof branchHeader === "string" ? branchHeader : req.user?.branchId || ""))
-    : String(req.user?.branchId || "");
-  const partnerBankFilter = op.id === "partner.list" ? String(input.query_bankAccountFilter || "") : "";
-  const partnerUnpaidOnly = op.id === "partner.list" && (input.query_unpaidOnly === true || input.query_unpaidOnly === "true");
   return items.filter((item: any) => (!item.companyCode || item.companyCode === req.user?.companyCode)
-    && (companyWideCategoryOperation || !selectedBranchId || !item.branchId || String(item.branchId) === selectedBranchId
-      || (op.id === "inventory.serial.list" && item.status === "in_transit" && String(item.transferToBranchId || "") === selectedBranchId))
-    && (op.id !== "partner.list" || !partnerBankFilter
-      || (partnerBankFilter === "has" ? Boolean(String(item.bankAccountNo || "").trim()) : !String(item.bankAccountNo || "").trim()))
-    && (!partnerUnpaidOnly || Number(item.unpaidBalance) > 0)).map((item: any) => {
+    && (companyWideCategoryOperation || !req.user?.branchId || !item.branchId || String(item.branchId) === req.user.branchId
+      || (op.id === "inventory.serial.list" && item.status === "in_transit" && String(item.transferToBranchId || "") === req.user.branchId))).map((item: any) => {
     const safe: AssistantRecord = {};
     const id = String(item._id || item.id || item.uid || item.__assistantRef?.id || ((op.id === "payroll.employee.me.reconciliation" || op.id === "payroll.employee.me.payslips") ? item.__assistantRef?.runId || item.runId : "") || "");
     if (op.module === "architect-assistant" && Number.isSafeInteger(item.revision) && item.revision > 0) Object.defineProperty(safe, "revision", { value: item.revision, enumerable: false });
@@ -4878,8 +3580,8 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
     // Contracts may refer to Mongo's _id while projection exposes id for lookup.
     // Preserve the alias privately so selecting the displayed option can resolve it.
     if (safe.id) Object.defineProperty(safe, "_id", { value: safe.id, enumerable: false });
-    if (op.module === "finance" && Number.isSafeInteger(item.version) && item.version >= 0) {
-      Object.defineProperty(safe, "version", { value: item.version, enumerable: false });
+    if (Number.isSafeInteger(item.version) && item.version >= 0) {
+      Object.defineProperty(safe, "version", { value: item.version, enumerable: false, writable:true });
     }
     if (op.id === "chat.room.members.list" && ["admin", "deputy", "member"].includes(String(item.role))) {
       Object.defineProperty(safe, "role", { value: item.role, enumerable: false });
@@ -4934,16 +3636,8 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
       if (statuses.length) safe.status = statuses.join(", ");
     }
     for (const field of op.resultFields) {
-      if (op.id === "partner.list" && field === "hasBankAccount") {
-        safe.hasBankAccount = typeof item.bankAccountNo === "string" && Boolean(item.bankAccountNo.trim());
-        continue;
-      }
       const value = item[field];
-      const childSchema = op.resultChildFields?.[field];
-      if (childSchema) {
-        const projected = projectApprovedReportValue(value, childSchema);
-        if (projected !== undefined) safe[field] = projected as AssistantValue;
-      } else if (["string", "boolean", "number"].includes(typeof value)) safe[field] = value;
+      if (["string", "boolean", "number"].includes(typeof value)) safe[field] = value;
       else if (value instanceof Date && !Number.isNaN(value.valueOf())) safe[field] = value.toISOString();
     }
     if (op.id === "inventory.count.list" && Number.isSafeInteger(item.version) && item.version >= 0) {
@@ -5040,7 +3734,7 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
       }
     }
     if (op.id === "recruitment.pipeline.get" && typeof item.id === "string") safe.id = item.id;
-    if (op.id === "retail.partner.list" && Array.isArray(item.roles) && typeof item.roles[0] === "string") safe.role = item.roles[0];
+    if (op.id === "retail.partner.list" && Array.isArray(item.roles) && typeof item.roles[0] === "string") safe.role = typeof input.role==='string'&&item.roles.includes(input.role)?input.role:item.roles[0];
     if (op.id === "retail.order.list" && item.status === "draft" && Number.isInteger(item.heldSlot) && item.heldSlot > 0) {
       Object.defineProperty(safe, "__assistantHeldSlot", { value: item.heldSlot, enumerable: false });
       // Held slots are unique per creator, not per branch. Use the public
@@ -5320,10 +4014,9 @@ function referenceLabel(record: Record<string, any>) {
   return parts.join(" — ");
 }
 const referenceOptionDisambiguators = [
-  { label: "m\u00e3 SP", keys: ["productCode"] },
   { label: "ô giữ đơn", keys: ["__assistantHeldSlot"] },
   { label: "người tạo", keys: ["__assistantDraftCreatorName"] },
-  { label: "mã", keys: ["code", "employeeCode", "customerCode", "sku", "assetCode", "barcode", "ticketCode", "shiftCode", "orderCode"] },
+  { label: "mã", keys: ["code", "productCode", "employeeCode", "customerCode", "sku", "assetCode", "barcode", "ticketCode", "shiftCode", "orderCode"] },
   { label: "SĐT", keys: ["__assistantReferencePhone", "phone", "studentPhone"] },
   { label: "email", keys: ["email"] },
   { label: "phòng ban", keys: ["departmentName", "department"] },
@@ -5363,6 +4056,14 @@ export function matchesReference(record: Record<string, any>, search: string) {
     record.supplierName, record.warehouseName, record.employeeName, record.workerName,
     record.title, record.legalName,
   ].some(value => typeof value === "string" && normalize(value).includes(query));
+  // Spoken references may contain a classifier around the stored public name.
+  // Match complete name tokens, never edit a literal free-text predicate/code.
+  // Multiple matches continue through the existing server-owned option form.
+  const words=(value:string)=>normalize(value).replace(/([a-z])([0-9])/g,'$1 $2').replace(/([0-9])([a-z])/g,'$1 $2').trim();
+  const spokenNameMatch=[record.name,record.fullName,record.displayName,record.productName,record.title].some(value=>{
+    if(typeof value!=='string')return false;const name=words(value);
+    return name.split(/\s+/).length>=3&&` ${words(search)} `.includes(` ${name} `);
+  });
   const backendQueryMatch = typeof record.__assistantQueryMatch === "string"
     && Boolean(query)
     && normalize(record.__assistantQueryMatch) === query;
@@ -5401,6 +4102,7 @@ export function matchesReference(record: Record<string, any>, search: string) {
     || matchesDisplayedPhone
     || matchesDisplayedCustomer
     || partialNameMatch
+    || spokenNameMatch
     || backendQueryMatch
     || (typeof record.employeeName === "string" && typeof record.amount === "number" && normalize(referenceLabel(record)).includes(query));
 }
@@ -5565,11 +4267,11 @@ export async function lookupRecords(req: AuthenticatedRequest, operationId: stri
     const apiKey = String(field.apiKey || field.key).toLowerCase();
     if (/page$/.test(apiKey)) input[field.key] = 1;
     else if (/limit$/.test(apiKey)) input[field.key] = 100;
-    else if (op.id === "batch.list" && field.apiKey === "branchId" && req.user?.branchId) input[field.key] = req.user.branchId;
     else if (field.required && field.defaultValue !== undefined) input[field.key] = field.defaultValue;
   }
   let result = await callOperation(req, op, input);
   let records = projectRecords(op, result, req, input);
+  const referenceEnrichers:Array<(rows:AssistantRecord[],response:any)=>void>=[];
   // Draft labels are composed locally (amount and held slot), not searchable
   // order codes. Preserve the scope and let reference matching resolve them.
   if (op.id === "retail.order.list" && !records.length && search && !searchByInternalId && searchField) {
@@ -5612,25 +4314,25 @@ export async function lookupRecords(req: AuthenticatedRequest, operationId: stri
       Object.defineProperty(record, "__assistantQueryMatch", { value: search, enumerable: false, configurable: true });
     }
   }
-  if (operationId === "worker.labor.contract.list" && records.length) {
-    const sourceById = new Map(rawRecords(result).map(row => [String(row._id || row.id || ""), row]));
+  if (operationId === "worker.labor.contract.list" && (records.length||search.trim())) {
     const workers = await lookupRecords(req, "worker.list");
     const workerNames = new Map(workers.map(worker => [String(worker.id || ""), String(worker.fullName || "")]));
-    for (const record of records) {
-      const source = sourceById.get(String(record.id || ""));
-      const workerName = source?.workerId ? workerNames.get(String(source.workerId)) : undefined;
-      if (workerName) record.workerName = workerName;
-    }
+    const enrich=(rows:AssistantRecord[],response:any)=>{
+      const sourceById = new Map(rawRecords(response).map(row => [String(row._id || row.id || ""), row]));
+      for(const record of rows){const source=sourceById.get(String(record.id||'')),name=source?.workerId?workerNames.get(String(source.workerId)):undefined;if(name)record.workerName=name;}
+    };
+    enrich(records,result);referenceEnrichers.push(enrich);
   }
-  if (operationId === "worker.attendance.list" && records.length) {
-    const sourceById = new Map(rawRecords(result).map(row => [String(row._id || row.id || ""), row]));
+  if (operationId === "worker.attendance.list" && (records.length||search.trim())) {
     const [workers, projects] = await Promise.all([
       lookupRecords(req, "worker.list"),
       lookupRecords(req, "worker.project.list"),
     ]);
     const workerNames = new Map(workers.map(worker => [String(worker.id || ""), String(worker.fullName || "")]));
     const projectNames = new Map(projects.map(project => [String(project.id || ""), String(project.name || project.code || "")]));
-    for (const record of records) {
+    const enrich=(rows:AssistantRecord[],response:any)=>{
+    const sourceById = new Map(rawRecords(response).map(row => [String(row._id || row.id || ""), row]));
+    for (const record of rows) {
       const source = sourceById.get(String(record.id || ""));
       const workerId = String(source?.workerId?._id || source?.workerId || "");
       const projectId = String(source?.projectId?._id || source?.projectId || "");
@@ -5645,6 +4347,8 @@ export async function lookupRecords(req: AuthenticatedRequest, operationId: stri
       if (checkOutAt instanceof Date) record.checkOutAt = checkOutAt.toISOString();
       else if (typeof checkOutAt === "string") record.checkOutAt = checkOutAt;
     }
+    };
+    enrich(records,result);referenceEnrichers.push(enrich);
   }
   const branchIds = [...new Set(records.map(row => row.branchId).filter((value): value is string => typeof value === "string" && value.length > 0))];
   if (branchIds.length && operationId !== "branch.list" && !operationId.startsWith("recruitment.")) {
@@ -5652,7 +4356,24 @@ export async function lookupRecords(req: AuthenticatedRequest, operationId: stri
       const branches = await lookupRecords(req, "branch.list");
       const branchNames = new Map(branches.map(row => [String(row.id), String(row.name || row.code || "")]));
       for (const record of records) if (typeof record.branchId === "string") record.branchName = branchNames.get(record.branchId) || "";
+      referenceEnrichers.push(rows=>{for(const record of rows)if(typeof record.branchId==='string')record.branchName=branchNames.get(record.branchId)||'';});
     } catch { /* keep the reference usable when branch labels are not readable */ }
+  }
+  if(op.method==='GET'&&op.analysis?.publicRead&&searchField&&search.trim()&&!records.some(record=>matchesReference(record,search))){
+    // A display-name reference may include spoken context the native search
+    // cannot tokenize. Retry the same authorized collection without that one
+    // search term, prove pagination completeness, then let normal selection
+    // resolve candidates. No arbitrary filter/branch is removed.
+    const fallbackInput={...input,search:'',[searchField.key]:''};
+    let reusedInitial=false;
+    const referenceRows:AssistantRecord[]=[];
+    await collectPublicReadData(op,fallbackInput,values=>{
+      if(!reusedInitial&&op.fields.every(field=>JSON.stringify(input[field.key])===JSON.stringify(values[field.key]))){reusedInitial=true;return Promise.resolve(result);}
+      return callOperation(req,op,values);
+    },(response,values)=>{const projected=projectRecords(op,response,req,values);for(const enrich of referenceEnrichers)enrich(projected,response);referenceRows.push(...projected);return projected;});
+    // The public collector intentionally strips IDs. Keep the parallel
+    // server-only projection for options; never return it as a business table.
+    records=referenceRows;
   }
   const query = normalize(search);
   return query ? records.filter(row => Object.values(row).some(value => normalize(String(value)).includes(query)) || normalize(referenceLabel(row)).includes(query) || matchesReference(row, search)) : records;
@@ -5821,13 +4542,8 @@ async function resolveOperationReference(
   context: Record<string, AssistantValue>,
   fieldKey?: string,
 ) {
-  const selectedRetailOrderCode = ownerOperation.id === "retail.order.payment-qr" && field.reference === "retail.order.list"
-    ? retailOrderCodeFromSearch(search)
-    : undefined;
-  const referenceSearch = selectedRetailOrderCode || search;
-  const candidates = filterRelationshipCandidates(ownerOperation, field,
-    await lookupReferenceCandidates(req, ownerOperation, field, referenceSearch, context), context);
-  const exact = candidates.filter(row => matchesReference(row, referenceSearch));
+  const candidates = filterRelationshipCandidates(ownerOperation, field, await lookupRecords(req, field.reference!, search, context));
+  const exact = candidates.filter(row => matchesReference(row, search));
   const record = exact.length === 1 ? exact[0] : undefined;
   const value = record && (field.referenceValueKey ? record[field.referenceValueKey] : record.id || record._id || (fieldKey ? record[fieldKey] : undefined));
   return { candidates, exact, record, value };
@@ -5845,13 +4561,6 @@ async function lookupReferenceCandidates(
   search: string,
   context: Record<string, AssistantValue>,
 ) {
-  if (ownerOperation.id === "retail.order.payment-qr" && field.reference === "retail.order.list") {
-    const orderCode = retailOrderCodeFromSearch(search);
-    if (orderCode) {
-      const candidates = await lookupRecords(req, field.reference, orderCode, context);
-      if (candidates.some(candidate => matchesReference(candidate, orderCode))) return candidates;
-    }
-  }
   const normalizedSearch = field.reference === "batch.list" ? normalizeBatchClassSearch(search) : search.trim();
   if (ownerOperation.id === "retail.order.cancel" && field.reference === "retail.order.list") {
     // The retail list separates held drafts from posted sales. Cancellation
@@ -5864,9 +4573,8 @@ async function lookupReferenceCandidates(
     && field.reference === "recruitment.interview.list" && normalizedSearch && !isRecordIdentifier(normalizedSearch)) {
     const applicantList = operationById("recruitment.applicant.list");
     if (applicantList) {
-      const applicantSearch = normalizedSearch.split(/\s+[—–]\s+/u, 1)[0]?.trim() || normalizedSearch;
-      const applicants = await lookupRecords(req, applicantList.id, applicantSearch, context);
-      const namedApplicants = applicants.filter(candidate => matchesReference(candidate, applicantSearch));
+      const applicants = await lookupRecords(req, applicantList.id, normalizedSearch, context);
+      const namedApplicants = applicants.filter(candidate => matchesReference(candidate, normalizedSearch));
       if (namedApplicants.length) {
         const groups = await Promise.all(namedApplicants.slice(0, 8).map(async applicant => {
           const applicantId = String(applicant.id || applicant._id || "");
@@ -5895,14 +4603,6 @@ async function lookupReferenceCandidates(
     const broaderClassSearch = normalizedSearch.split(/\s+/).slice(0, -1).join(" ");
     candidates = await lookupRecords(req, field.reference, broaderClassSearch, lookupContext);
   }
-  if (field.reference === "batch.list" && normalizedSearch
-    && !candidates.some(row => matchesReference(row, normalizedSearch))) {
-    const scopedBatches = await lookupRecords(req, field.reference, "", lookupContext);
-    const query = normalize(normalizedSearch);
-    const partialMatches = scopedBatches.filter(row => [row.name, row.code, row.courseTitle]
-      .some(value => typeof value === "string" && normalize(value).includes(query)));
-    if (partialMatches.length) candidates = partialMatches;
-  }
   if (["student.batch.create", "student.batch.update"].includes(ownerOperation.id)
     && field.apiKey === "instructorId" && field.reference === "employee.list") {
     const branchId = String(req.user?.branchId || "");
@@ -5917,11 +4617,6 @@ async function lookupReferenceCandidates(
     if (unfiltered.some(row => matchesReference(row, search))) candidates = unfiltered;
   }
   if (field.reference === "training.list" && search.trim() && !candidates.some(row => matchesReference(row, search))) {
-    const unfiltered = await lookupRecords(req, field.reference, "", context);
-    const nameMatches = unfiltered.filter(row => matchesReference(row, search));
-    if (nameMatches.length) candidates = nameMatches;
-  }
-  if (field.reference === "worker.project.list" && search.trim() && !candidates.some(row => matchesReference(row, search))) {
     const unfiltered = await lookupRecords(req, field.reference, "", context);
     const nameMatches = unfiltered.filter(row => matchesReference(row, search));
     if (nameMatches.length) candidates = nameMatches;
@@ -5947,9 +4642,7 @@ async function lookupReceiptProductCandidates(
     const id = String(row.id || row._id || "");
     if (id) unique.set(id, row);
   }
-  const candidates = [...unique.values()];
-  const exactNameMatches = candidates.filter(row => normalize(String(row.name || row.productName || "")) === normalize(search));
-  return exactNameMatches.length ? exactNameMatches : candidates;
+  return [...unique.values()];
 }
 
 async function lookupReceiptSkuCandidates(req: AuthenticatedRequest, productId: string) {
@@ -6054,14 +4747,16 @@ export async function suggestReferenceOptions(
   const referenceSearch = String(values[`__assistantReferenceSearch_${field.key}`] || payrollPeriodSearch).trim();
   const isReceiptProductSelector = ["inventory.receipt.create", "inventory.receipt.update"].includes(op.id)
     && field.reference === "product.list" && /^items\[\d+\]\.productId$/.test(field.key);
-  const isProductSkuSelector = field.reference === "inventory.product.detail"
-    && Boolean(field.referenceParentKey)
-    && /^items\[\d+\]\.(?:sku|variantId)$/.test(field.key);
-  let candidates = isProductSkuSelector && parentValue !== undefined
+  const isReceiptSkuSelector = ["inventory.receipt.create", "inventory.receipt.update"].includes(op.id)
+    && field.reference === "inventory.product.detail" && /^items\[\d+\]\.variantId$/.test(field.key);
+  let candidates = isReceiptSkuSelector && parentValue !== undefined
     ? await lookupReceiptSkuCandidates(req, String(parentValue))
     : isReceiptProductSelector
       ? await lookupReceiptProductCandidates(req, referenceSearch, context)
       : await lookupReferenceCandidates(req, op, field, referenceSearch, context);
+  // Only offer scoped choices after a phrase search fails. Actual reference
+  // resolution remains strict and never selects a broader match by itself.
+  if(referenceSearch&&!candidates.length)candidates=await lookupReferenceCandidates(req,op,field,'',context);
   if (isBatchWorkflow && field.apiKey === "roadmapId") candidates = candidates.filter(candidate => candidate.status === "active");
   candidates = filterRelationshipCandidates(op, field, candidates, values);
   if (["inventory.receipt.create", "inventory.receipt.update"].includes(op.id)
@@ -6072,7 +4767,7 @@ export async function suggestReferenceOptions(
   if (op.id === "finance.treasury.bank-lines.create" && field.key === "accountId") {
     candidates = candidates.filter(candidate => candidate.kind === "bank");
   }
-  if (parentValue !== undefined && !parentPathField && !parentQueryField) {
+  if (parentValue !== undefined && !parentPathField && (!parentQueryField || parentQueryField.apiKey === "branchId")) {
     candidates = candidates.filter(candidate => String(candidate.branchId || "") === String(parentValue));
   }
   if (field.reference === "omni-inbox.account.list") {
@@ -6095,89 +4790,10 @@ function nestedReferenceLabel(shape: NonNullable<AssistantField["structure"]>, k
   return shape.label || ({ productId: "Sản phẩm", variantId: "SKU", unitCode: "Đơn vị tính", categoryCode: "Thể loại / thư mục", templateCode: "Mẫu sản phẩm", brandCode: "Thương hiệu" } as Record<string, string>)[key] || key;
 }
 
-async function validateInventoryUnitIdentifiers(
-  req: AuthenticatedRequest,
-  op: AssistantOperation,
-  items: any[],
-  values: Record<string, AssistantValue>,
-  errors: string[],
-) {
-  const stockLogIssue = op.id === "inventory.stock-log.internal.issue.create";
-  const transfer = op.id === "inventory.transfer.create";
-  if ((!stockLogIssue && !transfer) || !Array.isArray(items)) return;
-  const warehouseId = String(values[stockLogIssue ? "warehouseId" : "fromWarehouseId"] || "");
-  const sourceBranch = String(values.targetBranch || req.user?.branchId || "");
-  const serialOperation = operationById("inventory.serial.list");
-
-  for (const [index, item] of items.entries()) {
-    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
-    const line = index + 1;
-    const productId = String(item.productId || "");
-    const variantId = String(stockLogIssue ? item.sku || "" : item.variantId || "");
-    if (!productId || !variantId) continue;
-    const variants = await lookupReceiptSkuCandidates(req, productId);
-    const matches = variants.filter(variant => String(variant.id || variant._id || "") === variantId
-      || stockLogIssue && String(variant.sku || "") === variantId);
-    if (matches.length !== 1) {
-      errors.push(`Mục ${line}: chưa xác định được chế độ theo dõi của SKU đã chọn; vui lòng chọn lại SKU.`);
-      continue;
-    }
-    const variant = matches[0];
-    const trackingMode = String(variant.trackingMode || "");
-    const identifiers = Array.isArray(item.unitIdentifiers) ? item.unitIdentifiers.map((value: unknown) => String(value).trim()) : [];
-    item.unitIdentifiers = identifiers;
-
-    if (transfer && trackingMode === "lot") {
-      errors.push(`Mục ${line}: SKU ${variant.sku || "đã chọn"} đang quản lý theo lô; phiếu điều chuyển này chưa hỗ trợ hàng theo lô.`);
-      continue;
-    }
-    if (!["serial", "unit_barcode"].includes(trackingMode)) {
-      if (identifiers.length) errors.push(`Mục ${line}: SKU ${variant.sku || "đã chọn"} không theo dõi từng máy nên không cần mã IMEI/serial.`);
-      item.unitIdentifiers = [];
-      continue;
-    }
-
-    const quantity = Number(item.quantity);
-    if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 500 || identifiers.length !== quantity || identifiers.some((identifier: string) => !identifier)) {
-      errors.push(`Mục ${line}: SKU ${variant.sku || "đã chọn"} cần đủ mã IMEI/serial cho ${Number.isFinite(quantity) ? quantity : "số lượng"} máy.`);
-      continue;
-    }
-    if (new Set(identifiers.map((identifier: string) => identifier.toLocaleUpperCase())).size !== identifiers.length) {
-      errors.push(`Mục ${line}: danh sách IMEI/serial có mã trùng nhau.`);
-      continue;
-    }
-    if (!warehouseId || !sourceBranch || !serialOperation) {
-      errors.push(`Mục ${line}: chưa xác định được kho gửi để kiểm tra tình trạng IMEI/serial.`);
-      continue;
-    }
-
-    for (const identifier of identifiers) {
-      const records = await lookupRecords(req, "inventory.serial.list", identifier, {
-        targetBranch: sourceBranch,
-        warehouseId,
-        query_sku: String(variant.sku || ""),
-        query_status: "in_stock",
-        query_limit: 100,
-      });
-      if (records.length !== 1 || String(records[0].status || "") !== "in_stock") {
-        errors.push(`Mục ${line}: mã ${identifier} không còn trong kho gửi với trạng thái sẵn sàng cho SKU ${variant.sku || "đã chọn"}. Hãy kiểm tra hoặc nhập mã khác.`);
-      }
-    }
-  }
-}
-
 export async function resolveReferences(req: AuthenticatedRequest, op: AssistantOperation, values: Record<string, AssistantValue>) {
   if (op.module === "quotation") return resolveQuotationReferences(req, op, values, lookupRecords, matchesReference);
   if (op.module === "healthcare") return resolveHealthcareReferences(req, op, values, lookupRecords, matchesReference);
   const resolved = { ...values };
-  const branchHeader = req.headers?.["x-branch-id"] || req.headers?.["X-Branch-Id"];
-  const inventoryBranchField = op.module === "inventory"
-    ? op.fields.find(field => field.source === "query" && ["branchId", "targetBranch"].includes(String(field.apiKey || "")))
-    : undefined;
-  const selectedInventoryBranch = req.user?.branchId || (typeof branchHeader === "string" ? branchHeader : "");
-  if (inventoryBranchField && resolved[inventoryBranchField.key] === undefined && selectedInventoryBranch) {
-    resolved[inventoryBranchField.key] = selectedInventoryBranch;
-  }
   const labels: Record<string, string> = {};
   const errors: string[] = [];
   const unresolvedReferenceKeys = new Set<string>();
@@ -6217,18 +4833,15 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
     Object.assign(context, field.referenceContext || {});
     if (isRecruitmentOperation(op) && field.reference === "employee.list" && resolved.branchId !== undefined) context.branchId = String(resolved.branchId);
     if ((op.path.startsWith("/payroll/periods/") || op.path.startsWith("/payroll/runs/")) && field.reference === "employee.list" && resolved.targetBranch !== undefined) context.branchId = String(resolved.targetBranch);
-    const parentValue = field.referenceParentKey
-      ? resolved[field.referenceParentKey] ?? (field.referenceParentKey === "targetBranch" ? req.user?.branchId : undefined)
-      : undefined;
-    // A child reference with a named parent cannot be searched safely until
-    // that parent is selected. Keep the user's search text pending and ask for
-    // the parent first instead of turning the missing context into an API error.
-    if (field.referenceParentKey && (parentValue === undefined || parentValue === null || parentValue === "")) continue;
-    const selectedRetailOrderCode = op.id === "retail.order.payment-qr" && field.reference === "retail.order.list"
-      ? retailOrderCodeFromSearch(search)
-      : undefined;
-    const referenceSearch = selectedRetailOrderCode || search;
+    const parentValue = field.referenceParentKey ? resolved[field.referenceParentKey] : undefined;
     const parentField = field.referenceParentKey ? op.fields.find(candidate => candidate.key === field.referenceParentKey) : undefined;
+    const requiredParentPath=referenceOperation?.fields.filter(candidate=>candidate.source==='path'&&(candidate.required||candidate.systemRequired));
+    if(field.referenceParentKey&&parentField&&requiredParentPath?.some(candidate=>candidate.key===parentField.key||candidate.apiKey===parentField.apiKey||requiredParentPath.length===1)
+      &&(parentValue===undefined||parentValue===null||String(parentValue).trim()==='')){
+      addUnresolvedReferenceError(field.key,`${field.label}: trước hết cần chọn ${parentField?.label||'bản ghi liên quan'}.`);
+      delete resolved[field.key];
+      continue;
+    }
     const parentApiKey = parentField?.apiKey;
     const referencePathFields = (referenceOperation?.fields || []).filter(candidate => candidate.source === "path");
     const referenceQueryFields = (referenceOperation?.fields || []).filter(candidate => candidate.source === "query");
@@ -6241,8 +4854,8 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
         || (referenceQueryFields.length === 1 ? referenceQueryFields[0] : undefined);
     if (parentPathField) context[parentPathField.key] = String(parentValue);
     else if (parentQueryField) context[parentQueryField.key] = String(parentValue);
-    const allCandidates = await lookupReferenceCandidates(req, op, field, referenceSearch, context);
-    let candidates = parentValue === undefined || parentPathField || parentQueryField
+    const allCandidates = await lookupReferenceCandidates(req, op, field, search, context);
+    let candidates = parentValue === undefined || parentPathField || (parentQueryField && parentQueryField.apiKey !== "branchId")
       ? allCandidates
       : parentValue === undefined ? allCandidates : allCandidates.filter(candidate => String(candidate.branchId || "") === String(parentValue));
     if (["student.batch.create", "student.batch.update"].includes(op.id) && field.apiKey === "roadmapId") {
@@ -6300,8 +4913,8 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
     }
   const selectingCampaignSlot = ["marketing.campaign.slot.reject", "marketing.campaign.slot.retry", "marketing.campaign.slot.approve", "marketing.campaign.slot.publish-now", "marketing.campaign.slot.content.update"].includes(op.id)
       && field.reference === "marketing.campaign.calendar";
-    const exact = candidates.filter(row => matchesReference(row, referenceSearch)
-      || Boolean(field.referenceValueKey && String(row[field.referenceValueKey] || "") === referenceSearch));
+    const exact = candidates.filter(row => matchesReference(row, search)
+      || Boolean(field.referenceValueKey && String(row[field.referenceValueKey] || "") === search));
     const record = exact.length === 1 ? exact[0] : undefined;
     const value = record && (field.referenceValueKey ? record[field.referenceValueKey] : record.id || record._id || record[field.key]);
     if (exact.length !== 1 || !record || !value) {
@@ -6425,7 +5038,7 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
   }
   const branchScopedOperation = isBranchScopedAssistantOperation(op);
   if (branchScopedOperation) {
-    const branchField = op.fields.find(field => field.source === "query" && ["branchId", "targetBranch"].includes(String(field.apiKey || field.key)));
+    const branchField = op.fields.find(field => field.source === "query" && field.apiKey === "branchId");
     const selectedBranch = branchField ? String(resolved[branchField.key] || "") : "";
     if (!selectedBranch && req.user?.branchId && branchField) resolved[branchField.key] = req.user.branchId;
     else if (!selectedBranch && req.user?.role === "admin" && requiresBranchChoice(op) && isRetailAfterSaleOperation(op)) errors.push(op.method === "POST" ? "Chi nhánh bán lẻ: hãy nêu tên chi nhánh cần lập phiếu đổi trả hoặc thu mua." : "Chi nhánh bán lẻ: hãy nêu tên chi nhánh cần tra cứu chứng từ đổi trả hoặc thu mua.");
@@ -6618,7 +5231,6 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
       return node;
     };
     parsed = await resolveNode(parsed, display, field.structure, {}, field.key);
-    if (field.key === "items" && Array.isArray(parsed)) await validateInventoryUnitIdentifiers(req, op, parsed, resolved, errors);
     resolved[field.key] = JSON.stringify(parsed);
     if (!(op.id === "hr.workflow.update" && field.key === "steps")) labels[field.key] = JSON.stringify(display, null, 2);
     if (["payroll.period.inputs.bulk", "payroll.period.line-overrides.bulk"].includes(op.id) && field.apiKey === "rows" && Array.isArray(parsed) && Array.isArray(display)) {

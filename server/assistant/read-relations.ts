@@ -10,17 +10,20 @@ export interface ReadRelationDefinition {
   id: string; title: string; left: RelationSource; right: RelationSource;
   foreignKey: string; conditionAliases: string[]; entityAliases: string[];
   columns: Record<string, string>;
+  semanticPredicate?:{operator:'not_exists'|'gt';value:null|number};
 }
 // Reviewed reference bindings, kept server-side. New modules register bindings
 // here; models never choose join keys, ID fields, or arbitrary expressions.
 export const READ_RELATIONS: ReadRelationDefinition[] = [{
   id: "workers-without-contracts", title: "Danh sách lao động chưa có hợp đồng",
+  semanticPredicate:{operator:'not_exists',value:null},
   left: { actionId: "worker.list", array: "workers", identity: "_id", pagination: "all" },
   right: { actionId: "worker.labor.contract.list", array: "data", identity: "_id", pagination: "total" },
   foreignKey: "workerId", conditionAliases: ["chưa có hợp đồng", "không có hợp đồng"],
   entityAliases: ["quản lý lao động", "quản lí lao động", "người lao động", "lao động"], columns: { fullName: "Họ và tên", status: "Trạng thái", laborType: "Loại lao động" },
 }, {
   id:'students-with-tuition-debt',kind:'tuition-balance',title:'Học viên còn nợ học phí',
+  semanticPredicate:{operator:'gt',value:0},
   left:{actionId:'student.list',array:'students',identity:'_id',pagination:'total'},
   right:{actionId:'student.payment.list',array:'payments',identity:'_id',pagination:'total'},
   foreignKey:'studentId', conditionAliases:['còn nợ học phí','nợ học phí','chưa đóng đủ học phí','đều đã đóng học phí','tất cả đã đóng học phí','đóng hết học phí'],

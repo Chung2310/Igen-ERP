@@ -58,6 +58,7 @@ import {
   type LeadFieldFilter,
 } from "../../services/crmService";
 import { LeadDetailDrawer } from "./LeadDetailDrawer";
+import { fieldInputClass, secondaryBtnClass } from "./crmFormStyles";
 import { LeadContractReconciliation } from "./LeadContractReconciliation";
 import { LeadIntakeBuilderModal } from "./LeadIntakeBuilderModal";
 import { LeadModuleSyncModal } from "./LeadModuleSyncModal";
@@ -104,16 +105,13 @@ interface LeadTableProps {
   refreshToken?: number;
   canReconcileContracts?: boolean;
   canManageLeads?: boolean;
+  onSendZalo?: (leadIds: string[], history?: boolean, oaId?: string) => void;
 }
 
 const DEFAULT_PAGE_SIZE = 25;
 const MIN_COL_WIDTH = 128;
 const MAX_COL_WIDTH = 440;
 
-const fieldInputClass =
-  "h-9 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface placeholder:text-on-surface-variant/60 outline-none focus:border-primary";
-const secondaryBtnClass =
-  "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-xs font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-1 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50";
 
 const fieldTypeSelectOptions = LEAD_INTAKE_FIELD_TYPES.map(type => ({
   value: type,
@@ -213,6 +211,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
   refreshToken = 0,
   canReconcileContracts = false,
   canManageLeads = false,
+  onSendZalo,
 }) => {
   const [leads, setLeads] = useState<ExtendedLeadCard[]>([]);
   const [totalItems, setTotalItems] = useState(0);
@@ -1581,6 +1580,11 @@ export const LeadTable: React.FC<LeadTableProps> = ({
         <div role="group" aria-label="Thao tác hàng loạt Lead" aria-busy={bulkBusy}
           className="flex flex-wrap items-center gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest p-2.5">
           <span className="px-1 text-sm font-medium tabular-nums">Đã chọn {selectedCount} Lead</span>
+          {canManageLeads && onSendZalo && <button type="button" className={secondaryBtnClass}
+            disabled={!canSelectRows} onClick={() => {
+              const oaIds = [...new Set(selectedRows.map(lead => lead.zaloIdentity?.oaId).filter(Boolean))];
+              onSendZalo(selectedRows.map(lead => lead.id), false, oaIds.length === 1 ? oaIds[0] : undefined);
+            }}>Gửi mẫu Zalo</button>}
           {canManageLeads && (
             <>
               <StyledSelect ariaLabel="Trạng thái chốt hàng loạt" placeholder="Trạng thái chốt"
@@ -2259,6 +2263,8 @@ export const LeadTable: React.FC<LeadTableProps> = ({
         onOpenSource={photo => { setReconciliationOpen(false); handleGoToChat("", photo.conversationId, photo.platform, photo.pageId); }}
         onSaved={() => void loadLeads()} />}
       <LeadDetailDrawer
+        onSendZalo={canManageLeads && onSendZalo ? lead => { setDetailLead(null); onSendZalo([lead.id], false, lead.zaloIdentity?.oaId); } : undefined}
+        onZaloHistory={onSendZalo ? lead => { setDetailLead(null); onSendZalo([lead.id], true, lead.zaloIdentity?.oaId); } : undefined}
         lead={leads.find(lead => lead.id === detailLead?.id) ?? detailLead}
         configuredFields={scopedProfile?.fields || []}
         sharedFields={companyWideApplied ? companyProfile?.fields : undefined}

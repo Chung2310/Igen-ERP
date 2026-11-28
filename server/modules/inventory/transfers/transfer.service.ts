@@ -72,7 +72,7 @@ export async function createTransfer(scope: InventoryScope, raw: TransferInput, 
         if (["serial", "unit_barcode"].includes(variant.trackingMode)) {
           if (!Number.isInteger(line.quantity) || line.quantity > 500 || line.unitIdentifiers.length !== line.quantity) inventoryError("Số mã máy phải bằng số lượng nguyên, tối đa 500 máy mỗi dòng.");
           for (const identifier of line.unitIdentifiers) {
-            const matches = await SerialUnitModel.find({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: String(source._id), productId: line.productId, variantId: line.variantId, status: "in_stock", $or: [{ normalizedSerialNumber: identifier }, { normalizedInternalBarcode: identifier }, { normalizedBarcodeAliases: identifier }] }).session(session).lean();
+            const matches = await SerialUnitModel.find({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: String(source._id), productId: line.productId, variantId: line.variantId, status: "in_stock", $or: [{ normalizedSerialNumber: identifier }, { normalizedInternalBarcode: identifier }, { normalizedBarcodeAliases: identifier }, { normalizedImeis: identifier }] }).session(session).lean();
             if (!identifier || matches.length !== 1 || seenUnits.has(String(matches[0]._id))) inventoryError(`Mã ${identifier} không thuộc SKU/kho gửi, không còn tồn hoặc đã bị chọn lặp.`, 409);
             const id = String(matches[0]._id); seenUnits.add(id); serialUnitIds.push(id);
           }

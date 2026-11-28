@@ -1,10 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { ASSISTANT_OPERATIONS, defaultWorkflow, operationById } from "./catalog";
-import { projectCompositeSourceData, publicCompositeResultTree, validateCompositeQueryPlan, validateCompositeRequestCoverage } from "./composite-query";
+import { projectCompositeSourceData, validateCompositeQueryPlan, validateCompositeRequestCoverage } from "./composite-query";
 
 const workflows = ["employee.list", "hr.calendar.events.list", "employee.create"].map(id => defaultWorkflow(operationById(id)!));
 
 describe("multi-API read plan", () => {
+  it('accepts a single authorized source with computed count without allowing an arbitrary output column',()=>{
+    const workflow=defaultWorkflow(operationById('retail.order.list')!);
+    const query={actionId:workflow.actionId,purpose:'Đếm đơn theo trạng thái',values:{analysis:{groupBy:'status',aggregate:{operation:'count'}}},resultFields:['status','count']};
+    expect(validateCompositeQueryPlan([query],[workflow])).toMatchObject({ok:true,queries:[{resultFields:['status']}]});
+    expect(validateCompositeQueryPlan([{...query,resultFields:['status','count','secret']}],[workflow])).toMatchObject({ok:false});
+    expect(validateCompositeQueryPlan([{...query,values:{}}],[workflow])).toMatchObject({ok:false});
+    expect(validateCompositeQueryPlan([{...query,actionId:'employee.create'}],workflows)).toMatchObject({ok:false});
+  });
   it("allows only enabled read workflows and normalizes workflow input aliases", () => {
     const result = validateCompositeQueryPlan([
       { actionId: "employee.list", purpose: "employee count context", values: {}, resultFields: ["displayName"] },
@@ -39,28 +47,50 @@ describe("multi-API read plan", () => {
 
     expect(validateCompositeRequestCoverage("Tổng hợp sự kiện từ ngày 1/11", [
       { evidence: "Tổng hợp", requirement: "tổng hợp dữ liệu", mappedTo: ["action"] },
+      { evidence: "sự kiện", requirement: "lấy sự kiện", mappedTo: ["query:hr.calendar.events.list:source"] },
       { evidence: "từ ngày 1/11", requirement: "bắt đầu trong ngày đã nêu", mappedTo: ["query:hr.calendar.events.list:values.rangeStart"] },
     ], valid.queries, workflows)).toEqual({ ok: true });
 
     expect(validateCompositeRequestCoverage("Tổng hợp sự kiện từ ngày 1/11", [
+      { evidence: "Tổng hợp", requirement: "tổng hợp dữ liệu", mappedTo: ["action"] },
+      { evidence: "sự kiện", requirement: "lấy sự kiện", mappedTo: ["query:hr.calendar.events.list:source"] },
       { evidence: "từ ngày 1/11", requirement: "bắt đầu trong ngày đã nêu", mappedTo: ["query:hr.calendar.events.list:values.rangeStart"] },
     ], [valid.queries[0], { ...valid.queries[1], values: {} }], workflows)).toMatchObject({ ok: false });
   });
 
-  it("validates requirements answered across the active clarification turns", () => {
+  it("rejects a composite plan that silently omits a requested filter", () => {
     const plan = validateCompositeQueryPlan([
-      { actionId: "employee.list", purpose: "employee records", values: {}, resultFields: ["displayName"] },
-      { actionId: "hr.calendar.events.list", purpose: "events in the selected period", values: { rangeStart: "2026-11-01" }, resultFields: ["title", "startDate"] },
+      { actionId: "employee.list", purpose: "employees", values: {}, resultFields: ["displayName"] },
+      { actionId: "hr.calendar.events.list", purpose: "events", values: { rangeStart: "2026-11-01" }, resultFields: ["title", "startDate"] },
     ], workflows);
     expect(plan).toMatchObject({ ok: true });
     if (!plan.ok) return;
 
-    const result = validateCompositeRequestCoverage("tháng 11/2026", [
-      { evidence: "Tổng hợp lịch sự kiện", requirement: "Tổng hợp các sự kiện", mappedTo: ["action"] },
-      { evidence: "tháng 11/2026", requirement: "Giới hạn dữ liệu theo tháng 11/2026", mappedTo: ["query:hr.calendar.events.list:values.rangeStart"] },
-    ], plan.queries, workflows, undefined, ["tháng 11/2026", "Tổng hợp lịch sự kiện trong tháng nào?"]);
+    const result = validateCompositeRequestCoverage("Tổng hợp sự kiện tại Hà Nội từ ngày 1/11", [
+      { evidence: "Tổng hợp", requirement: "tổng hợp dữ liệu", mappedTo: ["action"] },
+      { evidence: "sự kiện", requirement: "lấy sự kiện", mappedTo: ["query:hr.calendar.events.list:source"] },
+      { evidence: "từ ngày 1/11", requirement: "bắt đầu trong ngày đã nêu", mappedTo: ["query:hr.calendar.events.list:values.rangeStart"] },
+    ], plan.queries, workflows);
 
-    expect(result).toEqual({ ok: true });
+    expect(result).toMatchObject({ ok: false, clarification: expect.stringContaining("Hà Nội") });
+  });
+
+  it("requires a composite location condition to map to a source filter", () => {
+    const plan = validateCompositeQueryPlan([
+      { actionId: "employee.list", purpose: "employees", values: {}, resultFields: ["displayName"] },
+      { actionId: "hr.calendar.events.list", purpose: "events", values: { rangeStart: "2026-11-01" }, resultFields: ["title", "startDate"] },
+    ], workflows);
+    expect(plan).toMatchObject({ ok: true });
+    if (!plan.ok) return;
+
+    const result = validateCompositeRequestCoverage("Tổng hợp sự kiện tại Hà Nội từ ngày 1/11", [
+      { evidence: "Tổng hợp", requirement: "Tổng hợp dữ liệu", mappedTo: ["action"] },
+      { evidence: "sự kiện", requirement: "Lấy sự kiện", mappedTo: ["query:hr.calendar.events.list:source"] },
+      { evidence: "tại Hà Nội", requirement: "Chỉ lấy sự kiện ở Hà Nội", mappedTo: ["action"] },
+      { evidence: "từ ngày 1/11", requirement: "Bắt đầu trong ngày đã nêu", mappedTo: ["query:hr.calendar.events.list:values.rangeStart"] },
+    ], plan.queries, workflows);
+
+    expect(result).toMatchObject({ ok: false, clarification: expect.stringContaining("bộ lọc") });
   });
 
   it("projects selected fields and declared nested output fields only", () => {
@@ -79,32 +109,17 @@ describe("multi-API read plan", () => {
     expect(result).toEqual([{ title: "Team sync", startDate: "2026-11-01", participants: [{ displayName: "Linh" }] }]);
   });
 
-  it("keeps public nested sales metrics needed to summarize retail reports", () => {
+  it("projects declared public retail report sections without internal identifiers", () => {
     const operation = operationById("retail.report.summary")!;
     const result = projectCompositeSourceData([{
       range: { from: "2026-11-01", to: "2026-11-30", branchId: "private-branch-id" },
-      summary: { netSales: 1200, collectedAmount: 900, dueAmount: 300, grossProfit: 400, internalCostRows: 9 },
-      paymentMix: [{ method: "cash", amount: 500 }, { method: "bank_transfer", amount: 400, accountId: "private-account" }],
-      timeSeries: [{ businessDate: "2026-11-25", netSales: 1200, orderCount: 2, orderIds: ["private-order-id"] }],
       products: [{ sku: "SKU-1", productName: "Phone", netQuantity: 2, netSales: 1200, profit: 400, productId: "private-product-id" }],
-    }], ["range", "summary", "paymentMix", "timeSeries", "products"], operation);
+    }], ["range", "products"], operation);
 
     expect(result).toEqual([{
       range: { from: "2026-11-01", to: "2026-11-30" },
-      summary: { netSales: 1200, collectedAmount: 900, dueAmount: 300, grossProfit: 400 },
-      paymentMix: [{ method: "cash", amount: 500 }, { method: "bank_transfer", amount: 400 }],
-      timeSeries: [{ businessDate: "2026-11-25", netSales: 1200, orderCount: 2 }],
       products: [{ sku: "SKU-1", productName: "Phone", netQuantity: 2, netSales: 1200, profit: 400 }],
     }]);
-  });
-
-  it("exposes only public nested field names to report analysis", () => {
-    const operation = {
-      ...operationById("hr.calendar.events.list")!,
-      resultChildFields: { participants: ["displayName", "employeeId", "token"] },
-    };
-
-    expect(publicCompositeResultTree(operation, "participants")).toEqual(["displayName"]);
   });
 
   it("defaults metadata consistently for the exact operations used by a plan", () => {

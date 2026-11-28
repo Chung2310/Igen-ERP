@@ -3,6 +3,9 @@ import mongoose from "mongoose";
 import { connectDB } from "../../config/database";
 import { stopMarketingQueueWorkers } from "./shared/queue-runtime";
 import { stopMarketingEventRelay } from "./shared/event-relay";
+import { startZbsWorker } from "./message/zbs/worker";
+
+let stopZbs: (() => Promise<void>) | undefined;
 
 async function main() {
   if (process.env.MARKETING_WORKERS_ENABLED !== "true") throw new Error("Set MARKETING_WORKERS_ENABLED=true to start the ERP marketing workers.");
@@ -20,6 +23,7 @@ async function main() {
     sheet.initCampaignContentSheetAIWorker(); orders.initCampaignAssetOrderAIWorker();
   }
   if (role === "all" || role === "inbox") {
+    stopZbs = startZbsWorker();
     const inbox = await import("./message/service/ai-auto-reply.service");
     const deposits = await import("./message/service/cake-deposit-worker");
     const customerSheets = await import("./message/service/page-customer-sheet.service");
@@ -43,6 +47,7 @@ let stopping = false;
 async function stop() {
   if (stopping) return; stopping = true;
   const timeout = setTimeout(() => process.exit(1), 25_000); timeout.unref();
+  await stopZbs?.();
   await stopMarketingQueueWorkers(); await stopMarketingEventRelay(); await mongoose.disconnect();
   process.exit(0);
 }

@@ -12,6 +12,7 @@ import LeadSheetConfigCard from "./LeadSheetConfigCard";
 import TelegramOrderConfigCard from "./TelegramOrderConfigCard";
 import SepayConfigCard from "./SepayConfigCard";
 import IntegrationSection from "./IntegrationSection";
+import ZaloAppConnection from "./ZaloAppConnection";
 
 interface CompanyIntegrationsTabProps {
   userProfile: any;
@@ -22,7 +23,7 @@ const zaloOAuthMessages = new Map([
   ["denied", "Phiên cấp quyền Zalo OA đã bị hủy. Bạn có thể thử lại."],
   ["expired", "Phiên kết nối Zalo OA đã hết hạn hoặc không khớp. Vui lòng kết nối lại."],
   ["forbidden", "Bạn cần quyền quản lý tích hợp của doanh nghiệp để kết nối Zalo OA."],
-  ["conflict", "Zalo OA này đang được liên kết với một doanh nghiệp khác."],
+  ["conflict", "Kết nối OA đã thay đổi, không khớp OA được chọn hoặc thuộc doanh nghiệp khác. Hãy tải lại và cấp quyền đúng OA."],
   ["failed", "Chưa thể kết nối Zalo OA. Hãy kiểm tra quyền quản trị OA và thử lại."],
 ]);
 
@@ -517,32 +518,6 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
     return () => window.removeEventListener("message", handleOAuthMessage);
   }, [userProfile]);
 
-  const handleZaloOAuth = async () => {
-    setConnectingZalo(true);
-    setZaloNotice(null);
-    const errorMessage = "Không thể mở trang cấp quyền Zalo OA. Vui lòng thử lại.";
-    try {
-      const response = await fetch("/api/v1/zalo/oauth-session", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${getAccessToken()}` },
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setZaloNotice({ message: typeof data.message === "string" ? data.message : errorMessage });
-        return;
-      }
-      const url = new URL(data.authorizationUrl);
-      if (url.origin !== "https://oauth.zaloapp.com" || url.pathname !== "/v4/oa/permission") {
-        throw new Error(errorMessage);
-      }
-      window.location.assign(url.href);
-    } catch {
-      setZaloNotice({ message: errorMessage });
-    } finally {
-      setConnectingZalo(false);
-    }
-  };
-
   const handleSaveCompanyIntegration = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isZaloOAuth) return;
@@ -838,17 +813,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                   )}
                   {isZaloOAuth && (
                     <>
-                      <p className="text-pretty text-sm text-on-surface-variant">
-                        Đăng nhập bằng tài khoản quản trị Zalo, chọn OA và cấp quyền cho ERP.
-                      </p>
-                      <button
-                        type="button"
-                        disabled={connectingZalo}
-                        onClick={handleZaloOAuth}
-                        className="min-h-10 w-full rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-on-primary hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60"
-                      >
-                        {connectingZalo ? "Đang mở trang cấp quyền…" : "Kết nối Zalo OA"}
-                      </button>
+                      <ZaloAppConnection onBusyChange={setConnectingZalo} />
                     </>
                   )}
                   <button
@@ -1551,6 +1516,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                       </div>
                     </div>
 
+                    {item.platform === "Zalo" && <ZaloAppConnection integration={item} />}
                     <LeadSheetConfigCard integration={item} />
                     {item.platform === "Facebook" && (
                       <OrderSheetConfigCard

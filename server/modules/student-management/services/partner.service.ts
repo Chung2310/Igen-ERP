@@ -16,6 +16,7 @@ import {
 } from "./custom-field-write.service";
 import { customFieldResourceService } from "./custom-field-resource.service";
 import { partnerReadPeriod, referredStudentInPeriod } from './partner-read-period';
+import { collectPartnerPayoutHistory, partnerPayoutDay, type PartnerPayoutReadFilters } from './partner-payout-read';
 
 interface PartnerFilters {
   page?: number | string;
@@ -96,15 +97,6 @@ function buildOwnerQuery(ownerId: string | string[]): Record<string, unknown> {
 
 function buildBranchScopeQuery(branchId?: string): Record<string, unknown> {
   return branchId ? { branchId } : {};
-}
-
-function normalizePayoutDate(value: unknown): string | undefined {
-  const raw = String(value || "").trim();
-  const dayFirst = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  const iso = dayFirst ? `${dayFirst[3]}-${dayFirst[2]}-${dayFirst[1]}` : raw.slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return undefined;
-  const parsed = new Date(`${iso}T00:00:00.000Z`);
-  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === iso ? iso : undefined;
 }
 
 function parseCurrency(val: string | undefined): number {
@@ -210,36 +202,44 @@ export interface ReferredStudentItem {
 export class PartnerService {
   static customFieldWrites = customFieldWriteService;
 
-  static async getPayoutReport(ownerId: string | string[], branchId: string | undefined, from: string, to: string) {
-    const isValidDate = (value: string) => {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-      const date = new Date(`${value}T00:00:00.000Z`);
-      return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
-    };
-    if (!isValidDate(from) || !isValidDate(to) || from > to) {
-      throw Object.assign(new Error("Khoảng ngày chi trả không hợp lệ."), { status: 400 });
+  static async getPayoutHistory(ownerId:string|string[], filters:PartnerPayoutReadFilters, branchId?:string) {
+    // Validate the window before opening the cursor. Neither owner nor branch
+    // can be supplied through this report's query parameters.
+    partnerReadPeriod(filters.from,filters.to);
+    const query:Record<string,unknown>={...buildOwnerQuery(ownerId),...buildBranchScopeQuery(branchId)};
+    if(filters.search!==undefined){
+      if(typeof filters.search!=='string'||filters.search.length>150)throw new ValidationError('VALIDATION_FAILED','Tên đối tác cần tìm chưa hợp lệ.');
+      if(filters.search.trim())query.name={$regex:filters.search.trim().replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),$options:'i'};
     }
+    const cursor=Partner.find(query).select('name payoutHistory').lean().cursor();
+    try{return await collectPartnerPayoutHistory(cursor,filters);}finally{await cursor.close();}
+  }
 
+  static async getPayoutReport(ownerId: string | string[], branchId: string | undefined, from: string, to: string) {
+    const period = partnerReadPeriod(from, to);
+    if (!period) throw new ValidationError("PARTNER_PERIOD_INVALID", "Cần khoảng ngày chi trả hợp lệ.");
     const partners = await Partner.find({ ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) })
-      .select("name payoutHistory")
-      .lean();
+      .select("name payoutHistory").lean();
     const payouts = partners.flatMap((partner: any) => (partner.payoutHistory || []).flatMap((payout: any) => {
-      const date = normalizePayoutDate(payout.date);
-      if (!date || date < from || date > to) return [];
+      const date = partnerPayoutDay(String(payout.date || ""));
+      if (date < period.from || date > period.to) return [];
+      if (!Number.isSafeInteger(payout.amount) || payout.amount <= 0) {
+        throw new ValidationError("PARTNER_PAYOUT_HISTORY_INVALID", "Lịch sử chi trả có số tiền không hợp lệ.");
+      }
       return [{
         partnerName: String(partner.name || ""),
         date,
-        method: payout.method === "Chuyển khoản" ? "Chuyển khoản" : "Tiền mặt",
-        amount: Math.max(0, Number(payout.amount) || 0),
+        method: payout.method === "Chuyển khoản" ? "Chuyển khoản" as const : "Tiền mặt" as const,
+        amount: payout.amount as number,
       }];
     }));
-    const methodTotals = ["Chuyển khoản", "Tiền mặt"].map((method) => {
-      const matching = payouts.filter((payout) => payout.method === method);
+    const methodTotals = (["Chuyển khoản", "Tiền mặt"] as const).map(method => {
+      const matching = payouts.filter(payout => payout.method === method);
       return { method, payoutCount: matching.length, totalAmount: matching.reduce((sum, payout) => sum + payout.amount, 0) };
     });
     return {
-      from,
-      to,
+      from: period.from,
+      to: period.to,
       payoutCount: payouts.length,
       totalAmount: payouts.reduce((sum, payout) => sum + payout.amount, 0),
       methodTotals,
@@ -411,7 +411,7 @@ export class PartnerService {
     const enriched = (await enrichPartners([partner], branchId))[0];
 
     // Fetch detailed list of referred students
-    const students = await Student.find({ partnerId: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) }).sort({ createdAt: -1 });
+    const students = await Student.find({ partnerId: id }).sort({ createdAt: -1 });
     const studentsList = students.map(student => {
       const commission = Math.round((parseCurrency(student.fee) * enriched.commissionValue) / 100);
 

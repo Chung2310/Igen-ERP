@@ -42,6 +42,7 @@ const SUFFIX_ACTIONS: Record<string, AssistantAction> = {
   export: "export", download: "export",
   import: "import", upload: "import",
   send: "communicate", reply: "communicate", respond: "communicate", notify: "communicate",
+  move: "process", transfer: "process", transition: "process", promote: "process", demote: "process", confirm: "process", publish: "process", unassign: "process", reconcile: "process", convert: "process",
   retry: "process", submit: "process", execute: "process", complete: "process", close: "process", reopen: "process", checkin: "process", checkout: "process", enroll: "process", assign: "process",
 };
 
@@ -72,7 +73,7 @@ function inferredAction(operation: AssistantOperation): AssistantAction {
   if (/\b(xoa|go bo|delete|remove)\b/.test(title)) return "delete";
   if (/\b(huy|thu hoi|cancel)\b/.test(title)) return "cancel";
   if (/\b(duyet|phe duyet|chap thuan|tu choi|approve|reject)\b/.test(title)) return "approve";
-  if (/\b(tao|them moi|them|lap moi|dang ky|ghi nhan)\b/.test(title)) return "create";
+  if (/\b(tao|them moi|them|lap|dang ky|ghi nhan)\b/.test(title)) return "create";
   if (/\b(cap nhat|chinh sua|sua|dieu chinh|thay doi|kich hoat|vo hieu)\b/.test(title)) return "update";
   if (/\b(xuat|tai xuong|export|excel)\b/.test(title)) return "export";
   if (/\b(nhap hang loat|tai len|import)\b/.test(title)) return "import";
@@ -80,7 +81,7 @@ function inferredAction(operation: AssistantOperation): AssistantAction {
   if (/\b(bao cao|tong hop|thong ke|dem so|kpi|phan tich)\b/.test(title) || operation.analysis) return "read";
   if (/\b(tra cuu|tim kiem|danh sach|chi tiet|trang thai|lich su|xem)\b/.test(title)) return "read";
   if (operation.method === "GET" || operation.readOnly) return "read";
-  if (operation.confirmation || operation.method === "POST") return "create";
+  if (operation.method === "POST") return "process";
   if (operation.method === "DELETE") return "delete";
   if (operation.method === "PATCH" || operation.method === "PUT") return "update";
   return "other";
@@ -154,7 +155,8 @@ function featureDescriptor(operation: AssistantOperation) {
     return { key: "partner-records", label: FEATURE_LABELS["partner-records"] };
   }
   if (operation.module === "student-partner") {
-    if (operation.analysis) return { key: "partner-analysis", label: FEATURE_LABELS["partner-analysis"] };
+    if (path === '/partners/payout-history') return {key:'partner-payouts',label:'Chi trả hoa hồng đối tác học viên'};
+    if (operation.analysis && !operation.analysis.publicRead) return { key: "partner-analysis", label: FEATURE_LABELS["partner-analysis"] };
     if (/\/partners\/commission-levels(?:\/|$)/.test(path)) return { key: "partner-commission-settings", label: FEATURE_LABELS["partner-commission-settings"] };
     if (/\/partners\/(?:payouts|[^/]+\/payouts)(?:\/|$)/.test(path)) return { key: "partner-payouts", label: "Chi trả hoa hồng đối tác học viên" };
     if (/\/partners\/bulk(?:\/|$)/.test(path)) return { key: "partner-bulk-management", label: FEATURE_LABELS["partner-bulk-management"] };
@@ -198,10 +200,10 @@ export function buildAssistantOperationMetadata(operation: AssistantOperation): 
   const action = inferredAction(operation);
   const effect = operation.readOnly || operation.method === "GET" ? "read" : "write";
   const feature = featureDescriptor(operation);
-  const report = action === "read" && Boolean(operation.analysis || /\b(report|summary|count|kpi|overview|analytics|statistics)\b/i.test(operation.id)
+  const report = action === "read" && Boolean(operation.analysis && !operation.analysis.publicRead || /\b(report|summary|count|kpi|overview|analytics|statistics)\b/i.test(operation.id)
     || /báo cáo|tổng hợp|thống kê|đếm số|chỉ số/i.test(operation.title));
   const capabilities = new Set<string>();
-  if (operation.analysis) capabilities.add("analysis");
+  if (operation.analysis) capabilities.add(operation.analysis.publicRead ? 'read-filter' : 'analysis');
   if (operation.analysis?.pagination) capabilities.add("pagination");
   if (operation.fields.some(field => field.reference)) capabilities.add("reference-resolution");
   if (operation.fields.some(field => field.source === "query")) capabilities.add("query-filters");
