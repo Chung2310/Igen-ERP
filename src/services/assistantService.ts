@@ -1,5 +1,5 @@
 import type { AssistantSettings, AssistantReply, AssistantWorkflow, AssistantWorkflowUpdate, AssistantFormSubmission, AssistantQuotationAcceptanceLinesInput, AssistantTableAttachment, AssistantTrainingContentForm } from "../shared/assistant-workflow";
-import type { AssistantSpeechVoice } from "../shared/assistant-speech-voices";
+import { assistantSpeechVoiceProfiles, registerDynamicSpeechVoices, type AssistantSpeechVoice, type AssistantSpeechVoiceOption } from "../shared/assistant-speech-voices";
 import type { AssistantSpeechControls } from "../shared/assistant-speech";
 import type { AssistantChatMessage, AssistantGeneratedFile } from "../shared/assistant-document";
 import type { AssistantChartHistoryItem, AssistantChartResult, AssistantChartType } from "../shared/assistant-chart";
@@ -178,6 +178,18 @@ export const assistantService = {
     }
     if (response.headers.get("content-type")?.split(";")[0] !== file.mimeType.split(";")[0]) throw new Error("Máy chủ trả về định dạng tệp không hợp lệ.");
     return response.blob();
+  },
+  speechVoices: async (): Promise<{ provider: "vbee" | "openrouter"; voices: AssistantSpeechVoiceOption[] }> => {
+    try {
+      const result = await request<{ provider?: "vbee" | "openrouter"; voices?: AssistantSpeechVoiceOption[] }>("/speech/voices");
+      if (Array.isArray(result?.voices) && result.voices.length > 0) {
+        registerDynamicSpeechVoices(result.voices);
+        return { provider: result.provider === "vbee" ? "vbee" : "openrouter", voices: result.voices };
+      }
+    } catch {
+      // Fallback to built-in OpenRouter voices when endpoint is unavailable.
+    }
+    return { provider: "openrouter", voices: [...assistantSpeechVoiceProfiles] };
   },
   speech: async (text: string, signal?: AbortSignal, voice?: AssistantSpeechVoice, controls?: AssistantSpeechControls): Promise<Blob> => {
     const token = localStorage.getItem("accessToken");

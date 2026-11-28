@@ -166,7 +166,7 @@ export class ResourceService {
   /** Lấy toàn bộ booking trong khoảng ngày (phục vụ lịch tổng hợp) */
   static async getBookingsInRange(ownerId: string | string[], from?: string, to?: string, branchId?: string) {
     const resources = await Resource.find({ ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
-    const events: { id: string; title: string; date: string; time: string; details: string }[] = [];
+    const events: { id: string; title: string; date: string; time: string; details: string;location:string }[] = [];
     for (const resource of resources) {
       for (const b of resource.bookings) {
         if (from && b.date < from) continue;
@@ -177,6 +177,7 @@ export class ResourceService {
           date: b.date,
           time: `${b.startTime} - ${b.endTime}`,
           details: `${b.purpose} • ${resource.identifier}`,
+          location:String(resource.name||''),
         });
       }
     }

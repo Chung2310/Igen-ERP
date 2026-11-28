@@ -2,6 +2,13 @@ import { createHash, createHmac } from "node:crypto";
 import type { Request, Response } from "express";
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
+// Queue tests exercise signature rejection separately from the new OA/App resolver integration tests.
+vi.mock("../../shared/zalo-app-config", async importOriginal => {
+  const original = await importOriginal<typeof import("../../shared/zalo-app-config")>();
+  const { verifyZaloWebhook } = await import("../webhook-signature");
+  return { ...original, verifyZaloConnectionWebhook: async (input: { body: { app_id: string; timestamp: string | number }; signature?: string; rawBody?: string }) =>
+    verifyZaloWebhook({ appId: input.body.app_id, timestamp: input.body.timestamp, signature: input.signature, rawBody: input.rawBody, expectedAppId: process.env.ZALO_APP_ID, secret: process.env.ZALO_OA_SECRET_KEY }) ? { oaId: "oa", appId: input.body.app_id, companyCode: "ACME" } : null };
+});
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { zaloMessengerController } from "../controller/zalo-messenger.controller";
 import { fbMessengerController } from "../controller/fb-messenger.controller";
@@ -115,7 +122,7 @@ it("diagnoses rejected OA webhook signatures without accepting or logging the pa
   await submit();
   expect(res.status).toHaveBeenCalledWith(401);
   expect(log).toHaveBeenCalledWith("[Zalo Webhook] Signature rejected", {
-    eventName: "oa_send_text", appIdMatches: true, hasRawBody: true, hasSignature: true, hasSecret: true,
+    eventName: "oa_send_text", hasRawBody: true, hasSignature: true,
   });
   expect(await MessengerBackgroundJobModel.countDocuments({})).toBe(0);
   expect(JSON.stringify(log.mock.calls)).not.toContain(req.body.message.text);

@@ -20,6 +20,7 @@ const accentByModule: Partial<Record<TabType, keyof typeof accentPalettes>> = {
   "QUẢN LÝ KHÁCH HÀNG": "coral", "BÁN LẺ": "orange",
   "ĐỐI TÁC BÁN LẺ": "teal", "TÀI CHÍNH": "blue",
   "TRỢ LÝ KIẾN TRÚC": "blue",
+  "CHIẾN DỊCH NỘI DUNG": "coral",
   "OMNI INBOX": "violet",
   "MARKETING": "orange", "KHO TRI THỨC": "teal",
   "TÍCH HỢP MARKETING": "blue", "GÓI AI & LƯỢT SỬ DỤNG": "violet",
@@ -97,6 +98,17 @@ export function ModuleArtwork({ module, className = "" }: ArtworkProps) {
       art = <><path d="M9 19c0-8 6-13 15-13s15 5 15 13z" fill={a.gold}/><path d="M6 19h36v5H6z" fill={a.blue}/><path d="M17 8v8m14-8v8" stroke={a.white} strokeWidth="2" strokeLinecap="round"/><circle cx="15" cy="30" r="5" fill={a.blue}/><circle cx="33" cy="30" r="5" fill={a.mint}/><path d="M5 42c0-5 4-8 10-8s10 3 10 8zm18 0c0-5 4-8 10-8s10 3 10 8z" fill={a.blue}/><path d="M23 42c0-5 4-8 10-8s10 3 10 8z" fill={a.mint}/><path d="m20 34 4 3 4-3" fill="none" stroke={a.gold} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></>; break;
     case "ĐỐI TÁC BÁN LẺ":
       art = <><path d="M5 12h24l5 8H5z" fill={a.gold}/><path d="M7 21h25v19H7z" fill={a.blue}/><path d="M12 27h8v13h-8zm11 0h6v7h-6z" fill={a.white}/><path d="M33 9h10v13H33z" fill={a.mint}/><circle cx="38" cy="14" r="2" fill={a.white}/><path d="m30 29 7-4 8 4-8 5z" fill={a.coral}/><path d="m30 29 7 5v8l-7-5z" fill={a.gold}/><path d="m45 29-8 5v8l8-5z" fill={a.mint}/></>; break;
+    case "CHIẾN DỊCH NỘI DUNG":
+      art = (
+        <>
+          <path d="M13 28l3.5 10.5a2 2 0 0 1-1.9 2.6h-2.2a2 2 0 0 1-1.9-1.4L7.5 29" fill={a.mint} />
+          <rect x="5" y="18" width="8" height="11" rx="4" fill={a.gold} />
+          <path d="M12 18.5 31 10a2 2 0 0 1 2.8 1.8v23.4A2 2 0 0 1 31 37l-19-8.5Z" fill={a.blue} />
+          <rect x="30" y="11" width="4" height="25" rx="2" fill={a.mint} />
+          <path d="M38 17c2.4 2.2 2.4 10.8 0 13M41.5 13.5c3.8 4 3.8 16 0 20" stroke={a.gold} strokeWidth="2.8" strokeLinecap="round" />
+          <path d="m11 6 1.5 3.5L16 11l-3.5 1.5L11 16l-1.5-3.5L6 11l3.5-1.5Z" fill={a.coral} />
+        </>
+      ); break;
     case "OMNI INBOX":
       art = <><path d="M5 10h27v23H15L5 40z" fill={a.blue}/><path d="M19 18h25v23l-8-6H19z" fill={a.mint}/><path d="M10 17h14M10 23h9" stroke={a.white} strokeWidth="2" strokeLinecap="round"/><circle cx="27" cy="27" r="2.5" fill={a.gold}/><circle cx="35" cy="27" r="2.5" fill={a.coral}/></>; break;
     case "MARKETING":

@@ -177,9 +177,9 @@ function RevealingAssistantMessage({ content, allowedLinkUrls, illustrations, re
     }
     // Keep the requested typing effect even when reduced motion is enabled;
     // use a shorter cadence in that mode while still revealing each character.
-    const charactersPerSecond = reduceMotion ? 24 : 16;
+    const charactersPerSecond = reduceMotion ? 48 : 32;
     const playback = animate(0, length, {
-      duration: Math.min(24, Math.max(0.8, length / charactersPerSecond)),
+      duration: Math.min(12, Math.max(0.4, length / charactersPerSecond)),
       ease: "linear",
       onUpdate: value => {
         const next = Math.min(length, Math.floor(value));

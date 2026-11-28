@@ -1,0 +1,543 @@
+[
+  {
+    "id": "WORKER-OR",
+    "text": "Tìm lao động có tên chứa QA An hoặc thuộc loại thời vụ, chỉ trả họ tên",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "Tìm",
+          "concept": "Tìm kiếm hồ sơ",
+          "operator": "lookup",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "lao động",
+          "concept": "Hồ sơ lao động",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "condition",
+          "quote": "tên chứa QA An",
+          "concept": "Tên lao động",
+          "operator": "contains",
+          "value": "QA An",
+          "dimension": "none"
+        },
+        {
+          "id": "u4",
+          "kind": "condition",
+          "quote": "thuộc loại thời vụ",
+          "concept": "Loại lao động",
+          "operator": "eq",
+          "value": "thời vụ",
+          "dimension": "none"
+        },
+        {
+          "id": "u5",
+          "kind": "output",
+          "quote": "chỉ trả họ tên",
+          "concept": "Họ tên",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": {
+        "any": [
+          "u3",
+          "u4"
+        ]
+      },
+      "dialogue": {
+        "act": "request",
+        "evidence": "Tìm lao động có tên chứa QA An hoặc thuộc loại thời vụ, chỉ trả họ tên"
+      }
+    },
+    "plan": {
+      "intentType": "workflow",
+      "actionId": "worker.list",
+      "values": {
+        "analysis": {
+          "where": {
+            "any": [
+              {
+                "field": "fullName",
+                "operator": "contains",
+                "value": "QA An"
+              },
+              {
+                "field": "laborType",
+                "operator": "eq",
+                "value": "seasonal"
+              }
+            ]
+          },
+          "select": [
+            "fullName"
+          ]
+        }
+      },
+      "meaningBindings": [
+        {
+          "unitId": "u1",
+          "targets": [
+            "action"
+          ]
+        },
+        {
+          "unitId": "u2",
+          "targets": [
+            "action",
+            "context.module"
+          ]
+        },
+        {
+          "unitId": "u3",
+          "targets": [
+            "analysis.filters.fullName"
+          ]
+        },
+        {
+          "unitId": "u4",
+          "targets": [
+            "analysis.filters.laborType"
+          ]
+        },
+        {
+          "unitId": "u5",
+          "targets": [
+            "analysis.select.fullName"
+          ]
+        }
+      ],
+      "actionIntent": "lookup"
+    }
+  },
+  {
+    "id": "STUDENT-NUMERIC-AND",
+    "text": "Lọc học viên có học phí trên 3 triệu và đã đóng dưới 1 triệu, chỉ lấy họ tên, học phí và đã đóng.",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "Lọc học viên",
+          "concept": "Tra cứu học viên theo điều kiện",
+          "operator": "lookup",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "học viên",
+          "concept": "Hồ sơ học viên",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "condition",
+          "quote": "học phí trên 3 triệu",
+          "concept": "Học phí lớn hơn 3 triệu",
+          "operator": "gt",
+          "value": 3000000,
+          "dimension": "numeric"
+        },
+        {
+          "id": "u4",
+          "kind": "condition",
+          "quote": "đã đóng dưới 1 triệu",
+          "concept": "Số tiền đã đóng nhỏ hơn 1 triệu",
+          "operator": "lt",
+          "value": 1000000,
+          "dimension": "numeric"
+        },
+        {
+          "id": "u5",
+          "kind": "output",
+          "quote": "họ tên",
+          "concept": "Họ tên học viên cần trả về",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u6",
+          "kind": "output",
+          "quote": "học phí",
+          "concept": "Học phí cần trả về",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u7",
+          "kind": "output",
+          "quote": "đã đóng",
+          "concept": "Số tiền đã đóng cần trả về",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": {
+        "all": [
+          "u3",
+          "u4"
+        ]
+      },
+      "dialogue": {
+        "act": "request",
+        "evidence": "Lọc học viên có học phí trên 3 triệu và đã đóng dưới 1 triệu, chỉ lấy họ tên, học phí và đã đóng."
+      }
+    },
+    "plan": {
+      "intentType": "workflow",
+      "actionId": "student.list",
+      "values": {
+        "analysis": {
+          "where": {
+            "all": [
+              {
+                "field": "fee",
+                "operator": "gt",
+                "value": 3000000
+              },
+              {
+                "field": "paidAmount",
+                "operator": "lt",
+                "value": 1000000
+              }
+            ]
+          },
+          "select": [
+            "fullName",
+            "fee",
+            "paidAmount"
+          ]
+        }
+      },
+      "meaningBindings": [
+        {
+          "unitId": "u1",
+          "targets": [
+            "action"
+          ]
+        },
+        {
+          "unitId": "u2",
+          "targets": [
+            "action",
+            "context.module"
+          ]
+        },
+        {
+          "unitId": "u3",
+          "targets": [
+            "analysis.filters.fee"
+          ]
+        },
+        {
+          "unitId": "u4",
+          "targets": [
+            "analysis.filters.paidAmount"
+          ]
+        },
+        {
+          "unitId": "u5",
+          "targets": [
+            "analysis.select.fullName"
+          ]
+        },
+        {
+          "unitId": "u6",
+          "targets": [
+            "analysis.select.fee"
+          ]
+        },
+        {
+          "unitId": "u7",
+          "targets": [
+            "analysis.select.paidAmount"
+          ]
+        }
+      ],
+      "actionIntent": "lookup"
+    }
+  },
+  {
+    "id": "HR-CONTRACT-DATE",
+    "text": "Hợp đồng nhân sự nào kết thúc từ ngày 01/11/2026 đến 30/11/2026? Chỉ lấy tên nhân viên và ngày kết thúc.",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "Hợp đồng nhân sự nào",
+          "concept": "Liệt kê hợp đồng nhân sự",
+          "operator": "report",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "Hợp đồng nhân sự",
+          "concept": "Hợp đồng nhân sự",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "time",
+          "quote": "từ ngày 01/11/2026 đến 30/11/2026",
+          "concept": "Ngày kết thúc hợp đồng",
+          "operator": "range",
+          "value": {
+            "from": "2026-11-01",
+            "to": "2026-11-30"
+          },
+          "dimension": "temporal"
+        },
+        {
+          "id": "u4",
+          "kind": "output",
+          "quote": "tên nhân viên",
+          "concept": "Tên nhân viên",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u5",
+          "kind": "output",
+          "quote": "ngày kết thúc",
+          "concept": "Ngày kết thúc hợp đồng",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": "u3",
+      "dialogue": {
+        "act": "request",
+        "evidence": "Hợp đồng nhân sự nào kết thúc từ ngày 01/11/2026 đến 30/11/2026?"
+      }
+    },
+    "plan": {
+      "intentType": "workflow",
+      "actionId": "hr.contract.list",
+      "values": {
+        "analysis": {
+          "where": {
+            "field": "endDate",
+            "operator": "between",
+            "value": [
+              "2026-11-01",
+              "2026-11-30"
+            ]
+          },
+          "select": [
+            "employeeName",
+            "endDate"
+          ]
+        }
+      },
+      "meaningBindings": [
+        {
+          "unitId": "u1",
+          "targets": [
+            "query:hr.contract.list:action"
+          ]
+        },
+        {
+          "unitId": "u2",
+          "targets": [
+            "query:hr.contract.list:action",
+            "context.module"
+          ]
+        },
+        {
+          "unitId": "u3",
+          "targets": [
+            "analysis.filters.endDate"
+          ]
+        },
+        {
+          "unitId": "u4",
+          "targets": [
+            "analysis.select.employeeName"
+          ]
+        },
+        {
+          "unitId": "u5",
+          "targets": [
+            "analysis.select.endDate"
+          ]
+        }
+      ],
+      "actionIntent": "report"
+    }
+  },
+  {
+    "id": "FINANCE-NATIVE-AND",
+    "text": "Khoản phải thu nào quá hạn trên 30 ngày và số dư còn lại trên 1 triệu? Lấy mã khoản phải thu, khách hàng và số dư.",
+    "meaning": {
+      "version": 1,
+      "units": [
+        {
+          "id": "u1",
+          "kind": "goal",
+          "quote": "Khoản phải thu nào",
+          "concept": "Tìm các khoản phải thu phù hợp",
+          "operator": "lookup",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u2",
+          "kind": "entity",
+          "quote": "Khoản phải thu",
+          "concept": "Hồ sơ khoản phải thu",
+          "operator": "none",
+          "value": null,
+          "dimension": "none"
+        },
+        {
+          "id": "u3",
+          "kind": "condition",
+          "quote": "quá hạn trên 30 ngày",
+          "concept": "Số ngày quá hạn",
+          "operator": "gt",
+          "value": 30,
+          "dimension": "numeric"
+        },
+        {
+          "id": "u4",
+          "kind": "condition",
+          "quote": "số dư còn lại trên 1 triệu",
+          "concept": "Số dư còn lại",
+          "operator": "gt",
+          "value": 1000000,
+          "dimension": "numeric"
+        },
+        {
+          "id": "u5",
+          "kind": "output",
+          "quote": "mã khoản phải thu",
+          "concept": "Mã khoản phải thu",
+          "operator": "none",
+          "value": "mã khoản phải thu",
+          "dimension": "none"
+        },
+        {
+          "id": "u6",
+          "kind": "output",
+          "quote": "khách hàng",
+          "concept": "Khách hàng",
+          "operator": "none",
+          "value": "khách hàng",
+          "dimension": "none"
+        },
+        {
+          "id": "u7",
+          "kind": "output",
+          "quote": "số dư",
+          "concept": "Số dư",
+          "operator": "none",
+          "value": "số dư",
+          "dimension": "none"
+        }
+      ],
+      "conditionLogic": {
+        "all": [
+          "u3",
+          "u4"
+        ]
+      },
+      "dialogue": {
+        "act": "request",
+        "evidence": "Khoản phải thu nào quá hạn trên 30 ngày và số dư còn lại trên 1 triệu? Lấy mã khoản phải thu, khách hàng và số dư."
+      }
+    },
+    "plan": {
+      "intentType": "workflow",
+      "actionId": "finance.receivable.list",
+      "actionIntent": "lookup",
+      "values": {
+        "query_minOverdueDays": 31,
+        "analysis": {
+          "where": {
+            "field": "balance",
+            "operator": "gt",
+            "value": 1000000
+          },
+          "select": [
+            "receivableCode",
+            "customerName",
+            "balance"
+          ]
+        }
+      },
+      "meaningBindings": [
+        {
+          "unitId": "u1",
+          "targets": [
+            "action"
+          ]
+        },
+        {
+          "unitId": "u2",
+          "targets": [
+            "action",
+            "context.module.finance"
+          ]
+        },
+        {
+          "unitId": "u3",
+          "targets": [
+            "values.query_minOverdueDays"
+          ]
+        },
+        {
+          "unitId": "u4",
+          "targets": [
+            "analysis.filters.balance"
+          ]
+        },
+        {
+          "unitId": "u5",
+          "targets": [
+            "analysis.select.receivableCode"
+          ]
+        },
+        {
+          "unitId": "u6",
+          "targets": [
+            "analysis.select.customerName"
+          ]
+        },
+        {
+          "unitId": "u7",
+          "targets": [
+            "analysis.select.balance"
+          ]
+        }
+      ]
+    }
+  }
+]

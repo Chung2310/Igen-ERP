@@ -8,6 +8,14 @@ import { interpretRequest } from "./semantic-interpreter";
 import { collectValues, validateField } from "./policy";
 afterEach(() => { vi.unstubAllGlobals(); provider.mockReset(); });
 const req: any = { user: { id: "actor", companyCode: "TEST", role: "admin", branchId: "222222222222222222222222" }, headers: {}, socket: { localAddress: "127.0.0.1", localPort: 3000 } };
+it('keeps authenticated scope in headers without injecting rejected query fields into progression',async()=>{
+ const op=operationById('student.learning-roadmap.progression.list')!,fetcher=vi.fn(async()=>new Response(JSON.stringify({success:true,data:{rows:[]}})));
+ vi.stubGlobal('fetch',fetcher);
+ await callOperation(req,op,{path_batchId:'333333333333333333333333'});
+ const [raw,init]=fetcher.mock.calls[0] as unknown as [URL,RequestInit],url=new URL(String(raw));
+ expect(url.searchParams.has('branchId')).toBe(false);expect(url.searchParams.has('companyCode')).toBe(false);
+ expect(new Headers(init.headers).get('x-branch-id')).toBe(req.user.branchId);
+});
 const cases: Array<{ id: string; input: Record<string, string | number> }> = [
   {
     "id": "api.get.3938bd395acae1c5",

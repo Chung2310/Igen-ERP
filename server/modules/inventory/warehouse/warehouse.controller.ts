@@ -26,6 +26,23 @@ async function effectiveBranch(req: Request, companyCode: string, accountBranchI
 function error(res: Response, problem: any) { return res.status(Number(problem?.statusCode) || 400).json({ status: "error", message: problem?.message || "Không thể tải dữ liệu kho." }); }
 
 export const warehouseController = {
+  ledger: async (req: Request, res: Response) => {
+    try {
+      const companyCode=company(req);
+      if(!companyCode)throw Object.assign(new Error('Vui lòng chọn công ty.'),{statusCode:400});
+      const branchId=await effectiveBranch(req,companyCode,branch(req));
+      const page=Number(req.query.page??1),limit=Number(req.query.limit??100),warehouseId=String(req.query.warehouseId||'').trim();
+      if(!Number.isSafeInteger(page)||page<1||!Number.isSafeInteger(limit)||limit<1||limit>1000||!Number.isSafeInteger((page-1)*limit))throw Object.assign(new Error('Trang hoặc số dòng không hợp lệ.'),{statusCode:400});
+      const scope={companyCode,...(branchId?{branchId}:{})};
+      if(warehouseId&&(!Types.ObjectId.isValid(warehouseId)||!await WarehouseModel.exists({...scope,_id:warehouseId})))throw Object.assign(new Error('Không tìm thấy kho trong phạm vi được cấp quyền.'),{statusCode:404});
+      const query={...scope,...(warehouseId?{warehouseId}:{})};
+      const [items,total]=await Promise.all([
+        InventoryLedgerEntryModel.find(query).select('productName sku direction purpose quantity quantityDelta unitCost sourceCode operatorName reason createdAt -_id').sort({createdAt:-1,_id:-1}).skip((page-1)*limit).limit(limit).maxTimeMS(15000).lean(),
+        InventoryLedgerEntryModel.countDocuments(query).maxTimeMS(15000),
+      ]);
+      return res.json({status:'success',data:{items,total,page,limit}});
+    }catch(problem){return error(res,problem);}
+  },
   list: async (req: Request, res: Response) => {
     try {
       const companyCode = company(req); const branchId = branch(req);
@@ -44,14 +61,16 @@ export const warehouseController = {
       if (!companyCode) throw Object.assign(new Error("Vui lòng chọn công ty."), { statusCode: 400 });
       const branchId = await effectiveBranch(req, companyCode, accountBranchId);
       const warehouseId = String(req.query.warehouseId || "").trim();
+      const selectedProductId=String(req.query.productId||'').trim();
+      if(selectedProductId&&(!Types.ObjectId.isValid(selectedProductId)||!await ProductCatalogModel.exists({_id:selectedProductId,companyCode})))throw Object.assign(new Error('Không tìm thấy sản phẩm trong công ty hiện tại.'),{statusCode:404});
       const physicalWarehouses = await listWarehouses(companyCode, branchId || undefined);
       if (warehouseId && !physicalWarehouses.some((warehouse) => String(warehouse._id) === warehouseId)) {
         throw Object.assign(new Error("Không tìm thấy kho trong chi nhánh hiện tại."), { statusCode: 404 });
       }
       const warehouseIds = physicalWarehouses.map((warehouse) => String(warehouse._id)).filter((id) => !warehouseId || id === warehouseId);
       const branchScope = branchId ? { branchId } : {};
-      const items = await InventoryBalanceModel.find({ companyCode, ...branchScope, warehouseId: { $in: warehouseIds } }).sort({ sku: 1 }).lean();
-      const catalogProducts = await ProductCatalogModel.find({ companyCode, status: "active", productType: { $in: ["physical", "bundle"] } }).select("name mediaIds").lean();
+      const items = await InventoryBalanceModel.find({ companyCode, ...branchScope, warehouseId: { $in: warehouseIds },...(selectedProductId?{productId:selectedProductId}:{}) }).sort({ sku: 1 }).lean();
+      const catalogProducts = await ProductCatalogModel.find({ companyCode, status: "active", productType: { $in: ["physical", "bundle"] },...(selectedProductId?{_id:selectedProductId}:{}) }).select("name mediaIds").lean();
       const activeProductIds = catalogProducts.map((product) => String(product._id));
       const productIds = [...new Set([...items.map((i) => i.productId), ...activeProductIds])];
       const activeVariants = await ProductVariantModel.find({ companyCode, productId: { $in: activeProductIds }, status: "active", trackingMode: { $in: ["quantity", "serial", "unit_barcode", "lot"] } }).select("_id productId sku barcode displayName mediaIds trackingMode").sort({ sku: 1 }).lean();
@@ -113,7 +132,11 @@ export const warehouseController = {
         }
       }
       enrichedItems.sort((a, b) => String(a.sku).localeCompare(String(b.sku), "vi") || String(a.warehouseId).localeCompare(String(b.warehouseId)));
-      return res.json({ status: "success", data: enrichedItems });
+      return res.json({ status: "success", data: enrichedItems.map(item=>{
+        const quantity=Number(item.quantity),reserved=Number(item.reservedQuantity),cost=Number(item.averageCost),stockValue=quantity*cost;
+        if(![quantity,reserved,cost,stockValue].every(Number.isFinite))throw Object.assign(new Error('Số lượng hoặc giá vốn tồn kho chưa hợp lệ.'),{statusCode:422});
+        return {...item,availableQuantity:quantity-reserved,stockValue};
+      }) });
     } catch (problem) { return error(res, problem); }
   },
   updateThresholds: async (req: Request, res: Response) => {

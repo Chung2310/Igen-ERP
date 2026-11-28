@@ -22,6 +22,21 @@ export function quotaError(message: string, statusCode = 402) {
 function subscriptionConflict(message: string) {
   return Object.assign(new Error(message), { statusCode: 409, code: "AI_SUBSCRIPTION_CONFLICT" });
 }
+function isTransactionUnsupportedError(error: unknown): boolean {
+  const err = error as { code?: number; message?: string; originalError?: { code?: number; message?: string } } | null;
+  const target = err?.originalError ?? err;
+  return err?.code === 20
+    || target?.code === 20
+    || /Transaction numbers are only allowed on a replica set member or mongos|does not support retryable writes/i.test(`${err?.message || ""} ${target?.message || ""}`);
+}
+async function runWithOptionalTransaction<T>(work: (session?: ClientSession) => Promise<T>): Promise<T> {
+  try {
+    return await AiUsageModel.db.transaction(async (session) => work(session));
+  } catch (error) {
+    if (isTransactionUnsupportedError(error)) return work(undefined);
+    throw error;
+  }
+}
 
 export const aiSubscriptionService = {
   async summary(companyCode: string) {
@@ -98,44 +113,46 @@ export const aiSubscriptionService = {
   },
   async reserve(context: AiUsageContext, kind: string, model?: string) {
     await this.recoverExpired(context.companyCode);
-    return AiUsageModel.db.transaction(async (session) => {
+    return runWithOptionalTransaction(async (session) => {
       const now = new Date();
+      const sessionOpt = session ? { session } : {};
       const userPlan = context.userId && isValidObjectId(context.userId) ? await AiUserSubscriptionModel.findOne({
         userId: context.userId, companyCode: context.companyCode, status: "active",
         startsAt: { $lte: now }, expiresAt: { $gt: now },
-      }).select("_id").session(session).lean() : null;
+      }).select("_id").session(session ?? null).lean() : null;
       const billingScope = userPlan ? "user" : "company";
       const availability = { status: "active" as const, startsAt: { $lte: now }, expiresAt: { $gt: now },
         $expr: { $lt: [{ $add: ["$used", "$reserved"] }, "$aiLimit"] } };
       const period = userPlan
-        ? await AiUserSubscriptionModel.findOneAndUpdate({ _id: userPlan._id, ...availability }, { $inc: { reserved: 1 } }, { returnDocument: "after", session })
-        : await AiSubscriptionPeriodModel.findOneAndUpdate({ companyCode: context.companyCode, ...availability }, { $inc: { reserved: 1 } }, { returnDocument: "after", session });
+        ? await AiUserSubscriptionModel.findOneAndUpdate({ _id: userPlan._id, ...availability }, { $inc: { reserved: 1 } }, { returnDocument: "after", ...sessionOpt })
+        : await AiSubscriptionPeriodModel.findOneAndUpdate({ companyCode: context.companyCode, ...availability }, { $inc: { reserved: 1 } }, { returnDocument: "after", ...sessionOpt });
       if (!period) throw quotaError("Gói AI đã hết lượt hoặc hết hạn. Vui lòng liên hệ Superadmin.");
       const [usage] = await AiUsageModel.create([{
         companyCode: context.companyCode, userId: context.userId, billingScope, campaignId: context.campaignId, slotId: context.slotId,
         subscriptionId: period._id, requestKey: randomUUID(), kind, model, units: 1,
         expiresAt: new Date(now.getTime() + 60 * 60_000),
-      }], { session });
+      }], sessionOpt);
       return usage;
     });
   },
   async finish(usageId: unknown, success: boolean) {
-    return AiUsageModel.db.transaction(async (session) => {
+    return runWithOptionalTransaction(async (session) => {
+      const sessionOpt = session ? { session } : {};
       const usage = await AiUsageModel.findOneAndUpdate({ _id: usageId, status: "reserved" },
-        { $set: { status: success ? "succeeded" : "released", providerOutcome: success ? "succeeded" : "failed", completedAt: new Date() } }, { returnDocument: "after", session });
+        { $set: { status: success ? "succeeded" : "released", providerOutcome: success ? "succeeded" : "failed", completedAt: new Date() } }, { returnDocument: "after", ...sessionOpt });
       if (!usage) {
-        const settled = await AiUsageModel.findById(usageId).session(session);
+        const settled = await AiUsageModel.findById(usageId).session(session ?? null);
         if (settled?.status === (success ? "succeeded" : "released")) return;
         throw quotaError("Lượt AI đã hết thời gian giữ lượt hoặc đã được đối soát khác trạng thái.", 409);
       }
       const counterFilter = { _id: usage.subscriptionId, reserved: { $gte: usage.units } };
       const counterUpdate = { $inc: { reserved: -usage.units, used: success ? usage.units : 0 } };
       const changed = usage.billingScope === "user"
-        ? await AiUserSubscriptionModel.updateOne(counterFilter, counterUpdate, { session })
-        : await AiSubscriptionPeriodModel.updateOne(counterFilter, counterUpdate, { session });
+        ? await AiUserSubscriptionModel.updateOne(counterFilter, counterUpdate, sessionOpt)
+        : await AiSubscriptionPeriodModel.updateOne(counterFilter, counterUpdate, sessionOpt);
       if (!changed.matchedCount) throw new Error("Không thể đối soát hạn mức AI.");
-      if (success && usage.campaignId) await MarketingCampaignModel.updateOne({ _id: usage.campaignId, companyCode: usage.companyCode }, { $inc: { "statistics.aiCallsUsed": usage.units } }, { session });
-      if (success && usage.slotId) await MarketingCampaignSlotModel.updateOne({ _id: usage.slotId, companyCode: usage.companyCode, campaignId: usage.campaignId }, { $inc: { aiCallsUsed: usage.units } }, { session });
+      if (success && usage.campaignId) await MarketingCampaignModel.updateOne({ _id: usage.campaignId, companyCode: usage.companyCode }, { $inc: { "statistics.aiCallsUsed": usage.units } }, sessionOpt);
+      if (success && usage.slotId) await MarketingCampaignSlotModel.updateOne({ _id: usage.slotId, companyCode: usage.companyCode, campaignId: usage.campaignId }, { $inc: { aiCallsUsed: usage.units } }, sessionOpt);
     });
   },
 };
@@ -202,12 +219,13 @@ export async function billAiCall<T>(kind: string, model: string, action: () => P
 export async function attachAiUsageToCampaign(campaignId: string) {
   const context = getAiUsageContext();
   if (!context?.usageIds?.length) return;
-  await AiUsageModel.db.transaction(async (session) => {
+  await runWithOptionalTransaction(async (session) => {
+    const sessionOpt = session ? { session } : {};
     const filter = { _id: { $in: context.usageIds }, companyCode: context.companyCode, status: { $in: ["reserved", "succeeded"] as const }, campaignId: { $exists: false } };
-    const usages = await AiUsageModel.find(filter).select("status units").session(session).lean();
+    const usages = await AiUsageModel.find(filter).select("status units").session(session ?? null).lean();
     await AiUsageModel.updateMany(filter,
-      { $set: { campaignId } }, { session });
+      { $set: { campaignId } }, sessionOpt);
     const settledUnits = usages.filter((usage) => usage.status === "succeeded").reduce((sum, usage) => sum + usage.units, 0);
-    if (settledUnits) await MarketingCampaignModel.updateOne({ _id: campaignId, companyCode: context.companyCode }, { $inc: { "statistics.aiCallsUsed": settledUnits } }, { session });
+    if (settledUnits) await MarketingCampaignModel.updateOne({ _id: campaignId, companyCode: context.companyCode }, { $inc: { "statistics.aiCallsUsed": settledUnits } }, sessionOpt);
   });
 }

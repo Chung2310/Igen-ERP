@@ -121,6 +121,9 @@ export const crudController = {
       const attendanceDetailsAllowed = modelName === "timekeeping-logs"
         ? await canReadAttendanceDetails(req, userRole, companyCode)
         : true;
+      const attendanceBranchAccessAllowed = modelName === "timekeeping-logs"
+        ? await canManageTimekeeping(req)
+        : true;
 
       const page = parseInt(req.query.page as string, 10) || 1;
       const limit = parseInt(req.query.limit as string, 10) || 1000;
@@ -144,14 +147,11 @@ export const crudController = {
         }
       }
 
-      if (req.user?.branchId) {
-        if (modelName === "timekeeping-logs") {
-          filters.branchId = { $in: [req.user.branchId, null, undefined] };
-        } else if (modelName !== "training-courses" && modelName !== "training-enrollments" && modelName !== "workflows" && modelName !== "categories") {
-          filters.branchId = req.user.branchId;
-        }
-      } else if (modelName === "timekeeping-logs" && req.user?.id) {
-        if (!attendanceDetailsAllowed) filters.uid = req.user.id;
+      if (modelName === "timekeeping-logs") {
+        if (req.user?.id && !attendanceBranchAccessAllowed) filters.uid = req.user.id;
+        if (req.user?.branchId) filters.branchId = { $in: [req.user.branchId, null, undefined] };
+      } else if (req.user?.branchId && modelName !== "training-courses" && modelName !== "training-enrollments" && modelName !== "workflows" && modelName !== "categories") {
+        filters.branchId = req.user.branchId;
       }
 
       if (modelName === "training-enrollments") {
@@ -246,12 +246,12 @@ export const crudController = {
 
       if (modelName === "timekeeping-logs") {
         attendanceDetailsAllowed = await canReadAttendanceDetails(req, userRole, companyCode);
+        const attendanceBranchAccessAllowed = await canManageTimekeeping(req);
         const attendanceScope: Record<string, unknown> = { _id: id, companyCode };
         if (req.user?.branchId) {
           attendanceScope.branchId = { $in: [req.user.branchId, null, undefined] };
-        } else {
-          if (!attendanceDetailsAllowed) attendanceScope.uid = req.user!.id;
         }
+        if (!attendanceBranchAccessAllowed) attendanceScope.uid = req.user!.id;
         const visibleLog = await TimekeepingLogModel.findOne(attendanceScope).select("_id").lean();
         if (!visibleLog) {
           return res.status(404).json({ status: "error", message: "Không tìm thấy lịch sử chấm công." });

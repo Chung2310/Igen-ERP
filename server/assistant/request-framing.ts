@@ -2,11 +2,30 @@ import type { AssistantOperation } from './catalog';
 
 export const normalizeRequestWords = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
+/** “đã … chưa” asks whether the stated fact holds. Only the final particle
+ * is framing; “chưa thanh toán” in the body remains a negative predicate. */
+function completionQuestionBody(text: string): string | undefined {
+  const source=text.normalize('NFC');
+  const ending=/\s+(?:hay\s+)?chưa(?:\s+(?:nhỉ|nhé|ạ))?[?!.]*\s*$/iu.exec(source);
+  if(!ending)return;
+  const body=source.slice(0,ending.index);
+  const question=/(?:^|\s)(?:đã|có)\s/iu.test(body);
+  if(!question || /(?:tên|mã|giá trị|ghi chú)\s*[:=]?\s*$/iu.test(body))return;
+  return body;
+}
+
+export function isCompletionQuestionParticle(text: string, evidence: string) {
+  const body=completionQuestionBody(text);
+  if(body===undefined || /(?:^|\s)chưa(?=\s|[,.!?;:]|$)/iu.test(body))return false;
+  return ['chua','hay chua'].includes(normalizeRequestWords(evidence));
+}
+
 /** Discourse is stripped at the edges only. Negated predicates and names in
  * the body remain data and must still be accounted for by coverage. */
 export function stripRequestFraming(text: string) {
   let result = text.replace(/^\s*(?:(?:mình|tôi|chúng tôi)\s+(?:chỉ\s+)?muốn\s+)/iu, '');
   result = result.replace(/^\s*(?:mình|tôi)\s+hỏi\s+/iu,'');
+  result = completionQuestionBody(result) ?? result;
   if (/(?:^|\s)có\s+/iu.test(result)) result = result.replace(/\s+không[?!.]*\s*$/iu,'');
   result = result.replace(/^\s*(?:(?:vui lòng|nhờ bạn|giúp mình|giúp tôi|kiểm tra(?:\s+xem)?|xem|tìm|liệt kê(?:\s+danh sách)?|lọc(?:\s+danh sách)?)\s+)+/iu, '');
   // "nào không" is a polar-question ending, unlike "không có/chưa...".

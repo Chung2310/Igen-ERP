@@ -42,6 +42,7 @@ export interface IKanbanTask extends Document {
   progressNote?: string;
   helpRequested?: boolean;
   helpReason?: string;
+  requestedHelperUid?: string;
   helpers?: Array<{ uid: string; name: string }>;
   deadlineReminderSentAt?: Date;
   overdueNotifiedAt?: Date;

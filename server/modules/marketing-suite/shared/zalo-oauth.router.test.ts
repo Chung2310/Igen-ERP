@@ -3,7 +3,7 @@ import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import cookieParser from "cookie-parser";
 import express from "express";
-import { models } from "mongoose";
+import { models, Types } from "mongoose";
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { getEffectivePermissions, type AuthenticatedRequest } from "../../../middleware/auth";
 import { UserModel } from "../../../model/user.model";
@@ -39,6 +39,7 @@ let baseUrl: string;
 
 beforeAll(async () => {
   const app = express();
+  app.use(express.json());
   app.use(cookieParser());
   app.use("/api/v1", suiteAccess, zaloOAuthRouter);
   server = await new Promise<Server>((resolve) => {
@@ -54,6 +55,7 @@ beforeEach(() => {
   vi.stubEnv("APP_URL", erpOrigin);
   vi.stubEnv("ZALO_APP_ID", "1234");
   vi.stubEnv("ZALO_APP_SECRET", "test-zalo-secret");
+  vi.spyOn(SocialIntegrationModel.collection, "findOne").mockResolvedValue(null);
   vi.stubEnv("SUPERADMIN_ENCRYPTION_KEY", Buffer.alloc(32, 1).toString("hex"));
   vi.stubGlobal("fetch", providerFetch);
   vi.mocked(getEffectivePermissions).mockResolvedValue(new Set(["social-integration:manage"]));
@@ -113,7 +115,7 @@ it("connects the verified OA with PKCE and stores encrypted tokens for the origi
   providerFetch
     .mockResolvedValueOnce(Response.json({ access_token: "oa-access", refresh_token: "oa-refresh", expires_in: "90000" }))
     .mockResolvedValueOnce(Response.json({ error: 0, data: { oaid: oaId, name: "OA thử nghiệm" } }));
-  const persist = vi.spyOn(SocialIntegrationModel.collection, "findOneAndUpdate").mockResolvedValue(null);
+  const persist = vi.spyOn(SocialIntegrationModel.collection, "findOneAndUpdate").mockResolvedValue({ _id: new Types.ObjectId() });
   const state = url.searchParams.get("state")!;
   expect(await callback(state)).toBe("expired");
   expect(providerFetch).not.toHaveBeenCalled();
@@ -122,7 +124,7 @@ it("connects the verified OA with PKCE and stores encrypted tokens for the origi
   expect(providerFetch).toHaveBeenCalledTimes(2);
   expect(String(providerFetch.mock.calls[0][1]?.body)).toContain(`code_verifier=${session.codeVerifier}`);
   expect(persist).toHaveBeenCalledWith(
-    { companyCode: "ERP", platform: "Zalo", username: oaId },
+    expect.objectContaining({ companyCode: "ERP", platform: "Zalo", username: oaId }),
     expect.objectContaining({
       $set: expect.objectContaining({
         isConnected: true, accessToken: expect.stringMatching(/^v1\./), refreshToken: expect.stringMatching(/^v1\./),

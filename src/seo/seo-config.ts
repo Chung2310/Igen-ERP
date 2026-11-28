@@ -93,6 +93,7 @@ export const TAB_SEO_MAP: Partial<Record<TabType, SeoMeta>> & Record<string, Seo
   "QUẢN LÝ Y TẾ": { title: "Quản lý y tế", description: "Bệnh nhân, lượt khám, lịch hẹn và chăm sóc", keywords: "", path: "/quan-ly-y-te", robots: "noindex, nofollow" },
   "GÓI AI & LƯỢT SỬ DỤNG": { title: "Gói AI & lượt sử dụng", description: "Gói AI và hạn mức sử dụng chung của doanh nghiệp", keywords: "", path: "/goi-ai", robots: "noindex, nofollow" },
   "CHIẾN DỊCH NỘI DUNG": { title: "Chiến dịch nội dung", description: "Quản lý chiến dịch nội dung", keywords: "", path: "/chien-dich-noi-dung", robots: "noindex, nofollow" },
+  "MARKETING": { title: "Marketing tự động", description: "Cài đặt chăm sóc khách hàng tự động và nhật ký gửi", keywords: "", path: "/marketing", robots: "noindex, nofollow" },
   "OMNI INBOX": { title: "Hộp thư đa kênh", description: "Quản lý hội thoại khách hàng", keywords: "", path: "/omni-inbox", robots: "noindex, nofollow" },
   "KHO TRI THỨC": { title: "Kho tri thức doanh nghiệp", description: "Quản lý tri thức doanh nghiệp", keywords: "", path: "/kho-tri-thuc", robots: "noindex, nofollow" },
   "VĂN BẢN PHÁP LUẬT": { title: "Văn bản pháp luật", description: "Tra cứu và quản lý kho văn bản pháp luật", keywords: "", path: "/van-ban-phap-luat", robots: "noindex, nofollow" },

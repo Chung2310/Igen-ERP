@@ -11,6 +11,22 @@ import {
 afterEach(() => vi.restoreAllMocks());
 
 describe("worker project service", () => {
+  it('reads only scoped assigned workers with public roster fields',async()=>{
+    const branchId=new Types.ObjectId().toString(),projectId=new Types.ObjectId(),workerId=new Types.ObjectId();
+    const project=vi.spyOn(WorkerProjectModel,'findOne').mockReturnValue({select:vi.fn().mockReturnValue({lean:async()=>({workerIds:[workerId],name:'QA Nhà máy A',code:'QA-CT-01'})})} as any);
+    const selection=vi.fn().mockReturnValue({limit:vi.fn().mockReturnValue({lean:async()=>[{_id:workerId,fullName:'QA An',status:'active'}]})});
+    const workers=vi.spyOn(WorkerModel,'find').mockReturnValue({select:selection} as any);
+    const result=await WorkerProjectService.listWorkers({companyCode:'QA',branchId},projectId.toString());
+    expect(project).toHaveBeenCalledWith({_id:projectId,companyCode:'QA',branchId:new Types.ObjectId(branchId),deletedAt:null});
+    expect(workers).toHaveBeenCalledWith({companyCode:'QA',branchId,deletedAt:null,_id:{$in:[workerId]}});
+    expect(selection).toHaveBeenCalledWith('fullName phone laborType status');
+    expect(result).toMatchObject({total:1,page:1,items:[{fullName:'QA An',projectName:'QA Nhà máy A'}]});
+  });
+  it('does not query workers when the project is outside the current scope',async()=>{
+    vi.spyOn(WorkerProjectModel,'findOne').mockReturnValue({select:()=>({lean:async()=>null})} as any);
+    const workers=vi.spyOn(WorkerModel,'find');
+    await expect(WorkerProjectService.listWorkers({companyCode:'QA'},new Types.ObjectId().toString())).rejects.toThrow('phạm vi');expect(workers).not.toHaveBeenCalled();
+  });
   it("rejects an end date before the start without changing valid same-day projects", () => {
     expect(() => normalizeWorkerProjectInput({name:"Dự án", startDate:"2026-11-01", endDate:"2026-06-05"})).toThrow("Ngày kết thúc dự án phải bằng hoặc sau ngày bắt đầu.");
     expect(normalizeWorkerProjectInput({name:"Dự án", startDate:"2026-11-01", endDate:"2026-11-01"}).endDate).toBe("2026-11-01");

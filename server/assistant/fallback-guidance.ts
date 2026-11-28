@@ -3,7 +3,7 @@ import { isTabHidden, MODULE_LABELS, MODULE_TAB_MAP, type ModuleKey } from "../.
 import { operationById, type AssistantOperation } from "./catalog";
 import { buildManualGuide } from "./manual-guides";
 
-export type FallbackReason = "unsupported" | "permission" | "validation" | "technical" | "uncertain" | "provider";
+export type FallbackReason = "unsupported" | "permission" | "validation" | "technical" | "uncertain" | "provider" | "planning" | "data";
 type Context = { operation?: AssistantOperation; module?: string; workflows: readonly AssistantWorkflow[]; reason: FallbackReason; completedSteps?: number };
 
 function localLink(value?: string) {
@@ -21,7 +21,7 @@ function localLink(value?: string) {
 export function appendAssistantFallback(reply: AssistantReply, context: Context): AssistantReply {
   // No business action was identified: navigation instructions would misstate
   // an infrastructure failure as a missing capability or a permission issue.
-  if (context.reason === 'provider') return reply;
+  if (context.reason === 'provider' || context.reason === 'planning' || context.reason === 'data') return reply;
   if (!["failed", "unsupported", "uncertain"].includes(reply.status)) return reply;
   const op = context.operation;
   const guide = op ? buildManualGuide(op) : undefined;

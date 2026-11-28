@@ -63,6 +63,7 @@ const LeadIntakeBuilderModal = lazy(() =>
 const ChatTestTab = lazy(() =>
   import("../components/crm/ChatTestTab").then(module => ({ default: module.ChatTestTab }))
 );
+const ZaloZbsTab = lazy(() => import("../components/zbs/ZaloZbsTab"));
 const OmniChatTab = lazy(() =>
   import("../components/crm/OmniChatTab").then((module) => ({
     default: module.OmniChatTab,
@@ -79,6 +80,7 @@ const CRM_SUB_TAB_ROUTES = [
   { slug: "omni-chat", value: "OMNI-INBOX CHAT" as CRMSubTabType },
   { slug: "comment-reply", value: "AI COMMENT AUTO-REPLY" as CRMSubTabType },
   { slug: "chat-test", value: "CHAT TEST" as CRMSubTabType },
+  { slug: "zalo-zbs", value: "ZALO ZBS" as CRMSubTabType },
 ] as const;
 
 export default function CRMTab() {
@@ -88,6 +90,7 @@ export default function CRMTab() {
   const [leadSheetRefreshToken, setLeadSheetRefreshToken] = useState(0);
   const [inboxLeadSettingsScope, setInboxLeadSettingsScope] = useState<string | null>(null);
   const [directConversationId, setDirectConversationId] = useState<string>();
+  const [zbsEntry, setZbsEntry] = useState<{ leadIds: string[]; history?: boolean; oaId?: string; nonce: number }>();
 
   useEffect(() => {
     if (subTab !== "LEAD") return;
@@ -1611,6 +1614,7 @@ export default function CRMTab() {
         {[
           { key: "LEAD" as CRMSubTabType, label: "Lead", icon: Users },
           { key: "OMNI-INBOX CHAT" as CRMSubTabType, label: "Hộp thư hội thoại", icon: MessageSquare },
+          { key: "ZALO ZBS" as CRMSubTabType, label: "Zalo ZBS", icon: MessageSquare },
           { key: "AI COMMENT AUTO-REPLY" as CRMSubTabType, label: "AI phản hồi bình luận", icon: Zap },
           ...(hasPermission("omni-inbox:manage") ? [{ key: "CHAT TEST" as CRMSubTabType, label: "Thử nghiệm chat", icon: FlaskConical }] : []),
         ].map(({ key, label, icon: Icon }) => <ModuleNavigationButton key={key} active={subTab === key} icon={<Icon />} onClick={() => setSubTab(key)}>{label}</ModuleNavigationButton>)}
@@ -1618,11 +1622,17 @@ export default function CRMTab() {
 
       <div className="min-h-0 flex-grow flex-1 overflow-hidden" id="crm_tab_main_content">
         <Suspense fallback={<TabLoader label="Đang tải dữ liệu CRM..." />}>
+          {subTab === "ZALO ZBS" && <ZaloZbsTab key={`${userProfile?.companyCode}:${zbsEntry?.nonce || 0}`}
+            canManage={hasPermission("omni-inbox:manage")} initialLeadIds={zbsEntry?.leadIds}
+            initialOaId={zbsEntry?.oaId}
+            historyLeadId={zbsEntry?.history ? zbsEntry.leadIds[0] : undefined}
+            onBackToLeads={() => setSubTab("LEAD")} />}
           {subTab === "CHAT TEST" && (hasPermission("omni-inbox:manage")
             ? <ChatTestTab key={`${userProfile?.companyCode}:${userProfile?.uid}`} accounts={leadSheetAccounts}
                 onConfigureLead={setInboxLeadSettingsScope} settingsRevision={leadSheetRefreshToken} initialConversationId={directConversationId} />
             : <p role="alert" className="p-4 text-sm text-error">Bạn cần quyền quản lý hội thoại để thử nghiệm chatbot.</p>)}
-          {subTab === "LEAD" && (
+          {(subTab === "LEAD" || (subTab === "ZALO ZBS" && zbsEntry)) && (
+            <div hidden={subTab !== "LEAD"} className="h-full">
             <LeadTable
               searchQuery={leadSearchQuery}
               setSearchQuery={setLeadSearchQuery}
@@ -1642,7 +1652,9 @@ export default function CRMTab() {
               refreshToken={leadSheetRefreshToken}
               canReconcileContracts={hasPermission("omni-inbox:manage")}
               canManageLeads={hasPermission("omni-inbox:manage")}
+              onSendZalo={(leadIds, history, oaId) => { setZbsEntry({ leadIds, history, oaId, nonce: Date.now() }); setSubTab("ZALO ZBS"); }}
             />
+            </div>
           )}
 
           {subTab === "OMNI-INBOX CHAT" && (

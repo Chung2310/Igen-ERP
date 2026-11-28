@@ -31,6 +31,7 @@ export function taskActivityUpdate(task: any, input: any, actor: { uid: string; 
     case "progress": {
       if (!owner) fail(403, "Chỉ người phụ trách hoặc quản lý được cập nhật tiến độ.");
       if (!Number.isInteger(input.progress) || input.progress < 0 || input.progress > 100) fail(400, "Tiến độ phải là số nguyên từ 0 đến 100.");
+      if (!note) fail(400, "Vui lòng nhập nội dung báo cáo tiến độ.");
       const progress = input.progress;
       update = { progress, progressNote: note, status: progress === 100 ? "Done" : progress > 0 ? "In Progress" : "Not Started" };
       if (progress > 0 && !task.actualStartTime) update.actualStartTime = now;
@@ -39,6 +40,7 @@ export function taskActivityUpdate(task: any, input: any, actor: { uid: string; 
         update.completedAt = task.status === "Done" ? (task.completedAt || task.endTime || now) : now;
         update.endTime = update.completedAt;
         update.helpRequested = false;
+        update.requestedHelperUid = "";
       } else { update.completedAt = ""; update.endTime = ""; }
       action = `Báo cáo tiến độ ${progress}%${note ? `: ${note}` : ""}`;
       break;
@@ -58,7 +60,7 @@ export function taskActivityUpdate(task: any, input: any, actor: { uid: string; 
     case "resolve":
       if (!owner) fail(403, "Chỉ người phụ trách hoặc quản lý được đóng trợ giúp.");
       if (!task.helpRequested) fail(400, "Không có yêu cầu trợ giúp đang mở.");
-      update = { helpRequested: false };
+      update = { helpRequested: false, requestedHelperUid: "" };
       action = "Đã giải quyết yêu cầu trợ giúp";
       break;
     default: fail(400, "Thao tác không hợp lệ.");

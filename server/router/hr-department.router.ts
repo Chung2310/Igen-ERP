@@ -76,9 +76,10 @@ hrDepartmentRouter.get("/", requirePermission(["hr:read", "access:read", "hr:man
     }
     if (legacy.size) {
       try {
+        const insertedAt=new Date();
         await HrDepartmentModel.bulkWrite([...legacy.entries()].map(([normalizedName, name]) => ({
-          updateOne: { filter: { companyCode, normalizedName }, update: { $setOnInsert: { companyCode, normalizedName, name } }, upsert: true },
-        })), { ordered: false });
+          updateOne: { filter: { companyCode, normalizedName }, update: { $setOnInsert: { companyCode, normalizedName, name,createdAt:insertedAt,updatedAt:insertedAt } }, upsert: true,timestamps:false },
+        })), { ordered: false,timestamps:false });
       } catch (error) {
         // Một request khác có thể vừa đồng bộ cùng tên phòng ban.
         if ((error as { code?: number })?.code !== 11000) throw error;

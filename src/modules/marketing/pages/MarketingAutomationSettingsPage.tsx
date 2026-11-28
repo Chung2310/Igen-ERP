@@ -18,13 +18,11 @@ const AUTOMATIONS: Array<{
   icon: typeof Gift;
   manualScan?: "birthday" | "holiday" | "remarketing";
 }> = [
-  { type: "thank_you", title: "Cảm ơn sau khi xuất hoá đơn", description: "Gửi ngay khi đơn bán hàng được xác nhận và xuất hoá đơn.", icon: HeartHandshake },
-  { type: "birthday", title: "Chúc mừng sinh nhật", description: "Quét mỗi ngày, gửi cho khách có ngày sinh trùng hôm nay.", icon: Gift, manualScan: "birthday" },
-  { type: "holiday", title: "Lễ tết theo nhóm khách hàng", description: "Chạy theo các chiến dịch đã lên lịch bên dưới.", icon: CalendarHeart, manualScan: "holiday" },
-  { type: "remarketing", title: "Remarketing khách cũ", description: "Hỏi thăm khách đã lâu không quay lại mua hàng.", icon: Sparkles, manualScan: "remarketing" },
+  { type: "thank_you", title: "Cảm ơn sau hoá đơn", description: "Gửi khi xuất hoá đơn.", icon: HeartHandshake },
+  { type: "birthday", title: "Chúc mừng sinh nhật", description: "Gửi vào ngày sinh nhật khách.", icon: Gift, manualScan: "birthday" },
+  { type: "holiday", title: "Lễ tết", description: "Gửi theo lịch chiến dịch bên dưới.", icon: CalendarHeart, manualScan: "holiday" },
+  { type: "remarketing", title: "Remarketing khách cũ", description: "Nhắc khách lâu chưa quay lại.", icon: Sparkles, manualScan: "remarketing" },
 ];
-
-const CHANNEL_HINT = "Kênh chưa được nối API sẽ tự bỏ qua, hệ thống dùng kênh khả dụng đầu tiên trong danh sách.";
 
 export default function MarketingAutomationSettingsPage({ canManage }: { canManage: boolean }) {
   const [settings, setSettings] = useState<MarketingSettings>();
@@ -105,13 +103,9 @@ export default function MarketingAutomationSettingsPage({ canManage }: { canMana
   return (
     <div className="space-y-4">
       <header className="rounded-2xl border border-slate-200 bg-white p-4">
-        <h2 className="text-lg font-bold text-slate-800">Tin nhắn tự động</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Hệ thống quét mỗi ngày vào giờ đã đặt và gửi tin cho khách hàng. {CHANNEL_HINT}
-        </p>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <label className="text-sm font-semibold text-slate-600">
-            Giờ gửi hằng ngày
+            Giờ gửi
             <input
               type="time"
               value={settings.sendTime}
@@ -120,14 +114,14 @@ export default function MarketingAutomationSettingsPage({ canManage }: { canMana
               className="ml-2 rounded-lg border border-slate-200 px-2 py-1 font-normal"
             />
           </label>
-          <span className="text-xs text-slate-400">Múi giờ {settings.timeZone}</span>
+          <span className="text-xs text-slate-400">{settings.timeZone}</span>
           <span className={`rounded-full px-3 py-1 text-xs font-semibold ${availableChannels ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-            {availableChannels ? `${availableChannels} kênh sẵn sàng` : "Chưa cấu hình kênh gửi nào"}
+            {availableChannels ? `${availableChannels} kênh sẵn sàng` : "Chưa cấu hình kênh"}
           </span>
         </div>
         {!availableChannels && (
           <p className="mt-2 text-xs text-amber-700">
-            Email cần cấu hình SMTP của công ty tại Cài đặt · Email trước khi tin tự động gửi được.
+            Cần cấu hình SMTP tại Cài đặt → Email.
           </p>
         )}
       </header>
@@ -201,7 +195,7 @@ export default function MarketingAutomationSettingsPage({ canManage }: { canMana
                   <span>
                     Gửi kèm hoá đơn PDF
                     <span className="block text-xs font-normal text-slate-500">
-                      Dùng đúng bản in hoá đơn của chi nhánh. Chỉ áp dụng cho kênh email; đơn chưa xuất hoá đơn thì tin vẫn gửi nhưng không có tệp đính kèm.
+                      Chỉ áp dụng cho Email (khi đơn đã xuất hoá đơn).
                     </span>
                   </span>
                 </label>

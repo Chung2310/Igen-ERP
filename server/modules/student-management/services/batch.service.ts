@@ -789,10 +789,10 @@ export class BatchService {
     return new Map(rows.map((r: { _id: string; count: number }) => [r._id, r.count]));
   }
 
-  static async getClassEventsInRange(ownerId: string | string[], from?: string, to?: string, branchId?: string) {
-    const batches = await Batch.find({ ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
+  static async getClassEventsInRange(ownerId: string | string[], from?: string, to?: string, branchId?: string, batchId?:string) {
+    const batches = await Batch.find({ ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId),...(batchId?{_id:batchId}:{}) });
     const enriched = await enrichBatches(batches);
-    const events: { id: string; title: string; date: string; time: string; details: string }[] = [];
+    const events: { id: string; title: string; date: string; time: string; details: string;location:string;startAt?:string;endAt?:string }[] = [];
 
     for (const b of enriched) {
       const startDate = String(b.startDate);
@@ -819,7 +819,9 @@ export class BatchService {
           title: `Lớp ${b.code} • ${b.courseTitle}`,
           date,
           time: `${b.startTime} - ${b.endTime}`,
+          ...(/^\d{2}:\d{2}$/.test(String(b.startTime))&&/^\d{2}:\d{2}$/.test(String(b.endTime))?{startAt:`${date}T${b.startTime}:00+07:00`,endAt:`${date}T${b.endTime}:00+07:00`}:{}),
           details: detailParts.join(" • "),
+          location:String(b.location||''),
         });
       }
     }

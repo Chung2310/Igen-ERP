@@ -11,7 +11,7 @@ describe("task progress and support", () => {
     const result = taskActivityUpdate(task, { action: "progress", progress, note: "Đã kiểm tra bo mạch" }, owner, now);
     expect(result.update.status).toBe(status);
     expect(result.history.action).toContain("Đã kiểm tra bo mạch");
-    if (progress === 100) expect(result.update).toMatchObject({ completedAt: now, endTime: now, helpRequested: false });
+    if (progress === 100) expect(result.update).toMatchObject({ completedAt: now, endTime: now, helpRequested: false, requestedHelperUid: "" });
   });
   it.each([-1, 101, 1.5, "50", null, NaN])("rejects invalid progress %s", progress => {
     expect(() => taskActivityUpdate(task, { action: "progress", progress, note: "Report" }, owner)).toThrow();
@@ -45,7 +45,8 @@ describe("task progress and support", () => {
     expect(() => taskActivityUpdate({ ...task, status: "Done" }, { action: "help", note: "Help" }, owner)).toThrow();
     expect(() => taskActivityUpdate({ ...task, helpRequested: true, helpers: [{ uid: helper.uid }] }, { action: "join" }, helper)).toThrow();
     expect(() => taskActivityUpdate({ ...task, helpRequested: true }, { action: "resolve" }, helper)).toThrow();
-    expect(taskActivityUpdate({ ...task, helpRequested: true }, { action: "resolve" }, owner).update).toEqual({ helpRequested: false });
+    expect(taskActivityUpdate({ ...task, helpRequested: true, requestedHelperUid: helper.uid }, { action: "resolve" }, owner).update)
+      .toEqual({ helpRequested: false, requestedHelperUid: "" });
   });
   it("normalizes legacy task progress", () => {
     expect(taskProgress({ status: "done" })).toBe(100);

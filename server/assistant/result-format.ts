@@ -7,7 +7,7 @@ import { formatBusinessOverview } from "./overview-result";
 import { assistantCompletedOperationSummary } from "./reply-presentation";
 import { maskAssistantBankAccount } from './result-field-policy';
 
-type ResultOperation = Pick<AssistantOperation, "id" | "title" | "fields" | "resultFields"> & Partial<Pick<AssistantOperation, "method" | "path" | "readOnly" | "resultChildFields">>;
+type ResultOperation = Pick<AssistantOperation, "id" | "title" | "fields" | "resultFields"> & Partial<Pick<AssistantOperation, "method" | "path" | "readOnly" | "resultChildFields" | "resultSingleton" | "precomputedMeasures">>;
 type ResultRecord = Record<string, unknown>;
 const normalizeReportStatus = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().trim();
 
@@ -98,6 +98,8 @@ const weekdayLabels = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5
 const bulkCreateJobOperationIds = ["marketing.bulk-create.jobs.list", "marketing.bulk-create.jobs.detail", "marketing.bulk-create.jobs.cancel", "marketing.bulk-create.jobs.retry"];
 const bulkCreateTemplateOperationIds = ["marketing.bulk-create.templates.list", "marketing.bulk-create.templates.detail"];
 const labels: Record<string, string> = {
+  receiptCode:'Mã phiếu nhập',subtotal:'Giá trị hàng',revenue:'Doanh thu',netProfit:'Lợi nhuận ròng',grossProfit:'Lợi nhuận gộp',expense:'Chi phí',commissionExpense:'Chi phí hoa hồng',warrantyStartAt:'Bắt đầu bảo hành',warrantyEndAt:'Hết hạn bảo hành',warrantyMonths:'Số tháng bảo hành',daysLeft:'Số ngày còn lại',
+  grandTotal:'Tổng thanh toán',technicianName:'Kỹ thuật viên',receivedAt:'Ngày tiếp nhận',mimeType:'Định dạng tệp',size:'Dung lượng',modifiedTime:'Ngày chỉnh sửa',webViewLink:'Liên kết xem',
   address: "Địa chỉ", adjustment: "Điều chỉnh", adjustments: "Điều chỉnh", amount: "Số tiền", actorType: "Người thực hiện", bankAccountName: "Chủ tài khoản", baseRevision: "Phiên bản nền",
   bankAccountNo: "Số tài khoản ngân hàng", bankAccountStatus: "Tài khoản ngân hàng", bankName: "Tên ngân hàng", branchName: "Chi nhánh", totalReferredTuition: "Tổng học phí giới thiệu",
   code: "Mã", countCode: "Mã phiếu kiểm kê", customerName: "Khách hàng", date: "Ngày", deliveredAt: "Ngày bàn giao", description: "Mô tả",
@@ -239,6 +241,10 @@ export function localizedAssistantFieldLabel(key: string, label: string, operati
   const configured = label.trim();
   if (configured && configured.toLocaleLowerCase("vi") !== key.toLocaleLowerCase("vi")) return configured;
   return labels[key] || localizedFieldKey(key);
+}
+/** Reuse the product's existing value dictionary in public read contracts. */
+export function localizedAssistantEnumLabel(key:string,value:string):string {
+  return enumValueLabelsByKey[key]?.[value] || (/(?:status|state)$/i.test(key)?commonStatusLabels[value]:undefined) || value;
 }
 
 function labelFor(operation: ResultOperation, key: string): string {
@@ -722,10 +728,11 @@ function formatRecord(operation: ResultOperation, value: unknown): string {
         ? ["code", "title", "status"]
       : operation.resultFields;
   return resultFields
-    .filter(key => Object.hasOwn(displayRecord, key) && displayRecord[key] !== null && displayRecord[key] !== undefined && displayRecord[key] !== "")
+    .filter(key => Object.hasOwn(displayRecord, key) && (operation.method==='GET'||displayRecord[key] !== null && displayRecord[key] !== undefined && displayRecord[key] !== ""))
     .slice(0, 8)
     .map(key => {
       const value = displayRecord[key];
+      if(operation.method==='GET'&&(value===null||value===undefined||value===''))return `${labelFor(operation,key)}: Chưa cập nhật`;
       const referralStatuses: Record<string, string> = { pending: "Đang chờ xác nhận", active: "Đang hoạt động", ended: "Đã kết thúc" };
       const referralSchemes: Record<string, string> = { official_monthly: "Chính thức", seasonal_hourly: "Thời vụ theo giờ" };
       const referralSources: Record<string, string> = { contract: "Hợp đồng", manual: "Thủ công", attendance: "Chấm công" };
@@ -1021,6 +1028,19 @@ function remainingTuition(record: ResultRecord): number | null {
 export function formatAssistantResult(operation: ResultOperation, input: unknown): string {
   if (operation.id === "dashboard.business-overview") return formatBusinessOverview(input);
   const redacted = redactAssistantResult(input);
+  if(operation.method==='GET'&&operation.resultSingleton&&operation.precomputedMeasures){
+    const wrapper=recordOf(redacted),records=collection(redacted)||(wrapper?[recordOf(wrapper.data)||wrapper]:[]);
+    const rows=records.flatMap(item=>{
+      const record=recordOf(item);if(!record)return [];
+      const cells=Object.entries(operation.precomputedMeasures!).flatMap(([key,measure])=>{
+        if(!operation.resultFields.includes(key)&&!operation.resultFields.includes(key.split('.')[0]))return [];
+        const value=key.split('.').reduce<unknown>((at,part)=>recordOf(at)?.[part],record);
+        return value===undefined?[]:[[measure.label,value===null?'Chưa đủ dữ liệu':formatValue(operation,key.split('.').at(-1)!,value)]];
+      });
+      return cells.length?[Object.fromEntries(cells)]:[];
+    });
+    if(rows.length)return formatAssistantResultTable('Kết quả tra cứu',rows);
+  }
   if (["finance.asset.inventory.variance", "finance.asset.inventory.finalize"].includes(operation.id)) {
     const wrapper = recordOf(redacted);
     const result = recordOf(wrapper?.data) || wrapper || {};

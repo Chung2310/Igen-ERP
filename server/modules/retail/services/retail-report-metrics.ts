@@ -48,6 +48,7 @@ type RetailReportInput = {
 };
 
 export type RetailReportModel = {
+  orderStateSummary?:{completedCount:number;cancelledCount:number;pendingCount:number};
   range: { from: string; to: string };
   summary: {
     grossSales: number;
@@ -146,6 +147,8 @@ export function buildRetailReportModel(input: RetailReportInput): RetailReportMo
   const filters = input.filters || {};
   const same = (value: unknown, expected: string | undefined) => !expected || String(value || "").toLocaleLowerCase() === expected.toLocaleLowerCase();
   const orders = input.orders.filter((order) => Boolean(order.orderCode) && same(order.salespersonId, filters.salespersonId));
+  const stateOrders=input.orders.filter(order=>same(order.salespersonId,filters.salespersonId));
+  const orderStateSummary={completedCount:stateOrders.filter(order=>order.status==='completed').length,cancelledCount:stateOrders.filter(order=>order.status==='cancelled').length,pendingCount:stateOrders.filter(order=>['draft','confirmed'].includes(order.status)).length};
   const activeOrders = orders.filter(isActive);
   const grossSales = sum(orders.map((order) => order.grandTotal));
   const refunds = sum(orders.map(refundedFor));
@@ -244,6 +247,7 @@ export function buildRetailReportModel(input: RetailReportInput): RetailReportMo
 
   const model: RetailReportModel = {
     range: { from: input.days[0] || "", to: input.days.at(-1) || "" },
+    orderStateSummary,
     summary: {
       grossSales,
       refunds,

@@ -197,7 +197,8 @@ describe("semantic interpretation", () => {
     const prompt = provider.mock.calls[0][0].messages.map((message: any) => message.content).join("\n");
     expect(prompt).toContain("actualReferrals");
     expect(prompt).toContain("lao động được giới thiệu");
-    expect(prompt).toContain("periodStart");
+    expect(prompt).toContain("partnerName");
+    expect(prompt).toContain("rowDimensions");
     expect(prompt).not.toContain(operation.path);
   });
 
@@ -488,7 +489,7 @@ describe("semantic interpretation", () => {
     provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: workflow.actionId, values: { search: "Lan" } }) });
     expect((await interpretRequest("Tìm lao động Lan", [workflow], null, [])).values).toEqual({ query_search: "Lan" });
     provider.mockResolvedValueOnce({ text: JSON.stringify({ actionId: workflow.actionId, values: { search: "Lan", query_search: "An" } }) });
-    expect((await interpretRequest("Tìm lao động Lan", [workflow], null, [])).actionId).toBeNull();
+    await expect(interpretRequest("Tìm lao động Lan", [workflow], null, [])).rejects.toMatchObject({diagnostic:{code:'INPUT_ALIAS_CONFLICT'}});
   });
   it("does not turn a calendar date into authorization for a recurring schedule", async () => {
     const workflow = defaultWorkflow(operationById("payroll.reconciliation.schedule.update")!);

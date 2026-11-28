@@ -2,7 +2,23 @@
 
 **Phạm vi** — Gửi thông báo từ ERP đến số Zalo của khách hàng theo mẫu đã duyệt. Khách bấm **Liên hệ CSKH**, mở trang Zalo Official Account (OA) của doanh nghiệp và gửi tin. Tin nhắn vào Inbox, nơi AI có thể trả lời bằng chính OA đó.
 
-**Trạng thái trong ERP** — Mã nguồn đã có kết nối OA bằng OAuth, tiếp nhận tin nhắn vào Inbox và gọi AI trả lời tự động. Màn hình gửi mẫu ZBS, lịch sử gửi và xử lý xác nhận giao tin là phần thiết kế bên dưới. [Kết nối OA](shared/zalo-oauth.router.ts) · [Webhook hiện tại](message/controller/zalo-messenger.controller.ts) · [Xử lý tin nhắn và gọi AI](message/service/zalo-messenger.service.ts)
+**Trạng thái trong ERP** — Đã có tab **CRM → Zalo ZBS** để đồng bộ mẫu theo OA/App, xem liên kết nội dung mẫu chính thức, cấu hình biến, gửi thử, tạo đợt gửi từ Lead và xem lịch sử. Backend tách API gửi UID/SĐT, lưu bản xem trước cố định và dùng MongoDB outbox cho worker gửi nền. Xác nhận giao tin đi qua webhook đã xác minh chữ ký. [Giao diện](../../../src/modules/marketing-suite/message/components/zbs/ZaloZbsTab.tsx) · [API](message/zbs/router.ts) · [Worker](message/zbs/worker.ts)
+
+## Vận hành bản tích hợp hiện tại
+
+- Kết nối OA thật, cấp quyền quản lý template, gửi UID, gửi qua SĐT và các sự kiện giao/đọc tương ứng. Mẫu được đồng bộ từ `template/all` và `template/info/v2`; trạng thái ENABLE và đơn giá từng phương thức được dùng để xác định khả năng gửi, thiếu dữ liệu hỗ trợ sẽ chặn gửi thay vì đoán.
+- Tại CRM → Zalo ZBS, người có quyền quản lý được tự đồng bộ mẫu khi mở/chọn OA, mỗi 5 phút khi tab đang hiển thị và khi quay lại tab. Cache thành công dùng chung trong 5 phút theo doanh nghiệp/App/OA, có khóa đồng bộ giữa các tiến trình; nút Đồng bộ mẫu buộc làm mới ngay. Tài khoản chỉ đọc chỉ xem cache và không gọi quyền đồng bộ. Khi màn hình đóng, bản này không chạy lịch đồng bộ riêng.
+- Danh sách mặc định chỉ hiển thị mẫu ENABLE, hỗ trợ tìm tên hoặc Template ID. Có nhiều mẫu đã duyệt thì người dùng phải chọn mẫu; chỉ khi có duy nhất một mẫu đã duyệt ở lần mở đầu mới chọn sẵn. Mỗi mẫu có cấu hình biến riêng. Tự làm mới không đổi mẫu đang chọn hoặc ghi đè cấu hình đang soạn; mẫu bị tắt/xóa sẽ yêu cầu chọn lại. Có thể bỏ lọc Chỉ mẫu đã duyệt để xem trạng thái còn lại. Lỗi API giữ danh sách cache và hiển thị lỗi; gửi thật vẫn kiểm tra lại template tại Zalo.
+- Chọn mẫu → Gửi thử mẫu. Gửi thử UID là tin thật; SĐT hỗ trợ `mode: development` và chỉ nhận tại số quản trị OA/App. ERP không tự gửi tin khi đồng bộ hoặc kiểm tra bản xem trước.
+- Bản đầu mỗi đợt tối đa 500 Lead. Ưu tiên chọn luồng UID; khách thiếu UID của OA cần tạo đợt SĐT riêng. Không tự đổi kênh khi UID lỗi. Có thể ánh xạ trường công khai của Lead, khóa `answers` và giá trị cố định; chưa tự lấy dữ liệu chứng từ từ module khác.
+- Xác nhận bản xem trước trong 24 giờ. Worker chỉ gửi dữ liệu và định danh đã chụp tại bước xem trước. Mẫu, quyền người xác nhận, module doanh nghiệp và kết nối OA được kiểm tra lại trước khi gửi. Không bật gửi theo lịch hay tự động theo sự kiện trong bản này.
+- Chạy worker Marketing hiện có với `MARKETING_WORKERS_ENABLED=true`, `MARKETING_QUEUE_PREFIX` riêng môi trường và `MARKETING_WORKER_ROLE=inbox` hoặc `all`, bằng `npm run dev:marketing-worker` hay `npm run start:marketing-worker` sau build. Worker ZBS dùng outbox MongoDB và khóa OA; nhịp bảo thủ một tin mỗi giây mỗi OA. Tiến trình chỉ chạy server API không tự tiêu thụ hàng đợi ZBS.
+- Tạm dừng/hủy áp dụng cho các tin chưa bắt đầu. Tin đang gọi Zalo có thể hoàn tất. Khi timeout hoặc worker dừng giữa chừng, tin chuyển **Chờ đối soát**, không được phát lại tự động. Lỗi quyền, mẫu, số dư và quota được liệt kê trong worker sẽ tạm dừng phần còn lại.
+- Nút **Đối soát trạng thái** cập nhật tối đa 50 tin SĐT đang chờ có mã tin từ API trạng thái và áp dụng các webhook đã lưu. Tin thiếu mã tin cần tra cứu với Zalo bằng tracking ID; bản này không tự suy đoán kết quả hay tạo lần gửi mới. UID cập nhật giao/đọc qua webhook, bao gồm sự kiện `message.msg_ids`.
+- Chi phí hiển thị là ước tính theo đơn giá mẫu, chưa phải đối soát thanh toán thực tế. Nội dung mẫu được mở qua đường dẫn preview chính thức; ERP hiển thị riêng dữ liệu cá nhân hóa và CTA, không tự dựng lại thiết kế template của Zalo.
+- Dùng `npx vite --config tools/zbs-web-qa/vite.config.mjs` để xem fixture cục bộ tại `http://127.0.0.1:4175/?width=390&compose=1`, thay width bằng 768/1440, thêm `dark=1`. Các trạng thái `state=empty`, `error`, `loading`, `readonly`, `no-template` chỉ dùng dữ liệu giả và chặn mọi lời gọi API thật trong fixture.
+
+Các phần dưới giữ bối cảnh và hợp đồng gửi qua SĐT; phần triển khai UID/SĐT hiện hành nằm trong `message/zbs/`.
 
 ## Luồng từ lúc gửi đến khi AI trả lời
 
@@ -56,7 +72,24 @@ ZBS giao thông báo theo mẫu. Zalo OA tiếp nhận cuộc hội thoại. Tro
 | `ZALO_OA_SECRET_KEY` | Khóa xác minh chữ ký webhook, lấy từ cấu hình Zalo tương ứng |
 | `ZALO_OA_ID` | Cấu hình hỗ trợ payload thử của Zalo. OA cho lần gửi thật lấy từ kết nối của doanh nghiệp |
 
-Workflow đọc `ENV_FILE` khi triển khai staging và `ENV_FILE_PROD` khi triển khai production. Lưu secret ở đúng môi trường. Mã hiện tại dùng App ID và các khóa cấu hình trên server cho OAuth, gia hạn token và xác minh webhook. Nếu mỗi doanh nghiệp dùng một Zalo App riêng, phần mở rộng cần lưu quan hệ doanh nghiệp, App và OA để chọn đúng thông tin xác thực cho từng thao tác. [Workflow triển khai](../../../.github/workflows/cd.yml) · [Route OAuth](shared/zalo-oauth.router.ts) · [Xác minh webhook](message/webhook-signature.ts)
+Workflow đọc `ENV_FILE` khi triển khai staging và `ENV_FILE_PROD` khi triển khai production. Các kết nối chọn **App mặc định của hệ thống** tiếp tục dùng App trong env. Kết nối chọn **App riêng của doanh nghiệp** dùng App ID, App Secret và khóa xác minh webhook lưu riêng trên từng OA. Khóa được mã hóa trong cơ sở dữ liệu và không trả lại qua API giao diện. OAuth, gia hạn token, đồng bộ template, worker UID/SĐT và xác minh webhook đều chọn thông tin của kết nối đó. [Workflow triển khai](../../../.github/workflows/cd.yml) · [Cấu hình App theo OA](shared/zalo-app-config.ts)
+
+### Cấu hình App riêng cho OA
+
+1. Mở **Tích hợp Marketing → Kết nối Zalo OA**, chọn **App riêng của doanh nghiệp**. Với OA đã kết nối, chọn **Cấu hình App / Kết nối lại** ngay trên thẻ OA.
+2. Nhập App ID của App đã tạo template, App Secret và khóa xác minh webhook. Trên chính App đó, đăng ký callback `https://<domain-erp>/api/v1/zalo/oauth-callback` và webhook `https://<domain-erp>/api/v1/zalo/webhook`.
+3. Bấm cấp quyền và chọn đúng OA. Cấu hình mới chỉ được lưu sau khi OAuth thành công; hủy cấp quyền vẫn giữ kết nối cũ. Khi kết nối lại cùng App, để trống khóa để giữ giá trị đã lưu. Đổi App cần nhập lại khóa của App mới.
+4. Vào tab template Zalo của CRM, chọn OA rồi đồng bộ mẫu. Danh sách mẫu và ánh xạ biến tách theo doanh nghiệp, App và OA; chọn mẫu muốn gửi trước khi xem trước và xác nhận.
+
+Worker hiện có tự xử lý tất cả các App đã kết nối, không cần chạy worker riêng hay đổi env cho từng khách. Sau khi đổi App, đợt gửi chưa thực hiện của App cũ sẽ tạm dừng khi worker kiểm tra; tạo bản xem trước mới bằng App hiện tại. Lịch sử cũ vẫn xem được. Các App riêng vẫn dùng chung domain HTTPS của ERP và khóa mã hóa server hiện có.
+
+### Quyền khi kết nối OA
+
+Nút kết nối tạo URL OAuth v4 với App ID, callback, PKCE và state. Danh sách quyền được chọn và lưu trên Zalo Developers cho App đó; không thêm các tham số `scope` tự đặt vào URL để giả định đã xin đủ quyền. Callback hiện xác minh token thuộc đúng OA, chưa xác nhận toàn bộ quyền gửi hoặc webhook.
+
+Để dùng Inbox và gửi template UID/SĐT, kiểm tra các nhóm quyền: gửi tin OA/UID; quản lý hội thoại và thông tin OA/người dùng; đọc Message Template; gửi và truy xuất dữ liệu gửi qua SĐT; nhận sự kiện tin nhắn UID và giao tin SĐT. Quyền quản lý template và gửi SĐT là các nhóm riêng, không được suy ra từ quyền chat OA. Gửi SĐT còn cần App được duyệt sử dụng tính năng và liên kết ZBS hợp lệ. Sau khi bổ sung quyền, quay lại ERP cấp quyền lại cho OA. Mục **Quyền cần cấp cho Inbox và template Zalo** cạnh nút kết nối dẫn tới cấu hình App và tài liệu chính thức.
+
+Tham khảo [ủy quyền App/OA](https://zalo.solutions/business-message/guidelines/huong-dan-uy-quyen-oa-cho-ung-dung-appid) và [nhóm quyền ZBS](https://docs.zaloplatforms.com/docs/ZBS/bat-dau/gioi-thieu-ve-cac-nhom-quyen-thuoc-zbs-template-message). Không gửi tin thật chỉ để kiểm tra quyền khi khách chưa xác nhận gửi.
 
 ## Mẫu tin để gửi duyệt
 
