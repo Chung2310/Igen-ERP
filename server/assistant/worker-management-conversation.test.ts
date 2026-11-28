@@ -83,12 +83,24 @@ it("does not write a legacy student commission value that cannot change the calc
   await expect(callOperation(req, op, { path_id: workerId, commissionType: "percentage", commissionValue: 7 })).rejects.toThrow("không thay đổi kết quả tính");
   expect(fetcher).not.toHaveBeenCalled();
 });
-it("does not silently discard a monthly constraint on cumulative student partner data", async () => {
-  await useSemanticModel("partner.analysis", { from: "2026-11-01", to: "2026-11-30", analysis: { extreme: { field: "referredStudentsCount", direction: "max" } } });
+it("ranks student referrals within the requested month instead of using the lifetime count", async () => {
+  await useSemanticModel("partner.analysis", { analysis: { extreme: { field: "referredStudentsCount", direction: "max" } } });
+  fetcher.mockImplementationOnce(async (url, init) => {
+    const parsed = new URL(String(url));
+    expect(parsed.pathname).toBe("/api/v1/partners");
+    expect(parsed.searchParams.get("referralFrom")).toBe("2026-11-01");
+    expect(parsed.searchParams.get("referralTo")).toBe("2026-11-30");
+    expect(init?.method).toBe("GET");
+    return json({ success: true, total: 2, page: 1, limit: 500, partners: [
+      { _id: "64b000000000000000000101", name: "Đối tác An", isActive: true, notes: "", bankAccountNo: "", bankName: "", levelName: "Cấp 1", referredStudentsCount: 2, totalReferredTuition: 2000000, totalCommission: 100000, totalPaid: 0, unpaidBalance: 100000 },
+      { _id: "64b000000000000000000102", name: "Đối tác Bình", isActive: true, notes: "", bankAccountNo: "", bankName: "", levelName: "Cấp 1", referredStudentsCount: 6, totalReferredTuition: 6000000, totalCommission: 300000, totalPaid: 0, unpaidBalance: 300000 },
+    ] });
+  });
   const result = await turn({ text: "Đối tác học viên giới thiệu nhiều nhất tháng 11/2026" });
-  expect(result.reply).toContain("lũy kế");
-  expect(fetcher).not.toHaveBeenCalled();
-  expect(result.reply).not.toContain("kết quả:");
+  expect(result.status, JSON.stringify(result)).toBe("completed");
+  expect(result.reply).toContain("Đối tác Bình");
+  expect(result.reply).not.toContain("lũy kế");
+  expect(fetcher).toHaveBeenCalledTimes(1);
 });
 it("routes a labor partner monthly ranking from QA through the authorized read workflow", async () => {
   const periodField = kpiOperation.fields.find(field => field.apiKey === "periodAnchor")!;
@@ -140,6 +152,81 @@ it("ranks all student partner pages, including a winner on the next page, with a
   expect(fetcher).toHaveBeenCalledTimes(2);
 });
 
+it("exports a filtered student-partner analysis as a workbook", async () => {
+  await useSemanticModel("partner.analysis", { analysis: { filters: [{ field: "unpaidBalance", operator: "gt", value: 0 }] } });
+  fetcher.mockImplementation(async (url, init) => {
+    expect(init?.method).toBe("GET");
+    const query = new URL(String(url)).searchParams;
+    expect(query.has("analysis")).toBe(false);
+    return json({ success: true, total: 2, page: Number(query.get("page") || 1), limit: 500, partners: [
+      { _id: "a", name: "Đối tác An", isActive: true, notes: "", bankAccountNo: "1234567890", bankName: "Ngân hàng A", levelName: "Bạc", referredStudentsCount: 2, totalReferredTuition: 2000000, totalCommission: 200000, totalPaid: 0, unpaidBalance: 200000 },
+      { _id: "b", name: "Đối tác Bình", isActive: true, notes: "", bankAccountNo: "", bankName: "", levelName: "Đồng", referredStudentsCount: 1, totalReferredTuition: 1000000, totalCommission: 100000, totalPaid: 0, unpaidBalance: 100000 },
+    ] });
+  });
+  const result = await turn({ text: "Xuất Excel toàn bộ đối tác tuyển sinh còn nợ hoa hồng" });
+  expect(result.status, JSON.stringify(result)).toBe("completed");
+  expect(result.reply).toContain("Đã xuất 2 dòng ra Excel");
+  expect(result.files).toHaveLength(1);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
+
+it("counts partners created in the requested month through the shared analysis result table", async () => {
+  const operation = ASSISTANT_OPERATIONS.find(op => op.id === "partner.analysis")!;
+  await useSemanticModel(operation.id, {});
+  fetcher.mockImplementation(async (url, init) => {
+    const parsed = new URL(String(url));
+    expect(parsed.pathname).toBe("/api/v1/partners");
+    expect(init?.method).toBe("GET");
+    expect(parsed.searchParams.get("createdFrom")).toBe("2026-10-01");
+    expect(parsed.searchParams.get("createdTo")).toBe("2026-10-31");
+    expect(parsed.searchParams.has("referralFrom")).toBe(false);
+    return json({ success: true, total: 2, page: Number(parsed.searchParams.get("page") || 1), limit: 500, partners: [
+      { _id: "a", name: "Đối tác An", isActive: true, notes: "", referredStudentsCount: 1, totalReferredTuition: 1000000, totalCommission: 10000, totalPaid: 0, unpaidBalance: 10000, createdAt: "2026-10-04T00:00:00.000Z" },
+      { _id: "b", name: "Đối tác Bình", isActive: true, notes: "", referredStudentsCount: 2, totalReferredTuition: 2000000, totalCommission: 20000, totalPaid: 0, unpaidBalance: 20000, createdAt: "2026-10-17T00:00:00.000Z" },
+    ] });
+  });
+
+  const result = await turn({ text: "Tháng 10/2026 có thêm bao nhiêu đối tác tuyển sinh mới?" });
+  expect(result.status, JSON.stringify(result)).toBe("completed");
+  expect(parseAssistantResultTable(result.reply)?.rows[0]?.values).toMatchObject({ "Phạm vi": "Tất cả", "Số lượng": "2" });
+  expect(result.reply).toContain("01/10/2026 đến 31/10/2026");
+  expect(state.turns.at(-1).steps.at(-1).status).toBe("completed");
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
+
+it("records a confirmed student-partner commission payout through the shared completion flow", async () => {
+  const payoutOperation = ASSISTANT_OPERATIONS.find(op => op.method === "POST" && op.path === "/partners/:id/payouts")!;
+  let payoutBody: Record<string, unknown> | undefined;
+  await useSemanticModel(payoutOperation.id, {});
+  fetcher.mockImplementation(async (url, init) => {
+    const path = new URL(String(url)).pathname;
+    if (path === "/api/v1/partners" && init?.method === "GET") {
+      return json({ success: true, partners: [{ _id: "64b0000000000000000000a1", id: "64b0000000000000000000a1", name: "Đối tác An", isActive: true }] });
+    }
+    if (path === "/api/v1/partners/64b0000000000000000000a1/payouts" && init?.method === "POST") {
+      payoutBody = JSON.parse(String(init.body || "{}"));
+      return json({ success: true, data: { name: "Đối tác An", totalCommission: 900000, totalPaid: 500000, unpaidBalance: 400000 } });
+    }
+    throw new Error(`Unexpected API: ${path}`);
+  });
+
+  const selection = await turn({ text: "Ghi nhận chi trả hoa hồng 500.000 đồng cho đối tác tuyển sinh An ngày 15/11/2026 bằng chuyển khoản" });
+  let preview = selection;
+  if (selection.status === "collecting") {
+    const partner = selection.referenceSelections?.find(group => group.key === "path_id")?.options[0];
+    expect(partner, JSON.stringify(selection)).toBeDefined();
+    preview = await turn({ referenceSelections: { path_id: [partner!.value] } });
+  }
+  expect(preview.status, JSON.stringify(preview)).toBe("confirmation");
+  expect(fetcher.mock.calls.every(([, init]) => init?.method !== "POST")).toBe(true);
+
+  const completed = await turn({ decision: { id: preview.action!.id, confirmed: true } });
+  expect(completed.status, JSON.stringify(completed)).toBe("completed");
+  expect(payoutBody).toMatchObject({ amount: 500000, date: "2026-11-15", method: "Chuyển khoản" });
+  expect(parseAssistantResultTable(completed.reply)?.rows[0]?.values).toMatchObject({ "Tên": "Đối tác An", "Tổng đã thanh toán": "500.000 ₫", "Còn phải trả": "400.000 ₫" });
+  expect(state.turns.at(-1).steps.at(-1).status).toBe("completed");
+});
+
 it("analyzes retail net commission by date range without treating entries as orders or KPI targets", async () => {
   const op = ASSISTANT_OPERATIONS.find(op => op.path === "/retail/finance/commission/kpi")!;
   await useSemanticModel(op.id, { from: "2026-11-01", to: "2026-11-30", analysis: { filters: [{ field: "commission", operator: "gte", value: 500000 }], sort: { field: "commission", direction: "desc" } } });
@@ -174,11 +261,13 @@ it.each([
   });
   await useSemanticModel(op.id, change);
   const selection = await turn({ text });
-  expect(selection.status, JSON.stringify(selection)).toBe("collecting");
-  const choice = selection.referenceSelections?.find(group => group.key === "path_id")?.options[0];
-  expect(choice, JSON.stringify(selection)).toBeDefined();
-  if (path.includes("retail")) expect(choice!.label).toContain("Chính sách chung");
-  const preview = await turn({ referenceSelections: { path_id: [choice!.value] } });
+  let preview = selection;
+  if (selection.status === "collecting") {
+    const choice = selection.referenceSelections?.find(group => group.key === "path_id")?.options[0];
+    expect(choice, JSON.stringify(selection)).toBeDefined();
+    if (path.includes("retail")) expect(choice!.label).toContain("Chính sách chung");
+    preview = await turn({ referenceSelections: { path_id: [choice!.value] } });
+  }
   expect(preview.status, JSON.stringify(preview)).toBe("confirmation");
   expect(writes).toBe(0);
   const saved = await turn({ decision: { id: preview.action!.id, confirmed: true } });
@@ -234,11 +323,11 @@ it("ranks worker referrals from the user's wording when the model omits the anal
   expect(fetcher).toHaveBeenCalledTimes(1);
 });
 
-it("asks which metric to compare instead of returning an unranked KPI report", async () => {
+it("clarifies the KPI metric for an explicit labor-partner ranking", async () => {
   await useSemanticModel(kpiOperation.id, { query_periodAnchor: "2026-11-01" });
-  const result = await turn({ text: "Đối tác nào nhiều nhất trong tháng?" });
+  const result = await turn({ text: "Trong quản lý lao động, đối tác nào có KPI cao nhất trong tháng?" });
   expect(result.status, JSON.stringify(result)).toBe("collecting");
-  expect(result.reply).toContain("Bạn muốn so sánh theo chỉ tiêu nào?");
+  expect(result.reply).toContain("Bạn muốn so sánh đối tác theo số lao động được giới thiệu hay tỷ lệ hoàn thành KPI?");
   expect(fetcher).not.toHaveBeenCalled();
 });
 
@@ -315,7 +404,7 @@ it("collects missing commission rules instead of inventing them for a named new 
   expect(preview.status, JSON.stringify(preview)).toBe("confirmation");
   const created = await turn({ decision: { id: preview.action!.id, confirmed: true } });
   expect(created.status, JSON.stringify(created)).toBe("completed");
-  expect(created.reply).toContain("Bạn có muốn bổ sung không?");
+  expect(created.reply).toContain("Bạn có muốn bổ sung ngày hiệu lực đến không?");
   expect(parseAssistantResultTable(created.reply)).not.toBeNull();
   expect(policy.name).toBe("Chính sách lao động cuối năm");
   const update = ASSISTANT_OPERATIONS.find(candidate => candidate.partialUpdate && candidate.module === "labor-partner")!;
@@ -382,7 +471,7 @@ it("creates a worker, asks for missing optional details, and updates that same w
 
   const created = await turn({ decision: { id: preview.action!.id, confirmed: true } });
   expect(created.status).toBe("completed");
-  expect(created.reply).toContain("Bạn có muốn bổ sung không?");
+  expect(created.reply).toContain("Bạn có muốn bổ sung email, quốc tịch, số giấy phép lao động hoặc thông tin còn thiếu khác không?");
   expect(savedWorker?.fullName).toBe("Lê Minh");
   expect(parseAssistantResultTable(created.reply)?.rows[0]?.values).toMatchObject({ "Họ và tên": "Lê Minh" });
 

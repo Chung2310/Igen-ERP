@@ -83,7 +83,8 @@ export class PartnerController {
   static async getList(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const result = await PartnerService.getPartners(ownerId, req.query, req.user!.branchId);
+      const branchId = await resolveCommissionBranchId(req, false);
+      const result = await PartnerService.getPartners(ownerId, req.query, branchId);
       res.json({ success: true, ...result });
     } catch (error: unknown) {
       next(error);
@@ -93,7 +94,8 @@ export class PartnerController {
   static async getPayoutReport(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const data = await PartnerService.getPayoutReport(ownerId, req.user!.branchId, String(req.query.from || ""), String(req.query.to || ""));
+      const branchId = await resolveCommissionBranchId(req, false);
+      const data = await PartnerService.getPayoutReport(ownerId, branchId, String(req.query.from || ""), String(req.query.to || ""));
       res.json({ success: true, data });
     } catch (error) {
       next(error);

@@ -8,6 +8,8 @@ export interface AnalysisContract {
   fields: Record<string, {
     label: string;
     type: "number" | "text";
+    display?: boolean;
+    displayByDefault?: boolean;
     values?: Record<string, string>;
     aliases?: string[];
     valueAliases?: Record<string, string[]>;
@@ -38,7 +40,7 @@ export async function collectAnalysisPages(contract: AnalysisContract, values: R
   throw new AssistantError("Chưa lấy đủ dữ liệu để phân tích toàn bộ đối tác. Bạn thu hẹp phạm vi giúp mình nhé.");
 }
 export interface ListAnalysis {
-  filters?: Array<{ field: string; operator: "eq" | "ne" | "gt" | "gte" | "lt" | "lte"; value: string | number }>;
+  filters?: Array<{ field: string; operator: "eq" | "ne" | "gt" | "gte" | "lt" | "lte" | "contains"; value: string | number }>;
   extreme?: { field: string; direction: "min" | "max" };
   sort?: { field: string; direction: "asc" | "desc" };
   limit?: number;
@@ -55,7 +57,7 @@ export function reconcileRequestedValueFilters(text: string, contract: AnalysisC
   | { kind: "resolved"; analysis: ListAnalysis }
   | { kind: "clarify"; question: string } {
   const phrase = ` ${normalizeAnalysisText(text).replace(/[^a-z0-9]+/g, " ").trim()} `;
-  const literal = (value: string) => ` ${value.normalize("NFC").toLocaleLowerCase("vi").replace(/[^\\p{L}\\p{N}]+/gu, " ").trim()} `;
+  const literal = (value: string) => ` ${value.normalize("NFC").toLocaleLowerCase("vi").replace(/[^\p{L}\p{N}]+/gu, " ").trim()} `;
   const requested: NonNullable<ListAnalysis["filters"]> = [];
   for (const [field, definition] of Object.entries(contract.fields)) {
     for (const predicate of definition.predicates || []) {
@@ -107,13 +109,18 @@ export function reconcileRequestedRanking(text: string, contract: AnalysisContra
   const numericFields = Object.entries(contract.fields).filter(([, definition]) => definition.type === "number");
   const requestTerms = new Set(request.split(/[^a-z0-9]+/).filter(Boolean));
   const stopWords = new Set(["con", "thieu", "gioi", "da", "tong", "tien", "so", "ty", "le", "dat", "nhan", "su"]);
-  const matches = numericFields.filter(([key, definition]) => {
+  const scoredMatches = numericFields.flatMap(([key, definition]) => {
     const phrases = [...(definition.aliases || []), definition.label, key]
       .map(normalizeAnalysisText).filter(term => term.length >= 4);
     const labelWords = normalizeAnalysisText(definition.label).split(/[^a-z0-9]+/)
       .filter(term => term.length >= 4 && !stopWords.has(term));
-    return phrases.some(term => request.includes(term)) || labelWords.some(term => requestTerms.has(term));
+    const phraseMatches = phrases.filter(term => request.includes(term));
+    const wordMatches = labelWords.filter(term => requestTerms.has(term));
+    const score = Math.max(0, ...phraseMatches.map(term => term.split(/\s+/).length), ...wordMatches.map(() => 1));
+    return score ? [{ key, definition, score }] : [];
   });
+  const bestScore = Math.max(0, ...scoredMatches.map(match => match.score));
+  const matches = scoredMatches.filter(match => match.score === bestScore).map(({ key, definition }) => [key, definition] as const);
   const candidates = matches.length ? matches : numericFields.length === 1 ? numericFields : [];
   if (candidates.length !== 1) {
     const labels = numericFields.map(([, definition]) => `“${definition.label}”`).join(", ");
@@ -150,7 +157,7 @@ export function validateListAnalysis(raw: unknown, contract: AnalysisContract): 
   let plan: any = raw;
   if (typeof raw === "string") { try { plan = JSON.parse(raw); } catch { fail("Điều kiện phân tích chưa hợp lệ. Chưa thực hiện tra cứu."); } }
   if (plan == null) return {};
-  if (!plain(plan) || Object.keys(plan).some(key => !["filters", "extreme", "sort", "limit", "groupBy", "aggregate"].includes(key))) fail("Phép phân tích này chưa được hỗ trợ.");
+  if (!plain(plan) || Object.keys(plan).some(key => !["filters", "extreme", "sort", "limit", "groupBy", "aggregate", "aggregates", "select"].includes(key))) fail("Phép phân tích này chưa được hỗ trợ.");
   const field = (key: unknown, numeric = false) => {
     if (typeof key !== "string" || !Object.hasOwn(contract.fields, key) || (numeric && contract.fields[key].type !== "number")) fail("Trường phân tích không có trong dữ liệu được phép xem.");
   };
@@ -159,10 +166,11 @@ export function validateListAnalysis(raw: unknown, contract: AnalysisContract): 
     for (const filter of plan.filters) {
       if (!plain(filter) || Object.keys(filter).some(key => !["field", "operator", "value"].includes(key))) fail("Điều kiện lọc chưa hợp lệ.");
       field(filter.field);
-      if (!["eq", "ne", "gt", "gte", "lt", "lte"].includes(filter.operator)) fail("Phép so sánh chưa được hỗ trợ.");
+      if (!["eq", "ne", "gt", "gte", "lt", "lte", "contains"].includes(filter.operator)) fail("Phép so sánh chưa được hỗ trợ.");
       const definition = contract.fields[filter.field];
       if (definition.type === "number" ? typeof filter.value !== "number" || !Number.isFinite(filter.value) : typeof filter.value !== "string") fail("Giá trị lọc không đúng kiểu dữ liệu.");
-      if (definition.type !== "number" && !["eq", "ne"].includes(filter.operator)) fail("Chỉ so sánh lớn hơn hoặc nhỏ hơn trên trường số.");
+      if (filter.operator === "contains" && definition.type !== "text") fail("Tìm cụm từ chỉ áp dụng cho trường văn bản.");
+      if (definition.type !== "number" && !["eq", "ne", "contains"].includes(filter.operator)) fail("Chỉ so sánh lớn hơn hoặc nhỏ hơn trên trường số.");
       if (definition.values && !Object.hasOwn(definition.values, String(filter.value))) fail("Giá trị lọc không thuộc các lựa chọn của trường dữ liệu.");
     }
   }
@@ -173,9 +181,16 @@ export function validateListAnalysis(raw: unknown, contract: AnalysisContract): 
   }
   if (plan.limit !== undefined && (!Number.isInteger(plan.limit) || plan.limit < 1 || plan.limit > 1000)) fail("Số kết quả cần nằm trong khoảng 1–1.000.");
   if (plan.groupBy !== undefined) field(plan.groupBy);
-  if (plan.aggregate !== undefined) {
-    if (!plain(plan.aggregate) || Object.keys(plan.aggregate).some(k => !["operation", "field"].includes(k)) || !["count", "sum", "avg"].includes(plan.aggregate.operation)) fail("Phép tổng hợp chưa được hỗ trợ.");
-    if (plan.aggregate.operation !== "count" || plan.aggregate.field !== undefined) field(plan.aggregate.field, true);
+  const aggregates = plan.aggregates === undefined ? (plan.aggregate === undefined ? [] : [plan.aggregate]) : plan.aggregates;
+  if (plan.aggregate !== undefined && plan.aggregates !== undefined) fail("Chỉ dùng aggregate hoặc aggregates trong cùng một yêu cầu.");
+  if (plan.aggregates !== undefined && (!Array.isArray(plan.aggregates) || plan.aggregates.length < 1 || plan.aggregates.length > 10)) fail("Cần có từ 1 đến 10 phép tổng hợp.");
+  for (const aggregate of aggregates) {
+    if (!plain(aggregate) || Object.keys(aggregate).some(k => !["operation", "field"].includes(k)) || !["count", "sum", "avg"].includes(aggregate.operation)) fail("Phép tổng hợp chưa được hỗ trợ.");
+    if (aggregate.operation !== "count" || aggregate.field !== undefined) field(aggregate.field, true);
+    if (aggregate.operation !== "count" && aggregate.field === undefined) fail("Phép tính tổng hoặc trung bình cần chọn một trường số.");
+  }
+  if (plan.select !== undefined && (!Array.isArray(plan.select) || plan.select.length < 1 || plan.select.length > 20 || plan.select.some((key: unknown) => typeof key !== "string" || !Object.hasOwn(contract.fields, key)))) fail("Các cột hiển thị chưa hợp lệ.");
+  if (aggregates.length) {
     if (plan.extreme || plan.sort || plan.limit) fail("Chưa hỗ trợ xếp hạng sau tổng hợp trong cùng một bước.");
   } else if (plan.groupBy) fail("Cần chọn cách tổng hợp cho từng nhóm.");
   return plan;
@@ -195,6 +210,7 @@ export function analyzeList(contract: AnalysisContract, rows: Record<string, unk
       case "gte": return typeof value === "number" && value >= Number(f.value);
       case "lt": return typeof value === "number" && value < Number(f.value);
       case "lte": return typeof value === "number" && value <= Number(f.value);
+      case "contains": return typeof value === "string" && value.toLocaleLowerCase("vi").includes(String(f.value).toLocaleLowerCase("vi"));
     }
   }));
   if (plan.extreme) {
@@ -213,23 +229,36 @@ export function analyzeList(contract: AnalysisContract, rows: Record<string, unk
     });
   }
   const matched = selected.length;
-  const format = (value: unknown, key: string) => value == null ? "Chưa thiết lập" : contract.fields[key]?.values?.[String(value)] || (typeof value === "number" ? value.toLocaleString("vi-VN") : String(value));
-  if (plan.aggregate) {
+  const format = (value: unknown, key: string) => {
+    if (key === "bankAccountNo") {
+      const digits = String(value || "").replace(/\D/g, "");
+      return digits ? `•••• ${digits.slice(-4)}` : "Chưa cập nhật";
+    }
+    return value == null ? "Chưa thiết lập" : contract.fields[key]?.values?.[String(value)] || (typeof value === "number" ? value.toLocaleString("vi-VN") : String(value));
+  };
+  const aggregates = plan.aggregates || (plan.aggregate ? [plan.aggregate] : undefined);
+  if (aggregates) {
     const groups = new Map<string, Record<string, unknown>[]>();
     if (!plan.groupBy) groups.set("Tất cả", selected);
     else for (const row of selected) { const key = format(row[plan.groupBy], plan.groupBy); if (!groups.has(key)) groups.set(key, []); groups.get(key)!.push(row); }
-    const { operation, field } = plan.aggregate;
     return { matched: groups.size, records: [...groups].map(([group, members]) => {
-      const numbers = members.map(row => row[field!]).filter((v): v is number => typeof v === "number" && Number.isFinite(v));
-      const total = numbers.reduce((sum, n) => sum + n, 0);
-      const value = operation === "count" ? members.length : numbers.length ? (operation === "sum" ? total : total / numbers.length) : null;
-      const label = operation === "count" ? "Số lượng" : `${operation === "sum" ? "Tổng" : "Trung bình"} ${contract.fields[field!].label.toLowerCase()}`;
-      return { [plan.groupBy ? contract.fields[plan.groupBy].label : "Phạm vi"]: group, [label]: value == null ? "Không có dữ liệu" : value.toLocaleString("vi-VN") };
+      const record: Record<string, string> = { [plan.groupBy ? contract.fields[plan.groupBy].label : "Phạm vi"]: group };
+      for (const { operation, field } of aggregates) {
+        const numbers = field ? members.map(row => row[field]).filter((v): v is number => typeof v === "number" && Number.isFinite(v)) : [];
+        const total = numbers.reduce((sum, n) => sum + n, 0);
+        const value = operation === "count" ? members.length : numbers.length ? (operation === "sum" ? total : total / numbers.length) : null;
+        const label = operation === "count" ? (field ? "Số lượng " + contract.fields[field].label.toLowerCase() : "Số lượng") : (operation === "sum" ? "Tổng " : "Trung bình ") + contract.fields[field!].label.toLowerCase();
+        record[label] = value == null ? "Không có dữ liệu" : value.toLocaleString("vi-VN");
+      }
+      return record;
     }) };
   }
   // An extremum includes every tie, even if the model also supplied limit=1.
   if (plan.limit && !plan.extreme) selected = selected.slice(0, plan.limit);
-  return { matched, records: selected.map(row => Object.fromEntries(Object.keys(contract.fields).map(key => [contract.fields[key].label, format(row[key], key)]))) };
+  const selectedFields = (plan.select
+    ? plan.select.filter(key => contract.fields[key].display !== false)
+    : Object.keys(contract.fields).filter(key => contract.fields[key].display !== false && contract.fields[key].displayByDefault !== false));
+  return { matched, records: selected.map(row => Object.fromEntries(selectedFields.map(key => [contract.fields[key].label, format(row[key], key)]))) };
 }
 export function renderListAnalysis(contract: AnalysisContract, rows: Record<string, unknown>[], raw: unknown, complete: boolean, summary: string) {
   const result = analyzeList(contract, rows, raw, complete);

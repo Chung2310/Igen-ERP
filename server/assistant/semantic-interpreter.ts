@@ -7,7 +7,7 @@ import { AssistantError } from "./policy";
 import { additionalCustomerNotes, appendCustomerNotes, hasCustomerExecutionConditions } from "../modules/customer-management/customer-notes";
 import { explicitlyRequestsBudgetCreation, quotationIntent } from "./quotation-intent";
 import { missingReportConstraint } from "./report-constraints";
-import { reconcileRequestedRanking } from "./list-analysis";
+import { reconcileRequestedRanking, reconcileRequestedValueFilters } from "./list-analysis";
 import { businessDiscoveryInstructions, validateBusinessDiscovery, type BusinessDiscovery } from "./business-discovery";
 import { validateRequestCoverage } from "./request-coverage";
 import { ASSISTANT_CAPABILITY_INTERPRETATION_GUIDANCE, buildAssistantCapabilityContext } from "./capability-context";
@@ -80,6 +80,41 @@ function affirmedSingleReportOffer(
   const initiatingRequest = messages.slice(0, offerIndex).reverse()
     .find(message => message.role === "user" && typeof message.content === "string")?.content || "";
   return { workflow: matches[0], offer, initiatingRequest };
+}
+
+function affirmedStudentPartnerTotalOffer(
+  answer: string,
+  messages: { role: string; content: string }[],
+  workflows: AssistantWorkflow[],
+): AssistantInterpretation | null {
+  const normalizedAnswer = normalizedVietnameseText(answer).trim().replace(/[.!?]+$/g, "");
+  if (!/^(?:co|dong y|duoc|vang|ok|oke|yes)(?:\s+(?:nhe|a|di))?$/.test(normalizedAnswer)) return null;
+
+  const offer = [...messages].reverse().find(message => {
+    if (message.role !== "assistant" || typeof message.content !== "string") return false;
+    const content = normalizedVietnameseText(message.content);
+    return /\b(?:co muon|ban muon)\b/.test(content)
+      && /\b(?:tong so doi tac|dem tong so doi tac)\b/.test(content)
+      && /\b(?:doi tac tuyen sinh|doi tac hoc vien|doi tac gioi thieu hoc vien)\b/.test(content)
+      && /\b(?:hien co|hien tai|danh muc|chi ho tro)\b/.test(content);
+  });
+  if (!offer) return null;
+
+  const workflow = workflows.find(candidate => candidate.actionId === "partner.analysis" && candidate.enabled);
+  const analysisField = workflow?.fields.find(field => field.apiKey === "analysis" || field.key === "analysis");
+  if (!workflow || !analysisField) return null;
+  return {
+    actionId: workflow.actionId,
+    values: { [analysisField.key]: JSON.stringify({ aggregate: { operation: "count" } }) },
+    intentType: "workflow",
+    actionIntent: "report",
+    newRequest: false,
+    requestCoverage: [{
+      evidence: "Người dùng đồng ý xem tổng số đối tác học viên hiện có theo đề xuất trước đó",
+      requirement: "Đếm tổng số đối tác học viên hiện có, không lọc theo thời điểm tạo",
+      mappedTo: ["action", `values.${analysisField.key}`],
+    }],
+  };
 }
 
 function retailContextContinuationText(text: string, messages: { role: string; content: string }[]) {
@@ -534,6 +569,411 @@ function explicitPartnerIssueRecovery(text: string, workflows: AssistantWorkflow
       "Tra cứu các phiên bản chính sách hoa hồng bán lẻ chung và riêng", currentOnly ? { currentOnly: true } : {}, resultFieldsForAction("retail.partner.commission.policy.list")));
   }
   return null;
+}
+
+function explicitStudentPartnerPayoutCreate(text: string, workflows: AssistantWorkflow[]): AssistantInterpretation | null {
+  const request = normalizedVietnameseText(text);
+  if (inferPartnerModule(text) !== "student-partner"
+    || !/\b(?:ghi nhan|tao|them|lap|thanh toan|chi tra)\b/.test(request)
+    || !/\b(?:hoa hong|khoan chi|tien hoa hong)\b/.test(request)
+    || /\b(?:bao nhieu|thong ke|lich su|da chi tra|da thanh toan)\b/.test(request)) return null;
+  const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.module === "student-partner"
+    && candidate.method === "POST" && candidate.path === "/partners/:id/payouts");
+  const workflow = operation && workflows.find(candidate => candidate.actionId === operation.id && candidate.enabled);
+  if (!workflow) return null;
+  const values: Record<string, unknown> = {};
+  const partnerName = text.match(/đối\s+tác(?:\s+tuyển\s+sinh|\s+học\s+viên)?\s+(.+?)(?=\s+(?:với|số\s+tiền|ngày|hôm|bằng|qua|chuyển|tiền\s+mặt|ghi\s+chú|lý\s+do|để|nhận)|[,.!?]|$)/iu)?.[1]?.trim();
+  const partnerField = workflow.fields.find(field => field.apiKey === "id" || field.key === "path_id");
+  if (partnerName && partnerField) values[partnerField.key] = partnerName;
+  const amountMatch = request.match(/(?:hoa hong|khoan chi|so tien|chi tra|thanh toan)\s+([\d.,]+)\s*(trieu|nghin|ngan|dong|vnd)?\b/);
+  if (amountMatch) {
+    const amount = Number(amountMatch[1].replace(/[.,]/g, "")) * (
+      amountMatch[2] === "trieu" ? 1_000_000 : ["nghin", "ngan"].includes(amountMatch[2] || "") ? 1_000 : 1
+    );
+    const amountField = workflow.fields.find(field => field.apiKey === "amount" || field.key === "amount");
+    if (Number.isSafeInteger(amount) && amount > 0 && amountField) values[amountField.key] = amount;
+  }
+  const paidDate = relativeDayBoundsFromText(request)?.from;
+  const dateField = workflow.fields.find(field => field.apiKey === "date" || field.key === "date");
+  if (paidDate && dateField) values[dateField.key] = paidDate;
+  const method = /\b(?:chuyen khoan|ngan hang)\b/.test(request) ? "Chuyển khoản"
+    : /\btien mat\b/.test(request) ? "Tiền mặt" : undefined;
+  const methodField = workflow.fields.find(field => field.apiKey === "method" || field.key === "method");
+  if (method && methodField) values[methodField.key] = method;
+  const note = text.match(/(?:ghi\s+chú|lý\s+do)\s+(.+?)(?:[.!?]|$)/iu)?.[1]?.trim();
+  const noteField = workflow.fields.find(field => field.apiKey === "note" || field.key === "note");
+  if (note && noteField) values[noteField.key] = note;
+  return {
+    actionId: workflow.actionId,
+    values,
+    intentType: "workflow",
+    actionIntent: "create",
+    newRequest: true,
+    requestCoverage: [{ evidence: text, requirement: "Ghi nhận khoản chi trả hoa hồng cho đúng đối tác", mappedTo: ["action", ...(partnerName && partnerField ? ["values." + partnerField.key] : []), ...(amountMatch ? ["values.amount"] : []), ...(paidDate ? ["values." + (dateField?.key || "date")] : []), ...(method ? ["values." + (methodField?.key || "method")] : [])] }],
+  };
+}
+
+function explicitStudentPartnerReportPlan(text: string, workflows: AssistantWorkflow[]): AssistantInterpretation | null {
+  const request = normalizedVietnameseText(text);
+  if (!/\b(?:doi tac tuyen sinh|doi tac hoc vien)\b/.test(request)) return null;
+  const month = monthBoundsFromText(request);
+  const week = /\b(?:tuan nay|trong tuan nay|tuan hien tai)\b/.test(request) ? currentWeekBounds() : undefined;
+  const period = month || week;
+  const namedPartner = text.match(/đối\s+tác(?:\s+tuyển\s+sinh|\s+học\s+viên)?\s+(.+?)(?=\s+(?:đang|hiện|đã|còn|chưa|được|giới\s+thiệu|dùng|có|là|trong)|[,.!?]|$)/iu)?.[1]?.trim();
+
+  if (/\b(?:lich su chi tra|lan gan nhat.*chi tra|chi tra gan nhat|chi tra hoa hong.*gan nhat)\b/.test(request)) {
+    const history = workflows.find(workflow => workflow.actionId === "partner.payout.history.list");
+    const values: Record<string, unknown> = { query_limit: 1 };
+    if (namedPartner) values.search = namedPartner;
+    return directReadInterpretation(readQueryFromApiValues(workflows, history?.actionId || "", "Lần chi trả hoa hồng mới nhất đã được ghi nhận", values, ["name", "date", "amount"]));
+  }
+  if (/\b(?:chi tra|thanh toan).{0,45}\b(?:hoa hong|theo phuong thuc|chuyen khoan|tien mat)\b/.test(request)
+    && /\b(?:thang|tu ngay|tu\s+\d{1,2}\/|bao nhieu|thong ke|tong)\b/.test(request)) {
+    const bounds = period || dateRangeFromText(request);
+    if (bounds) return directReadInterpretation(readQueryFromApiValues(workflows, "partner.payout.report",
+      "Thống kê hoa hồng đã chi trả trong kỳ", bounds, ["from", "to", "payoutCount", "totalAmount", "methodTotals", "payouts"]));
+  }
+  if (/\b(?:lich su chi tra|lich su thanh toan|cac lan da tra)\b/.test(request) && namedPartner) {
+    return directReadInterpretation(readQueryFromApiValues(workflows, "partner.payout.history.list",
+      "Lịch sử chi trả hoa hồng của đối tác đã chọn", { search: namedPartner, query_limit: 500 }, ["name", "date", "amount"]));
+  }
+  if (/\b(?:cap bac|cap nao|level|ty le hoa hong|muc hoa hong|cau hinh cap bac|dang o cap|thuoc cap)\b/.test(request)
+    && /\b(?:hoa hong|doanh so|tien hoc phi|tuyen sinh)\b/.test(request)) {
+    const nextLevelRequest = /\b(?:con thieu|len cap|cap tiep theo|toi thieu de len)\b/.test(request);
+    if (nextLevelRequest && !namedPartner) {
+      return { actionId: null, values: {}, intentType: "ambiguous", clarification: "Bạn muốn xem mức học phí để lên cấp tiếp theo của đối tác nào?" };
+    }
+    if (namedPartner && !nextLevelRequest && /\b(?:hien tai|dang o cap|thuoc cap|cap nao|ty le hien tai|muc hien tai)\b/.test(request)) {
+      const partner = readQueryFromApiValues(workflows, "partner.analysis", "Tra cứu cấp hoa hồng hiện tại của đối tác đã chọn", {
+        search: namedPartner, analysis: JSON.stringify({ select: ["name", "levelName", "totalReferredTuition"] }),
+      }, ["name", "levelName", "totalReferredTuition"]);
+      const levels = readQueryFromApiValues(workflows, "partner.commission.levels.list",
+        "Tra cứu tỷ lệ hoa hồng theo cấp bậc", {}, ["name", "minTuition", "commissionRate"]);
+      if (partner && levels) return deterministicReadPlan(text, workflows, [partner, levels], [
+        { evidence: text, requirement: "Tra cứu cấp hiện tại và tỷ lệ tương ứng của đối tác đã nêu", mappedTo: ["action"] },
+      ]);
+    }
+    if (nextLevelRequest && namedPartner) {
+      const partner = readQueryFromApiValues(workflows, "partner.analysis", "Tra cứu doanh số học phí lũy kế của đối tác để đối chiếu cấp bậc", {
+        search: namedPartner, analysis: JSON.stringify({ select: ["name", "levelName", "totalReferredTuition"] }),
+      }, ["name", "levelName", "totalReferredTuition"]);
+      const levels = readQueryFromApiValues(workflows, "partner.commission.levels.list", "Tra cứu ngưỡng doanh số các cấp bậc hoa hồng", {}, ["name", "minTuition", "commissionRate"]);
+      if (partner && levels) return deterministicReadPlan(text, workflows, [partner, levels], [
+        { evidence: text, requirement: "Đối chiếu doanh số lũy kế của đối tác với các ngưỡng cấp bậc hoa hồng", mappedTo: ["action"] },
+      ]);
+    }
+    return directReadInterpretation(readQueryFromApiValues(workflows, "partner.commission.levels.list",
+      "Tra cứu cấp bậc và tỷ lệ hoa hồng đối tác học viên", {}, ["name", "minTuition", "commissionRate"]));
+  }
+  if (/\b(?:lich su|danh sach)\b/.test(request) && /\b(?:hoc vien|duoc gioi thieu)\b/.test(request) && namedPartner) {
+    return directReadInterpretation(readQueryFromApiValues(workflows, "partner.referrals.list",
+      "Danh sách học viên và tổng học phí do đối tác đã chọn giới thiệu", { id: namedPartner }, ["name", "referredStudentsCount", "totalReferredTuition", "referredStudents"]));
+  }
+
+  const analysisWorkflow = workflows.find(workflow => workflow.actionId === "partner.analysis" && workflow.enabled);
+  const analysisField = analysisWorkflow?.fields.find(field => field.key === "analysis" || field.apiKey === "analysis");
+  if (!analysisWorkflow || !analysisField) return null;
+  const analysis: Record<string, any> = {};
+  const values: Record<string, unknown> = {};
+  if (namedPartner && /\b(?:doi tac|hoa hong cua|tien hoc phi cua|hoc vien cua)\b/.test(request)) values.search = namedPartner;
+  const newPartnerRequest = /\bdoi tac(?: tuyen sinh| hoc vien| gioi thieu hoc vien)?\b.{0,20}\b(?:moi|duoc tao|phat sinh|them|tao)\b/.test(request)
+    || /\b(?:them|tao|phat sinh)\b.{0,20}\bdoi tac(?: tuyen sinh| hoc vien| gioi thieu hoc vien)?\b/.test(request);
+  if (period) {
+    values[newPartnerRequest ? "createdFrom" : "referralFrom"] = period.from;
+    values[newPartnerRequest ? "createdTo" : "referralTo"] = period.to;
+  }
+  const branchName = text.match(/chi\s+nhánh\s+(.+?)(?=\s+(?:là\s+bao\s+nhiêu|bao\s+nhiêu|có\s+bao\s+nhiêu|đang|hiện|trong)|[,.!?]|$)/iu)?.[1]?.trim();
+  if (branchName) values.targetBranch = branchName;
+
+  const filters: Array<{ field: string; operator: string; value: string | number }> = [];
+  const wantsActive = /\b(?:dang hoat dong|hoat dong)\b/.test(request);
+  const wantsInactive = /\b(?:tam dung|ngung hoat dong|ngung kinh doanh)\b/.test(request);
+  const wantsReferral = /\b(?:gioi thieu|hoc vien|hoc phi|doanh so hoc phi|luot gioi thieu)\b/.test(request);
+  const asksCount = /\b(?:bao nhieu|tong so|dem|thong ke|co bao nhieu)\b/.test(request);
+  const asksBothActivityStates = wantsActive && wantsInactive;
+  if (asksBothActivityStates) {
+    if (asksCount) Object.assign(analysis, { groupBy: "isActive", aggregate: { operation: "count" } });
+    else analysis.select = ["name", "isActive"];
+  } else if (wantsActive) filters.push({ field: "isActive", operator: "eq", value: "active" });
+  else if (wantsInactive) filters.push({ field: "isActive", operator: "eq", value: "inactive" });
+
+  if (/\b(?:chua co tai khoan|chua cap nhat tai khoan|thieu tai khoan)\b/.test(request)) filters.push({ field: "hasBankAccount", operator: "eq", value: "missing" });
+  if (/\b(?:con no|no hoa hong|con phai tra)\b/.test(request)) filters.push({ field: "unpaidBalance", operator: "gt", value: 0 });
+  if (/\b(?:con no|no hoa hong|con phai tra)\b/.test(request) && /\b(?:chua co tai khoan|chua cap nhat tai khoan|thieu tai khoan)\b/.test(request)) analysis.select = ["name", "unpaidBalance", "hasBankAccount"];
+  const threshold = request.match(/(?:tu|tren|hon|it nhat|toi thieu)\s+(\d[\d.,]*)\s*(?:vnd|dong|nghin|ngan|trieu)?\b/);
+  if (threshold && /\b(?:hoa hong|con no|con phai tra)\b/.test(request)) {
+    const digits = Number(threshold[1].replace(/[.,]/g, ""));
+    const multiplier = /\btrieu\b/.test(request.slice(threshold.index || 0, (threshold.index || 0) + threshold[0].length + 12)) ? 1_000_000
+      : /\b(?:nghin|ngan)\b/.test(request.slice(threshold.index || 0, (threshold.index || 0) + threshold[0].length + 12)) ? 1_000 : 1;
+    if (Number.isFinite(digits)) filters.push({ field: "unpaidBalance", operator: "gte", value: digits * multiplier });
+  }
+  if (/\b(?:chua gioi thieu hoc vien nao|chua co hoc vien gioi thieu|0 hoc vien)\b/.test(request)) filters.push({ field: "referredStudentsCount", operator: "eq", value: 0 });
+  if (/\b(?:da gioi thieu hoc vien|it nhat mot hoc vien|tu 1 hoc vien tro len)\b/.test(request)) filters.push({ field: "referredStudentsCount", operator: "gt", value: 0 });
+  if (/\b(?:hoc phi bang 0|chua phat sinh hoc phi)\b/.test(request)) filters.push({ field: "totalReferredTuition", operator: "eq", value: 0 });
+  const noteMatch = text.match(/(?:ghi\s+chú|ghi chú).*?(cộng đồng phụ huynh)/iu);
+  if (noteMatch) filters.push({ field: "notes", operator: "contains", value: noteMatch[1] });
+
+  if (/\b(?:tai khoan ngan hang|so tai khoan|ngan hang nao)\b/.test(request) && namedPartner) {
+    analysis.select = ["name", "bankName", "bankAccountNo"];
+  } else if (/\b(?:hoa hong cua|con no hoa hong cua|da tra duoc bao nhieu|con no bao nhieu)\b/.test(request) && namedPartner) {
+    analysis.select = ["name", "totalCommission", "totalPaid", "unpaidBalance"];
+  } else if (namedPartner && /\b(?:dang hoat dong hay|tam dung hay|trang thai)\b/.test(request)) {
+    analysis.select = ["name", "isActive"];
+  }
+
+  const asksLearnerTotal = /\b(?:tong|tong so|so luong|dem)\b.{0,35}\b(?:hoc vien|luot gioi thieu)\b/.test(request);
+  const asksTuitionTotal = /\b(?:tong|doanh so)\b.{0,35}\b(?:hoc phi|tien hoc phi)\b/.test(request);
+  const asksCommissionTotal = /\b(?:tong|tong so)\b.{0,35}\bhoa hong\b/.test(request);
+  const asksPaidOrDueTotal = /\b(?:da thanh toan|da tra|con no|con phai tra)\b/.test(request)
+    && /\b(?:tong|bao nhieu tien|con bao nhieu)\b/.test(request);
+  if (/\b(?:theo tung cap bac|theo cap bac|theo tung level)\b/.test(request)) {
+    Object.assign(analysis, { groupBy: "levelName", aggregate: { operation: "count" } });
+  } else if ((asksLearnerTotal && asksTuitionTotal) || asksCommissionTotal || asksPaidOrDueTotal
+    || /\b(?:tong hoa hong phat sinh|tong hoa hong|da thanh toan va con no|tong so hoc vien va tong|hoc vien va tong doanh so)\b/.test(request)) {
+    const fields: Array<{ operation: string; field: string }> = [];
+    if (/\b(?:hoc vien|luot gioi thieu)\b/.test(request)) fields.push({ operation: "sum", field: "referredStudentsCount" });
+    if (/\b(?:hoc phi|doanh so)\b/.test(request)) fields.push({ operation: "sum", field: "totalReferredTuition" });
+    if (/\b(?:hoa hong phat sinh|tong hoa hong)\b/.test(request)) fields.push({ operation: "sum", field: "totalCommission" });
+    if (/\b(?:da thanh toan|da tra)\b/.test(request)) fields.push({ operation: "sum", field: "totalPaid" });
+    if (/\b(?:con no|con phai tra)\b/.test(request)) fields.push({ operation: "sum", field: "unpaidBalance" });
+    if (fields.length) analysis.aggregates = fields;
+  } else if (asksCount && !asksBothActivityStates) {
+    const field = newPartnerRequest ? "name" : wantsReferral ? "referredStudentsCount" : "name";
+    analysis.aggregate = field === "name" ? { operation: "count" } : { operation: "sum", field };
+  }
+
+  if (/\b(?:chua gioi thieu hoc vien nao|chua co hoc vien gioi thieu|0 hoc vien|chua cap nhat tai khoan|ghi chu|danh sach doi tac|liet ke|nhung doi tac nao|ai la doi tac)\b/.test(request)
+    && !asksCount && !Object.keys(analysis).length) analysis.select = ["name", "isActive", "referredStudentsCount", "totalReferredTuition", "unpaidBalance"];
+  const maxRank = /\b(?:nhieu(?:\s+\w+){0,3}\s+nhat|cao(?:\s+\w+){0,3}\s+nhat|lon(?:\s+\w+){0,3}\s+nhat|top\s+\d+)\b/.test(request);
+  const minRank = /\b(?:it(?:\s+\w+){0,3}\s+nhat|thap nhat|nho nhat)\b/.test(request);
+  if (maxRank || minRank) {
+    const metric = /\b(?:con no|con phai tra|hoa hong con no)\b/.test(request) ? "unpaidBalance"
+      : /\b(?:hoc phi|doanh so)\b/.test(request) ? "totalReferredTuition" : "referredStudentsCount";
+    const top = request.match(/\btop\s+(\d+)\b/);
+    if (top) analysis.sort = { field: metric, direction: minRank && !maxRank ? "asc" : "desc" }, analysis.limit = Number(top[1]);
+    else analysis.extreme = { field: metric, direction: minRank && !maxRank ? "min" : "max" };
+    analysis.select = metric === "unpaidBalance" ? ["name", metric]
+      : metric === "totalReferredTuition" ? ["name", metric]
+        : ["name", "referredStudentsCount", "totalReferredTuition"];
+  }
+  if (filters.length) analysis.filters = [...(Array.isArray(analysis.filters) ? analysis.filters : []), ...filters];
+  if (!Object.keys(analysis).length) analysis.select = ["name", "isActive", "levelName", "referredStudentsCount", "totalReferredTuition", "unpaidBalance"];
+  values[analysisField.key] = JSON.stringify(analysis);
+  return directReadInterpretation(readQueryFromApiValues(workflows, analysisWorkflow.actionId,
+    "Phân tích đối tác học viên theo trạng thái, kỳ giới thiệu và các chỉ tiêu đã hỏi", values, resultFieldsForAction(analysisWorkflow.actionId)));
+}
+
+function explicitLaborPartnerPolicyPlan(text: string, workflows: AssistantWorkflow[], clarificationContext: boolean): AssistantInterpretation | null {
+  if (clarificationContext) return null;
+  const request = normalizedVietnameseText(text);
+  const laborModuleContext = /\b(?:quan ly lao dong|doi tac lao dong|chinh sach doi tac lao dong)\b/.test(request);
+  if (!/\bchinh sach\b/.test(request) || (!laborModuleContext && !/\bhoa hong\b/.test(request))) return null;
+
+  const editing = /\b(?:sua|chinh sua|cap nhat|doi)\b/.test(request);
+  const creating = /\b(?:tao|them|lap)\b/.test(request)
+    && /\b(?:moi|chinh sach)\b/.test(request);
+  if (editing && /\b(?:so moc thang|max months|thang toi da)\b/.test(request)) {
+    const months = request.match(/(?:so moc thang|max months|thang toi da)\s+(?:thanh|la|con)\s+(\d{1,2})\s*(?:thang)?\b/)
+      || request.match(/(?:so moc thang|max months|thang toi da)\s+(\d{1,2})\s*(?:thang)?\b/);
+    if (!months) return { actionId: null, values: {}, intentType: "ambiguous", clarification: "Bạn muốn đặt số mốc tháng của chính sách thành bao nhiêu?" };
+    const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.module === "labor-partner"
+      && candidate.method === "PATCH" && candidate.path === "/worker-management/partners/policies/:policyId");
+    const workflow = operation && workflows.find(candidate => candidate.actionId === operation.id && candidate.enabled);
+    const officialField = workflow?.fields.find(field => field.apiKey === "official" || field.key === "official");
+    if (!workflow || !officialField) return null;
+    const monthCount = Number(months[1]);
+    const values: Record<string, unknown> = { [officialField.key]: JSON.stringify({ maxMonths: monthCount }) };
+    const namedPolicy = text.match(/(?:chính sách(?:\s+hoa hồng)?\s+)(?!phần|mới|này|đó|này\s+phần)([\p{L}\p{N}][\p{L}\p{N}\s_-]{1,70}?)(?=\s+(?:phần|có|đang|thành|với)|[,;.!?]|$)/iu)?.[1]?.trim();
+    const pathField = workflow.fields.find(field => field.apiKey === "policyId" || field.key === "path_policyId");
+    if (pathField && namedPolicy) values[pathField.key] = namedPolicy;
+    return {
+      actionId: workflow.actionId,
+      values,
+      intentType: "workflow",
+      actionIntent: "update",
+      newRequest: !clarificationContext,
+      requestCoverage: [{ evidence: months[0], requirement: "Đặt số mốc tháng của chính sách hoa hồng lao động theo giá trị được yêu cầu", mappedTo: ["action", `values.${officialField.key}`] }],
+    };
+  }
+
+  if (creating) {
+    const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.module === "labor-partner"
+      && candidate.method === "POST" && candidate.path === "/worker-management/partners/policies");
+    const workflow = operation && workflows.find(candidate => candidate.actionId === operation.id && candidate.enabled);
+    if (!workflow) return null;
+    const values: Record<string, unknown> = {};
+    const name = text.match(/(?:chính sách(?:\s+hoa hồng)?\s+mới\s*[-:]\s*)(.+?)(?=\s*[,;]?\s*áp dụng\b|[.!?]|$)/iu)?.[1]?.trim()
+      || text.match(/(?:chính sách(?:\s+hoa hồng)?\s+(?:tên|mang tên))\s+(.+?)(?=\s*[,;]?\s*áp dụng\b|[.!?]|$)/iu)?.[1]?.trim();
+    const nameField = workflow.fields.find(field => field.apiKey === "name" || field.key === "name");
+    if (name && nameField) values[nameField.key] = name;
+    const effectiveFrom = dayBoundsFromText(request)?.from;
+    const dateField = workflow.fields.find(field => field.apiKey === "effectiveFrom" || field.key === "effectiveFrom");
+    if (effectiveFrom && dateField) values[dateField.key] = effectiveFrom;
+    return {
+      actionId: workflow.actionId,
+      values,
+      intentType: "workflow",
+      actionIntent: "create",
+      newRequest: !clarificationContext,
+      requestCoverage: [{ evidence: text, requirement: "Tạo chính sách hoa hồng mới cho đối tác lao động", mappedTo: ["action", ...(name && nameField ? [`values.${nameField.key}`] : []), ...(effectiveFrom && dateField ? [`values.${dateField.key}`] : [])] }],
+    };
+  }
+  return null;
+}
+
+function explicitLaborPartnerPolicyContinuation(
+  reply: string,
+  workflows: AssistantWorkflow[],
+  pending: unknown,
+): AssistantInterpretation | null {
+  const pendingAction = pending && typeof pending === "object" ? (pending as { actionId?: unknown }).actionId : undefined;
+  const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === pendingAction
+    && candidate.module === "labor-partner" && candidate.method === "POST"
+    && candidate.path === "/worker-management/partners/policies");
+  const workflow = operation && workflows.find(candidate => candidate.actionId === operation.id && candidate.enabled);
+  if (!workflow) return null;
+  const request = normalizedVietnameseText(reply);
+  const values: Record<string, unknown> = {};
+  const settlementField = workflow.fields.find(field => field.apiKey === "settlementCycle" || field.key === "settlementCycle");
+  if (settlementField && /\b(?:doi soat thang duong lich|chu ky thang duong lich|theo thang duong lich)\b/.test(request)) {
+    values[settlementField.key] = JSON.stringify({ type: "calendar_month" });
+  } else if (settlementField) {
+    const cutoff = request.match(/(?:doi soat|chot doi soat|ngay chot)\s+(?:vao ngay\s*)?(\d{1,2})\b/);
+    if (cutoff && Number(cutoff[1]) >= 1 && Number(cutoff[1]) <= 28) {
+      values[settlementField.key] = JSON.stringify({ type: "cutoff_day", cutoffDay: Number(cutoff[1]) });
+    }
+  }
+
+  const officialField = workflow.fields.find(field => field.apiKey === "official" || field.key === "official");
+  if (officialField && /\b(?:chinh thuc|lao dong chinh thuc)\b/.test(request)) {
+    const disabled = /\b(?:khong ap dung|khong dung|bo qua)\s+(?:lao dong\s+)?chinh thuc\b/.test(request);
+    const official: Record<string, unknown> = { enabled: !disabled };
+    if (!disabled) {
+      const monthMatch = request.match(/(?:chinh thuc|toi da)\s+(\d{1,2})\s+thang\b/);
+      const maxMonths = monthMatch ? Number(monthMatch[1]) : undefined;
+      if (maxMonths && maxMonths <= 3) official.maxMonths = maxMonths;
+      const amountMatch = request.match(/(?:hoa hong|muc tien|so tien)\s+([\d.,]+)\s*(trieu|nghin|ngan|dong|vnd)?\b/);
+      const amount = amountMatch ? Number(amountMatch[1].replace(/[.,]/g, "")) * (
+        amountMatch[2] === "trieu" ? 1_000_000 : ["nghin", "ngan"].includes(amountMatch[2] || "") ? 1_000 : 1
+      ) : undefined;
+      const eligibilityRule = /\b(?:hop dong con hieu luc|hop dong dang hieu luc|contract active)\b/.test(request) ? "contract_active"
+        : /\b(?:xac nhan thu cong|quan ly xac nhan|manual confirmation)\b/.test(request) ? "manual_confirmation"
+          : /\b(?:cham cong|ngay cong|gio lam)\b/.test(request) ? "attendance_threshold" : undefined;
+      const minimumDays = Number(request.match(/(?:toi thieu|min)\s+(\d{1,3})\s+ngay\b/)?.[1]);
+      const minimumHours = Number(request.match(/(?:toi thieu|min)\s+(\d{1,3})\s+gio\b/)?.[1]);
+      if (maxMonths && amount !== undefined && eligibilityRule
+        && (eligibilityRule !== "attendance_threshold" || Number.isFinite(minimumDays) || Number.isFinite(minimumHours))) {
+        official.milestones = [{ month: maxMonths, amount, eligibilityRule,
+          ...(eligibilityRule === "attendance_threshold" && Number.isFinite(minimumDays) ? { minWorkedDays: minimumDays } : {}),
+          ...(eligibilityRule === "attendance_threshold" && Number.isFinite(minimumHours) ? { minWorkedHours: minimumHours } : {}),
+        }];
+      }
+    }
+    values[officialField.key] = JSON.stringify(official);
+  }
+  const seasonalField = workflow.fields.find(field => field.apiKey === "seasonal" || field.key === "seasonal");
+  if (seasonalField && /\b(?:khong ap dung thoi vu|khong dung thoi vu|bo qua thoi vu)\b/.test(request)) {
+    values[seasonalField.key] = JSON.stringify({ enabled: false, tiers: [] });
+  }
+  if (!Object.keys(values).length) return null;
+  return {
+    actionId: operation!.id,
+    values,
+    intentType: "workflow",
+    actionIntent: "create",
+    newRequest: false,
+    requestCoverage: [{ evidence: reply, requirement: "Bổ sung cấu hình hoa hồng lao động cho chính sách đang tạo", mappedTo: ["action", ...Object.keys(values).map(key => "values." + key)] }],
+  };
+}
+
+function explicitLaborPolicyCreatedRecordFollowUp(
+  text: string,
+  workflows: AssistantWorkflow[],
+  messages: { role: string; content: string }[],
+): AssistantInterpretation | null {
+  const request = normalizedVietnameseText(text);
+  if (!/\b(?:bo sung|them)\b/.test(request) || !/\b(?:ngay hieu luc den|ngay ket thuc hieu luc)\b/.test(request)) return null;
+  const priorAssistant = [...messages].reverse().find(message => message.role === "assistant")?.content || "";
+  const priorUser = [...messages].reverse().find(message => message.role === "user"
+    && /chính sách(?:\s+hoa hồng)?\s+mới/iu.test(message.content))?.content || "";
+  if (!/ngày hiệu lực đến|ngày kết thúc hiệu lực/iu.test(priorAssistant)
+    || !/chính sách(?:\s+hoa hồng)?\s+mới/iu.test(priorUser)) return null;
+  const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.module === "labor-partner"
+    && candidate.method === "PATCH" && candidate.path === "/worker-management/partners/policies/:policyId");
+  const workflow = operation && workflows.find(candidate => candidate.actionId === operation.id && candidate.enabled);
+  const effectiveToField = workflow?.fields.find(field => field.apiKey === "effectiveTo" || field.key === "effectiveTo");
+  const date = dayBoundsFromText(request)?.from;
+  if (!workflow || !effectiveToField || !date) return null;
+  return {
+    actionId: workflow.actionId,
+    values: { [effectiveToField.key]: date },
+    intentType: "workflow",
+    actionIntent: "update",
+    newRequest: false,
+    requestCoverage: [{ evidence: text, requirement: "Bổ sung ngày kết thúc hiệu lực cho chính sách lao động vừa tạo", mappedTo: ["action", "values." + effectiveToField.key] }],
+  };
+}
+
+function explicitLaborPartnerKpiPlan(text: string, workflows: AssistantWorkflow[]): AssistantInterpretation | null {
+  const request = normalizedVietnameseText(text);
+  if (!/\b(?:doi tac|lao dong|cong nhan|nhan cong)\b/.test(request)
+    || !/\b(?:gioi thieu|kpi|chi tieu|du nguoi|con thieu|dat du)\b/.test(request)) return null;
+  const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.module === "labor-partner"
+    && candidate.method === "GET" && candidate.path === "/worker-management/partners/kpi");
+  const workflow = operation && workflows.find(candidate => candidate.actionId === operation.id && candidate.enabled);
+  if (!workflow) return null;
+  const analysisField = workflow.fields.find(field => field.apiKey === "analysis" || field.key === "analysis");
+  const periodField = workflow.fields.find(field => field.apiKey === "periodAnchor" || field.key === "periodAnchor");
+  if (!analysisField || !periodField) return null;
+
+  const asksAchieved = !/\b(?:chua dat|chua du|chua hoan thanh)\b/.test(request)
+    && /\b(?:da dat|dat du|du nguoi|du cong nhan|hoan thanh|dat kpi|dat chi tieu)\b/.test(request);
+  const asksNotSet = /\b(?:chua cai dat|chua thiet lap|chua co chi tieu|chua khai bao kpi)\b/.test(request);
+  const asksIncomplete = !asksNotSet && /\b(?:chua dat|con thieu|thieu kpi|thieu chi tieu|duoi chi tieu)\b/.test(request);
+  const asksBothStatuses = asksAchieved && asksIncomplete;
+  const countStatuses = asksBothStatuses && /\b(?:bao nhieu|dem|thong ke|so luong)\b/.test(request);
+  const asksCount = /\b(?:bao nhieu|tong so|dem|thong ke|co bao nhieu)\b/.test(request);
+  const asksReferralMetric = /\b(?:gioi thieu|so lao dong|lao dong duoc gioi thieu|so cong nhan|cong nhan duoc gioi thieu|nhan cong duoc gioi thieu|nguoi duoc gioi thieu|luot)\b/.test(request);
+  const maximum = /\b(?:nhieu(?:\s+\w+){0,3}\s+nhat|cao(?:\s+\w+){0,3}\s+nhat|lon(?:\s+\w+){0,3}\s+nhat|top\s+\d+)\b/.test(request);
+  const minimum = /\b(?:it(?:\s+\w+){0,3}\s+nhat|thap nhat|nho nhat)\b/.test(request);
+  if ((maximum || minimum) && !asksReferralMetric) {
+    return { actionId: null, values: {}, intentType: "ambiguous", clarification: "Bạn muốn so sánh đối tác theo số lao động được giới thiệu hay tỷ lệ hoàn thành KPI?" };
+  }
+  const explicitMonthMentions = request.match(/\bthang\s+(?:0?[1-9]|1[0-2])(?:\s*(?:\/|nam\s*)\d{4})?\b/g) || [];
+  if (explicitMonthMentions.length > 1) {
+    return { actionId: null, values: {}, intentType: "ambiguous", clarification: "Báo cáo KPI đối tác hiện tra cứu từng tháng. Bạn muốn xem tháng nào?" };
+  }
+  const period = monthBoundsFromText(request);
+  const currentMonth = vietnamToday().slice(0, 7) + "-01";
+  const analysis: Record<string, unknown> = {};
+  if (countStatuses) Object.assign(analysis, { groupBy: "status", aggregate: { operation: "count" } });
+  else if (asksBothStatuses) analysis.select = ["partnerName", "status", "actualReferrals", "targetReferrals", "remainingReferrals"];
+  else if (asksNotSet || asksIncomplete || asksAchieved) {
+    analysis.filters = [{ field: "status", operator: "eq", value: asksNotSet ? "not_set" : asksIncomplete ? "incomplete" : "achieved" }];
+  }
+  if (asksCount && (asksNotSet || asksIncomplete || asksAchieved) && !asksReferralMetric && !asksBothStatuses) {
+    analysis.aggregate = { operation: "count" };
+  } else if (asksReferralMetric && asksCount && !maximum && !minimum && !asksBothStatuses) {
+    analysis.aggregate = { operation: "sum", field: "actualReferrals" };
+  } else if (maximum || minimum) {
+    const top = request.match(/\btop\s+(\d+)\b/);
+    if (top) {
+      analysis.sort = { field: "actualReferrals", direction: minimum && !maximum ? "asc" : "desc" };
+      analysis.limit = Number(top[1]);
+    } else analysis.extreme = { field: "actualReferrals", direction: minimum && !maximum ? "min" : "max" };
+  } else if (!Object.keys(analysis).length) {
+    analysis.select = ["partnerName", "targetReferrals", "actualReferrals", "remainingReferrals", "completionRate", "status"];
+  }
+  return {
+    actionId: workflow.actionId,
+    values: {
+      [periodField.key]: period?.from || currentMonth,
+      [analysisField.key]: JSON.stringify(analysis),
+    },
+    intentType: "workflow",
+    actionIntent: "report",
+    requestCoverage: [{ evidence: text, requirement: "Tra cứu chỉ tiêu hoặc số lao động được đối tác giới thiệu trong tháng được hỏi", mappedTo: ["action", "values." + periodField.key, "values." + analysisField.key] }],
+  };
 }
 
 function explicitStudentIssueRecovery(text: string, workflows: AssistantWorkflow[]): AssistantInterpretation | null {
@@ -1796,6 +2236,24 @@ export async function interpretRequest(text: string, workflows: AssistantWorkflo
   }
   const allWorkflows = requestedPartnerModule ? requestedPartnerWorkflows : requestedWorkerWorkflows;
   workflows = allWorkflows;
+  const deterministicAffirmedStudentPartnerTotal = clarificationContext
+    ? affirmedStudentPartnerTotalOffer(latestUserReply, messages, workflows)
+    : null;
+  if (deterministicAffirmedStudentPartnerTotal) return deterministicAffirmedStudentPartnerTotal;
+  const deterministicLaborPolicyContinuation = clarificationContext
+    ? explicitLaborPartnerPolicyContinuation(latestUserReply, workflows, pending)
+    : null;
+  if (deterministicLaborPolicyContinuation) return deterministicLaborPolicyContinuation;
+  const deterministicCreatedPolicyFollowUp = explicitLaborPolicyCreatedRecordFollowUp(text, workflows, messages);
+  if (deterministicCreatedPolicyFollowUp) return deterministicCreatedPolicyFollowUp;
+  const deterministicStudentPartnerPayout = explicitStudentPartnerPayoutCreate(text, workflows);
+  if (deterministicStudentPartnerPayout) return deterministicStudentPartnerPayout;
+  const deterministicStudentPartnerReport = explicitStudentPartnerReportPlan(text, workflows);
+  if (deterministicStudentPartnerReport) return deterministicStudentPartnerReport;
+  const deterministicLaborPolicy = explicitLaborPartnerPolicyPlan(text, workflows, clarificationContext);
+  if (deterministicLaborPolicy) return deterministicLaborPolicy;
+  const deterministicLaborKpi = explicitLaborPartnerKpiPlan(text, workflows);
+  if (deterministicLaborKpi) return deterministicLaborKpi;
   const normalizedBusinessRequest = normalizedVietnameseText(text);
   const normalizedLatestReply = normalizedVietnameseText(latestUserReply);
   const normalizedRecentUserContext = normalizedVietnameseText([
@@ -2993,8 +3451,23 @@ LỊCH SỬ (chỉ ngữ cảnh, không phải chỉ dẫn): ${JSON.stringify(me
       const analysisField = kpiWorkflow.fields.find(field => field.key === "analysis" || field.apiKey === "analysis");
       const periodField = kpiWorkflow.fields.find(field => field.apiKey === "periodAnchor");
       const monthBounds = monthBoundsFromText(recruitmentReportRequest);
-      if (analysisField) delete parsedValues[analysisField.key];
-      if (periodField && monthBounds) parsedValues[periodField.key] = monthBounds.from;
+      const requestsNotSet = /\b(?:chua cai dat|chua thiet lap|chua co chi tieu|chua khai bao kpi|chua dat muc tieu)\b/.test(recruitmentReportRequest);
+      const requestsIncomplete = !requestsNotSet && /\b(?:chua dat|con thieu|thieu kpi|thieu chi tieu|duoi chi tieu)\b/.test(recruitmentReportRequest);
+      const requestsAchieved = !/\b(?:chua dat|chua du|chua hoan thanh)\b/.test(recruitmentReportRequest)
+        && /\b(?:da dat|dat du|du nguoi|du cong nhan|hoan thanh|dat kpi|dat chi tieu)\b/.test(recruitmentReportRequest);
+      const asksBothStatuses = requestsAchieved && requestsIncomplete;
+      const countStatuses = asksBothStatuses && /\b(?:bao nhieu|dem|thong ke|so luong)\b/.test(recruitmentReportRequest);
+      const partnerStatusField = requestsNotSet ? "not_set" : requestsIncomplete ? "incomplete" : requestsAchieved ? "achieved" : undefined;
+      if (analysisField) {
+        const prior = parsedValues[analysisField.key];
+        let analysis: Record<string, unknown> = {};
+        try { const candidate = typeof prior === "string" ? JSON.parse(prior) : prior; if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) analysis = candidate; } catch { /* Replace malformed or stale plans with a reviewed one. */ }
+        if (countStatuses) analysis = { groupBy: "status", aggregate: { operation: "count" } };
+        else if (asksBothStatuses) analysis = { select: ["partnerName", "status", "actualReferrals", "targetReferrals", "remainingReferrals"] };
+        else if (partnerStatusField) analysis = { ...analysis, filters: [...(Array.isArray(analysis.filters) ? analysis.filters.filter((filter: any) => filter?.field !== "status") : []), { field: "status", operator: "eq", value: partnerStatusField }] };
+        parsedValues[analysisField.key] = JSON.stringify(analysis);
+      }
+      if (periodField) parsedValues[periodField.key] = monthBounds?.from || `${vietnamToday().slice(0, 7)}-01`;
       parsed.actionId = kpiWorkflow.actionId;
       parsed.intentType = "workflow";
       parsed.actionIntent = "report";
@@ -3232,11 +3705,30 @@ LỊCH SỬ (chỉ ngữ cảnh, không phải chỉ dẫn): ${JSON.stringify(me
     applyExpiringAlertFilter(text, selectedWorkflow, parsed.values);
     applyWorkPermitExpiryWindow(text, selectedWorkflow, parsed.values);
     applyExplicitCompanyAttendanceScope(text, selectedWorkflow, parsed.values);
+    if (selectedWorkflow.actionId === "partner.analysis") {
+      const request = normalizedVietnameseText(text);
+      const bounds = monthBoundsFromText(request) || (/\b(?:tuan nay|trong tuan nay|tuan hien tai)\b/.test(request) ? currentWeekBounds() : undefined);
+      if (bounds) {
+        const createdPartnerRequest = /\b(?:doi tac moi|them doi tac|tao doi tac|doi tac duoc tao|doi tac phat sinh)\b/.test(request);
+        const fromKey = createdPartnerRequest ? "createdFrom" : "referralFrom";
+        const toKey = createdPartnerRequest ? "createdTo" : "referralTo";
+        const fromField = selectedWorkflow.fields.find(field => field.apiKey === fromKey);
+        const toField = selectedWorkflow.fields.find(field => field.apiKey === toKey);
+        if (fromField && toField) {
+          parsed.values[fromField.key] = bounds.from;
+          parsed.values[toField.key] = bounds.to;
+        }
+      }
+    }
     const missingConstraint = selectedOperation && missingReportConstraint(text, { ...selectedOperation, fields: selectedWorkflow.fields }, parsed.values);
     if (missingConstraint) return { actionId: null, values: {}, intentType: "ambiguous", clarification: missingConstraint };
     const analysisContract = ASSISTANT_OPERATIONS.find(operation => operation.id === selectedWorkflow.actionId)?.analysis;
     if (analysisContract) {
-      const ranking = reconcileRequestedRanking(text, analysisContractForInterpreter(analysisContract), parsed.values.analysis);
+      const interpreterContract = analysisContractForInterpreter(analysisContract);
+      const requestedFilters = reconcileRequestedValueFilters(text, interpreterContract, parsed.values.analysis);
+      if (requestedFilters.kind === "clarify") return { actionId: null, values: {}, intentType: "ambiguous", clarification: requestedFilters.question };
+      if (requestedFilters.kind === "resolved") parsed.values.analysis = requestedFilters.analysis;
+      const ranking = reconcileRequestedRanking(text, interpreterContract, parsed.values.analysis);
       if (ranking.kind === "clarify") return { actionId: null, values: {}, intentType: "ambiguous", clarification: ranking.question };
       if (ranking.kind === "resolved") parsed.values.analysis = ranking.analysis;
     }

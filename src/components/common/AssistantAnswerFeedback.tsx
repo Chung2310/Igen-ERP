@@ -1,5 +1,5 @@
 import React from "react";
-import { Star } from "lucide-react";
+import { CheckCircle2, Star } from "lucide-react";
 import { assistantService } from "../../services/assistantService";
 import { cn } from "../../modules/student-management/lib/utils";
 import type { AssistantChatMessage } from "../../shared/assistant-document";
@@ -23,6 +23,7 @@ export function AssistantAnswerFeedback({
   const commentId = `${inputId}-comment`;
   const commentHelpId = `${inputId}-comment-help`;
   const errorId = `${inputId}-error`;
+  const [thankYouOpen, setThankYouOpen] = React.useState(false);
   const [rating, setRating] = React.useState(initialFeedback?.rating || 0);
   const [comment, setComment] = React.useState(initialFeedback?.comment || "");
   const [savedRating, setSavedRating] = React.useState(initialFeedback?.rating || 0);
@@ -30,6 +31,10 @@ export function AssistantAnswerFeedback({
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState("");
+  const thankYouTitle = savedRating >= 4 ? "Cảm ơn đánh giá tích cực" : "Cảm ơn góp ý";
+  const thankYouMessage = savedRating >= 4
+    ? "Cảm ơn bạn đã đánh giá tích cực. Phản hồi của bạn giúp chúng tôi tiếp tục cải thiện trợ lý ERP."
+    : "Cảm ơn bạn đã góp ý. Chúng tôi sẽ kiểm tra đánh giá và xử lý để cải thiện câu trả lời.";
 
   const chooseRating = (value: number) => {
     setRating(value);
@@ -61,6 +66,7 @@ export function AssistantAnswerFeedback({
       setSavedComment(comment.trim());
       setComment(comment.trim());
       setDialogOpen(false);
+      setThankYouOpen(true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Không thể lưu đánh giá. Vui lòng thử lại.");
     } finally {
@@ -111,6 +117,17 @@ export function AssistantAnswerFeedback({
           <button type="submit" disabled={saving} className={cn("min-h-9 rounded-md bg-primary px-4 py-1.5 text-sm font-medium text-on-primary hover:bg-primary/90 disabled:cursor-wait disabled:opacity-60", focusClass)}>{saving ? "Đang gửi…" : "Gửi đánh giá"}</button>
         </div>
       </form>
+    </ErpModal>
+    <ErpModal isOpen={thankYouOpen} native title={thankYouTitle} onClose={() => setThankYouOpen(false)} maxWidth="max-w-md">
+      <div className="space-y-4">
+        <div className="flex items-start gap-3">
+          <CheckCircle2 aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary" />
+          <p className="text-pretty text-sm leading-6 text-on-surface">{thankYouMessage}</p>
+        </div>
+        <div className="flex justify-end border-t border-outline-variant pt-3">
+          <button type="button" onClick={() => setThankYouOpen(false)} className={cn("min-h-9 rounded-md bg-primary px-4 py-1.5 text-sm font-medium text-on-primary hover:bg-primary/90", focusClass)}>Đóng</button>
+        </div>
+      </div>
     </ErpModal>
   </section>;
 }

@@ -42,19 +42,12 @@ describe('real partner failures: safe replay without provider/DB/network',()=>{
     expect(preferAnalysisViews([base,{...view,enabled:false}]).map(w=>w.actionId)).toContain('partner.list');
     expect(operationById('partner.list')).toBeDefined();
   });
-  it('rechecks a declared text filter once without expanding the catalog or bypassing coverage',async()=>{
-    const unsupported={intentType:'unsupported',actionId:null,values:{},actionIntent:'lookup',requestCoverage:[]};
-    const supported={intentType:'workflow',actionId:op.id,actionIntent:'report',values:{analysis:{filters:[{field:'notes',operator:'contains',value:'cộng đồng phụ huynh'}]}},requestCoverage:[
-      {evidence:'đối tác tuyển sinh',requirement:'Chọn đối tác tuyển sinh',mappedTo:['context.module']},
-      {evidence:'ghi chú cộng đồng phụ huynh',requirement:'Lọc ghi chú',mappedTo:['analysis.filters.notes']},
-    ]};
-    provider.mockResolvedValueOnce({text:JSON.stringify(unsupported)}).mockResolvedValueOnce({text:JSON.stringify(supported)});
+  it('maps a declared text filter without expanding the catalog or calling the model',async()=>{
     const text='Tìm đối tác tuyển sinh có ghi chú cộng đồng phụ huynh';
-    expect(await interpretRequest(text,[defaultWorkflow(op)],null,[])).toMatchObject({actionId:op.id});
-    expect(provider).toHaveBeenCalledTimes(2);
-    provider.mockReset().mockResolvedValue({text:JSON.stringify(unsupported)});
-    expect(await interpretRequest(text,[defaultWorkflow(op)],null,[])).toMatchObject({intentType:'unsupported'});
-    expect(provider).toHaveBeenCalledTimes(2);
+    const result=await interpretRequest(text,[defaultWorkflow(op)],null,[]);
+    expect(result).toMatchObject({actionId:op.id});
+    expect(JSON.parse(String(result.values.analysis))).toMatchObject({filters:[{field:'notes',operator:'contains',value:'cộng đồng phụ huynh'}]});
+    expect(provider).not.toHaveBeenCalled();
   });
   it.each([
     ['doanh số học phí cao nhất','totalReferredTuition'],

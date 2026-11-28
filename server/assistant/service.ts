@@ -25,7 +25,7 @@ import { autoSaveAssistantMemories } from "./auto-memory";
 import { assistantMemoryContext, containsSensitiveMemoryContent, forgetAssistantMemoryByContent, parseExplicitMemoryCommand, parseExplicitMemoryForgetCommand, saveAssistantMemory } from "./memory";
 import { SESSION_MEMORY_LIMIT, summarizeAssistantSession } from "./session-memory";
 import { assistantTablePreview, mapAssistantTableAttachment } from "./table-import";
-import { exportBusinessList, isBusinessExcelRequest } from "./business-export";
+import { exportBusinessList, isBusinessExcelRequest, saveBusinessWorkbook } from "./business-export";
 import { normalizeAssistantReply } from "./general-answer";
 import { answerAssistantConversation } from "./documents";
 import { decorateHealthcareResult, healthcareAttachment } from "./healthcare-executor";
@@ -2030,11 +2030,32 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       throw new AssistantError("Cấu hình đã thay đổi sau khi bạn xem bản xem trước. Mình chưa lưu. Bạn gửi lại yêu cầu để kiểm tra bản mới nhé.", 409);
     }
     if (op.analysis && checked.values.analysis !== undefined) {
+      if (isBusinessExcelRequest(requestIntent)) {
+        const plan = validateListAnalysis(checked.values.analysis, op.analysis);
+        const result = await collectAnalysisPages(op.analysis, checked.values, dispatch);
+        const table = renderListAnalysis(op.analysis, result.data, plan, result.analysisComplete === true, op.title);
+        const referralFrom = typeof checked.values.referralFrom === "string" ? formatAssistantTemporalValue(checked.values.referralFrom) : "";
+        const referralTo = typeof checked.values.referralTo === "string" ? formatAssistantTemporalValue(checked.values.referralTo) : "";
+        const scopeNote = referralFrom && referralTo
+          ? "Dữ liệu lượt học viên và học phí giới thiệu từ " + referralFrom + " đến " + referralTo + "; các khoản hoa hồng và thanh toán giữ phạm vi theo dữ liệu nghiệp vụ."
+          : "Dữ liệu đã lọc theo điều kiện người dùng yêu cầu trong phạm vi được cấp quyền.";
+        return saveBusinessWorkbook(req, {
+          conversationId: input.conversationId,
+          requestId: input.requestId,
+          title: op.title,
+          tables: [table],
+          scopeNote,
+        });
+      }
       const plan = validateListAnalysis(checked.values.analysis, op.analysis);
       const result = await collectAnalysisPages(op.analysis, checked.values, dispatch);
       const period = String(checked.values.query_periodAnchor || "");
       const match = period.match(/^(\d{4})-(\d{2})/);
-      const range = [checked.values.from, checked.values.to].map(value => typeof value === "string" ? formatAssistantTemporalValue(value) || "" : "");
+      const hasCreatedPeriod = typeof checked.values.createdFrom === "string" && typeof checked.values.createdTo === "string";
+      const rangeValues = op.id === "partner.analysis"
+        ? hasCreatedPeriod ? [checked.values.createdFrom, checked.values.createdTo] : [checked.values.referralFrom, checked.values.referralTo]
+        : [checked.values.from, checked.values.to];
+      const range = rangeValues.map(value => typeof value === "string" ? formatAssistantTemporalValue(value) || "" : "");
       const summary = `${op.title}${match ? ` tháng ${match[2]}/${match[1]}` : range.every(Boolean) ? ` từ ${range[0]} đến ${range[1]}` : op.analysis.scopeLabel ? ` (${op.analysis.scopeLabel})` : ""}`;
       pending = null;
       return { status: "completed", reply: renderListAnalysis(op.analysis, result.data, plan, result.analysisComplete === true, summary), link: op.link };

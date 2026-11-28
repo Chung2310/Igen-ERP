@@ -54,6 +54,90 @@ it.each([
   expect(result.actionId).toBe(actionId);
   expect(result.intentType).toBe("workflow");
 });
+it("applies a text-containment filter to student-partner notes", async () => {
+  const workflow = defaultWorkflow(operationById("partner.analysis")!);
+  const result = await interpretRequest("Tìm đối tác tuyển sinh có ghi chú cộng đồng phụ huynh", [workflow], null, []);
+  expect(result).toMatchObject({ actionId: "partner.analysis", intentType: "workflow" });
+  expect(JSON.parse(String(result.values.analysis))).toMatchObject({
+    filters: [{ field: "notes", operator: "contains", value: "cộng đồng phụ huynh" }],
+  });
+  expect(provider).not.toHaveBeenCalled();
+});
+it("counts student partners created in the requested month instead of referrals", async () => {
+  const workflow = defaultWorkflow(operationById("partner.analysis")!);
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-11-26T05:00:00.000Z"));
+  try {
+    const result = await interpretRequest("Tháng trước có thêm bao nhiêu đối tác tuyển sinh mới", [workflow], null, []);
+    expect(result).toMatchObject({ actionId: "partner.analysis", intentType: "workflow", values: {
+      createdFrom: "2026-10-01",
+      createdTo: "2026-10-31",
+    } });
+    expect(JSON.parse(String(result.values.analysis))).toEqual({ aggregate: { operation: "count" } });
+    expect(result.values.referralFrom).toBeUndefined();
+    expect(provider).not.toHaveBeenCalled();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+it("uses the offered current-total scope when the user accepts it", async () => {
+  const workflow = defaultWorkflow(operationById("partner.analysis")!);
+  const messages = [
+    { role: "user", content: "Tháng trước có thêm bao nhiêu đối tác tuyển sinh mới" },
+    { role: "assistant", content: "Danh mục hiện tại chỉ hỗ trợ đếm tổng số đối tác tuyển sinh, chưa hỗ trợ đếm số đối tác tạo mới trong tháng 10/2026. Bạn có muốn xem tổng số đối tác hiện có không?" },
+  ];
+  const result = await interpretRequest("có", [workflow], null, messages, "", [], "", [], false, true);
+  expect(result).toMatchObject({ actionId: "partner.analysis", intentType: "workflow", actionIntent: "report", newRequest: false });
+  expect(JSON.parse(String(result.values.analysis))).toEqual({ aggregate: { operation: "count" } });
+  expect(result.values.createdFrom).toBeUndefined();
+  expect(result.values.createdTo).toBeUndefined();
+  expect(provider).not.toHaveBeenCalled();
+});
+it("keeps referral totals and tuition totals in one student-partner analysis", async () => {
+  const workflow = defaultWorkflow(operationById("partner.analysis")!);
+  const result = await interpretRequest("Tổng số học viên được đối tác tuyển sinh giới thiệu và tổng học phí trong tháng này", [workflow], null, []);
+  expect(result.actionId).toBe("partner.analysis");
+  expect(result.values.referralFrom).toBe("2026-11-01");
+  expect(result.values.referralTo).toBe("2026-11-30");
+  expect(JSON.parse(String(result.values.analysis))).toMatchObject({
+    aggregates: [
+      { operation: "sum", field: "referredStudentsCount" },
+      { operation: "sum", field: "totalReferredTuition" },
+    ],
+  });
+});
+it("ranks cumulative student-partner referrals for an open-ended period", async () => {
+  const workflow = defaultWorkflow(operationById("partner.analysis")!);
+  const result = await interpretRequest("Đối tác học viên nào giới thiệu nhiều nhất từ trước đến nay?", [workflow], null, []);
+  expect(result.actionId).toBe("partner.analysis");
+  expect(JSON.parse(String(result.values.analysis))).toMatchObject({
+    extreme: { field: "referredStudentsCount", direction: "max" },
+    select: ["name", "referredStudentsCount", "totalReferredTuition"],
+  });
+});
+it("routes a labor-partner policy edit to a partial official-scheme update", async () => {
+  const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.method === "PATCH"
+    && candidate.path === "/worker-management/partners/policies/:policyId")!;
+  const workflow = defaultWorkflow(operation);
+  const result = await interpretRequest("Trong quản lý lao động, chỉnh sửa chính sách phần Số mốc tháng thành 2 tháng", [workflow], null, []);
+  expect(result).toMatchObject({ actionId: operation.id, actionIntent: "update", intentType: "workflow" });
+  expect(JSON.parse(String(result.values.official))).toEqual({ maxMonths: 2 });
+  expect(result.values.path_policyId).toBeUndefined();
+  expect(provider).not.toHaveBeenCalled();
+});
+it("starts a new labor-partner policy with its explicit name and effective date", async () => {
+  const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.method === "POST"
+    && candidate.path === "/worker-management/partners/policies")!;
+  const workflow = defaultWorkflow(operation);
+  const result = await interpretRequest("Thêm 1 chính sách hoa hồng mới - Chính sách lao động cuối năm, áp dụng từ 1/12/2026", [workflow], null, []);
+  expect(result).toMatchObject({
+    actionId: operation.id,
+    actionIntent: "create",
+    intentType: "workflow",
+    values: { name: "Chính sách lao động cuối năm", effectiveFrom: "2026-12-01" },
+  });
+  expect(provider).not.toHaveBeenCalled();
+});
 it.each([
   ["ai chưa nộp bài test module đăng nhập", "student.assignment.missing-submissions", { query_search: "module đăng nhập" }],
   ["Tổng số học viên còn nợ trung tâm", "student.debt.report", {}],
@@ -88,6 +172,18 @@ it("routes payout totals by payment method to the selected month", async () => {
   const workflow = defaultWorkflow(operationById("partner.payout.report")!);
   const result = await interpretRequest("Thống kê hoa hồng đã chi trả theo phương thức chuyển khoản và tiền mặt trong tháng này", [workflow], null, []);
   expect(result).toMatchObject({ actionId: "partner.payout.report", intentType: "workflow", values: { query_from: "2026-11-01", query_to: "2026-11-30" } });
+});
+it("collects an explicit student-partner payout without skipping write confirmation", async () => {
+  const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.method === "POST" && candidate.path === "/partners/:id/payouts")!;
+  const workflow = defaultWorkflow(operation);
+  const result = await interpretRequest("Ghi nhận chi trả hoa hồng 500.000 đồng cho đối tác tuyển sinh An ngày 15/11/2026 bằng chuyển khoản", [workflow], null, []);
+  expect(result).toMatchObject({
+    actionId: operation.id,
+    actionIntent: "create",
+    intentType: "workflow",
+    values: { path_id: "An", amount: 500000, date: "2026-11-15", method: "Chuyển khoản" },
+  });
+  expect(operation.confirmation).toBe(true);
 });
 it("uses precise limitations for retail partner data the database does not store", async () => {
   const bankLink = await interpretRequest("Kiểm tra xem cộng tác viên Đinh Viết Tường đã liên kết tài khoản sao kê chưa", [defaultWorkflow(operationById("retail.partner.list")!)], null, []);
@@ -461,7 +557,7 @@ describe("semantic interpretation", () => {
     expect(JSON.parse(String(result.values[analysisField.key]))).toEqual({ groupBy: "levelName", aggregate: { operation: "count" } });
   });
 
-  it("lists labor-partner KPI statuses without inventing a grouped aggregate", async () => {
+  it("lists both labor-partner KPI statuses without inventing a grouped aggregate", async () => {
     const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.method === "GET" && candidate.path === "/worker-management/partners/kpi")!;
     const workflow = defaultWorkflow(operation);
     const analysisField = workflow.fields.find(field => field.key === "analysis")!;
@@ -479,7 +575,29 @@ describe("semantic interpretation", () => {
 
       expect(result.actionId).toBe(operation.id);
       expect(result.values[periodField.key]).toBe("2026-11-01");
-      expect(result.values[analysisField.key]).toBeUndefined();
+      expect(JSON.parse(String(result.values[analysisField.key]))).toEqual({ select: ["partnerName", "status", "actualReferrals", "targetReferrals", "remainingReferrals"] });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("filters labor partners that achieved their KPI and defaults the period to this month", async () => {
+    const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.method === "GET" && candidate.path === "/worker-management/partners/kpi")!;
+    const workflow = defaultWorkflow(operation);
+    const analysisField = workflow.fields.find(field => field.key === "analysis" || field.apiKey === "analysis")!;
+    const periodField = workflow.fields.find(field => field.apiKey === "periodAnchor")!;
+    provider.mockImplementation((request: any) => {
+      const systemPrompt = request.messages.find((message: any) => message.role === "system")?.content || "";
+      if (systemPrompt.includes("BƯỚC 2")) return { text: JSON.stringify({ featureKeys: [assistantFunctionKey(workflow)], ambiguous: false, clarification: "" }) };
+      return { text: JSON.stringify({ actionId: workflow.actionId, values: {} }) };
+    });
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-26T05:00:00.000Z"));
+    try {
+      const result = await interpretRequest("Trong quản lí lao động, các đối tác nào đã đạt đủ KPI", [workflow], null, []);
+      expect(result.actionId).toBe(operation.id);
+      expect(result.values[periodField.key]).toBe("2026-11-01");
+      expect(JSON.parse(String(result.values[analysisField.key]))).toEqual({ filters: [{ field: "status", operator: "eq", value: "achieved" }] });
     } finally {
       vi.useRealTimers();
     }
@@ -824,11 +942,8 @@ it("routes configured retail product commission writes to the selected rule and 
     );
 
     expect(result.actionId).toBe(laborKpi.id);
-    expect(result.values.analysis).toEqual({ extreme: { field: "actualReferrals", direction: "max" } });
-    expect(provider).toHaveBeenCalled();
-    const prompts = provider.mock.calls.map((call: any) => call[0].messages.map((message: any) => message.content).join("\n")).join("\n");
-    expect(prompts).toContain(laborKpi.id);
-    expect(prompts).not.toContain("Tra cứu đối tác tuyển sinh");
+    expect(JSON.parse(String(result.values.analysis))).toEqual({ extreme: { field: "actualReferrals", direction: "max" } });
+    expect(provider).not.toHaveBeenCalled();
   });
 
   it("does not route an explicit labor-partner request into student-partner when labor tools are unavailable", async () => {
@@ -849,18 +964,26 @@ it("routes configured retail product commission writes to the selected rule and 
     expect(provider).not.toHaveBeenCalled();
   });
 
-  it("gives the model the real analysis measures and output contract", async () => {
+  it("routes a labor-partner referral ranking without a model-generated plan", async () => {
     const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.path === "/worker-management/partners/kpi")!;
     const workflow = defaultWorkflow(operation);
-    provider.mockResolvedValue({ text: JSON.stringify({ actionId: null, intentType: "ambiguous", values: {}, requestCoverage: [], clarification: "Bạn muốn xem chỉ số nào?" }) });
+    const periodField = workflow.fields.find(field => field.apiKey === "periodAnchor")!;
 
-    await interpretRequest("Đối tác nào giới thiệu nhiều lao động nhất?", [workflow], null, []);
+    const result = await interpretRequest("Đối tác nào giới thiệu nhiều lao động nhất?", [workflow], null, []);
 
-    const prompt = provider.mock.calls[0][0].messages.map((message: any) => message.content).join("\n");
-    expect(prompt).toContain("actualReferrals");
-    expect(prompt).toContain("lao động được giới thiệu");
-    expect(prompt).toContain("periodAnchor");
-    expect(prompt).not.toContain(operation.path);
+    expect(result.actionId).toBe(operation.id);
+    expect(JSON.parse(String(result.values.analysis))).toEqual({ extreme: { field: "actualReferrals", direction: "max" } });
+    expect(result.values[periodField.key]).toMatch(/^\d{4}-\d{2}-01$/);
+    expect(provider).not.toHaveBeenCalled();
+  });
+
+  it("does not treat the labor-partner category as an actual-referrals ranking metric", async () => {
+    const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.module === "labor-partner"
+      && candidate.method === "GET" && candidate.path === "/worker-management/partners/kpi")!;
+    const result = await interpretRequest("Trong quản lý lao động, đối tác nào có KPI cao nhất trong tháng?", [defaultWorkflow(operation)], null, []);
+    expect(result).toMatchObject({ actionId: null, intentType: "ambiguous" });
+    expect(result.clarification).toContain("theo số lao động được giới thiệu hay tỷ lệ hoàn thành KPI");
+    expect(provider).not.toHaveBeenCalled();
   });
 
   it("recovers a parent module phrase even when the model leaves its mapping empty", async () => {
@@ -886,7 +1009,7 @@ it("routes configured retail product commission writes to the selected rule and 
     const result = await interpretRequest(text, [workflow], null, []);
 
     expect(result.actionId).toBe(operation.id);
-    expect(result.values.analysis).toEqual({ extreme: { field: "actualReferrals", direction: "max" } });
+    expect(JSON.parse(String(result.values.analysis))).toEqual({ extreme: { field: "actualReferrals", direction: "max" } });
   });
 
   it("does not promote an unclassified action proposal into a workflow", async () => {

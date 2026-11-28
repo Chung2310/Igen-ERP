@@ -2282,7 +2282,14 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     const rows = op.id === "partner.analysis" ? result.partners : result.data;
     if (!Array.isArray(rows)) throw new AssistantError("Không đọc được danh sách đối tác đầy đủ.", 502);
     const data = rows.map((row: any) => Object.fromEntries(Object.entries(op.analysis!.fields).map(([key, definition]) => {
-      const value = row?.[key];
+      let value = row?.[key];
+      if (op.id === "partner.analysis" && definition.type === "text" && key !== "name" && value == null) value = "";
+      if (op.id === "partner.analysis" && key === "isActive") value = row?.isActive === true ? "active" : "inactive";
+      if (op.id === "partner.analysis" && key === "hasBankAccount") value = (row?.hasBankAccount ?? Boolean(String(row?.bankAccountNo || "").trim())) ? "has" : "missing";
+      if (op.id === "partner.analysis" && key === "bankAccountNo") {
+        const digits = String(row?.bankAccountNo || "").replace(/\D/g, "");
+        value = digits ? `•••• ${digits.slice(-4)}` : "";
+      }
       if (definition.type === "number" && (typeof value !== "number" || !Number.isFinite(value))) throw new AssistantError(`Thiếu dữ liệu ${definition.label.toLowerCase()} để phân tích.`, 502);
       if (definition.type === "text" && typeof value !== "string") throw new AssistantError(`Thiếu dữ liệu ${definition.label.toLowerCase()} để phân tích.`, 502);
       return [key, value];
@@ -4504,7 +4511,7 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
     return [{ ...summary, ...(summary.date || typeof input.query_date !== "string" ? {} : { date: input.query_date }) }];
   }
   if (op.id === "partner.payout.history.list") {
-    return rawRecords(responseData).flatMap((partner: any) => {
+    const history = rawRecords(responseData).flatMap((partner: any) => {
       const name = typeof partner?.name === "string" ? partner.name.trim().slice(0, 160) : "";
       if (!name || !Array.isArray(partner.payoutHistory)) return [];
       return partner.payoutHistory.flatMap((payout: any) => {
@@ -4515,7 +4522,9 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
           : typeof payout.date === "string" && payout.date.length <= 40 ? payout.date : "";
         return date && Number.isFinite(amount) && amount >= 0 ? [{ name, date, amount }] : [];
       });
-    });
+    }).sort((left: any, right: any) => String(right.date).localeCompare(String(left.date)) || left.name.localeCompare(right.name, "vi"));
+    const limit = Number(input.query_limit);
+    return Number.isInteger(limit) && limit > 0 ? history.slice(0, Math.min(limit, 1000)) : history;
   }
   // This endpoint is optimized for the retail settings screen and returns
   // several sibling collections. Generic rawRecords() prefers `variants`,

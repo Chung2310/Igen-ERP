@@ -112,7 +112,12 @@ const labels: Record<string, string> = {
   question: "Câu hỏi", ticketCode: "Mã phiếu sửa chữa", title: "Tiêu đề", totalAmount: "Tổng tiền", unitCode: "Đơn vị", variantName: "Biến thể",
   warehouseName: "Kho", workerName: "Nhân sự",
 };
-Object.assign(labels, { hasBankAccount: "Có tài khoản ngân hàng" });
+Object.assign(labels, {
+  hasBankAccount: "Có tài khoản ngân hàng",
+  totalCommission: "Tổng hoa hồng",
+  totalPaid: "Tổng đã thanh toán",
+  unpaidBalance: "Còn phải trả",
+});
 
 Object.assign(labels, {
   workingDays: "Ngày làm việc", daysOfWeek: "Ngày trong tuần", createdAt: "Ngày tạo",
