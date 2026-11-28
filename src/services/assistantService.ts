@@ -12,6 +12,7 @@ export interface AssistantTurnInput { conversationId: string; requestId: string;
 export interface AssistantConversationSummary { conversationId: string; mode?: "work" | "qa"; title: string; preview: string; messageCount: number; updatedAt: string; }
 export interface AssistantConversationCursor { before: string; beforeId: string; }
 export interface AssistantConversationPage { items: AssistantConversationSummary[]; nextCursor: AssistantConversationCursor | null; }
+export interface AssistantAnswerFeedback { rating: number; comment: string; submittedAt: string; }
 export interface AssistantMemory { id: string; content: string; source?: "explicit" | "manual" | "automatic"; createdAt: string; updatedAt: string; lastUsedAt?: string | null; }
 export interface AssistantSessionMemory { summary: string; summaryMessageCount: number; version: number; messageCount: number; busy?: boolean; updatedAt?: string | null; }
 export interface AssistantStudioTranscript { id: string; fileName: string; text: string; createdAt: string; }
@@ -154,6 +155,7 @@ export const assistantService = {
   sessionMemory: (id: string, signal?: AbortSignal, branchId?: string) => request<AssistantSessionMemory>(`/conversations/${encodeURIComponent(id)}/memory`, { signal }, branchId),
   saveSessionMemory: (id: string, summary: string, version: number, branchId?: string) => request<AssistantSessionMemory>(`/conversations/${encodeURIComponent(id)}/memory`, { method: "PATCH", body: JSON.stringify({ summary, version }) }, branchId),
   clearSessionMemory: (id: string, branchId?: string) => request<AssistantSessionMemory>(`/conversations/${encodeURIComponent(id)}/memory`, { method: "DELETE" }, branchId),
+  submitAnswerFeedback: (id: string, answerAt: string, rating: number, comment: string, branchId?: string) => request<AssistantAnswerFeedback>(`/conversations/${encodeURIComponent(id)}/feedback`, { method: "POST", body: JSON.stringify({ answerAt, rating, comment }) }, branchId),
   deleteConversation: (id: string, branchId?: string) => request<{ deleted: boolean }>(`/conversations/${encodeURIComponent(id)}`, { method: "DELETE" }, branchId),
   state: (id: string, signal?: AbortSignal, branchId?: string) => request<{ messages: AssistantChatMessage[]; lastReply: AssistantReply | null; busy: boolean; mode?: "work" | "qa"; requestId?: string }>(`/conversations/${encodeURIComponent(id)}`, { signal }, branchId),
   turn: (data: AssistantTurnInput, signal?: AbortSignal, branchId?: string, deviceId?: string) => {

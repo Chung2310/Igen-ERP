@@ -1,5 +1,6 @@
 import { interpretRequest } from "./semantic-interpreter";
 import { combineAssistantPlanResults } from "./plan-results";
+import { formatAssistantResultTable } from "../../src/shared/assistant-result-table";
 import { ExecutionBudget, PlanStoppedError, PlanCancelledError } from "./execution-budget";
 import { createHash, randomUUID } from "node:crypto";
 import type { AuthenticatedRequest } from "../middleware/auth";
@@ -386,6 +387,35 @@ const isBatchTitleRenameRequest = (value: string) => {
     || /\b(?:sua|doi|cap nhat|dat lai)\b.{0,50}\b(?:lop|lop hoc)\b.{0,50}\b(?:ten|title|tieu de)\b/.test(intent);
 };
 const normalizeAssistantText = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().replace(/\s+/g, " ").trim();
+
+export function extractPendingScalarAnswer(workflow: AssistantWorkflow, provided: Record<string, AssistantValue>, text: string) {
+  const normalized = normalizeAssistantText(text);
+  if (!normalized || /[?？]/.test(text)
+    || /^\s*(?:hay\s+)?(?:xem|tra cuu|thong ke|bao cao|doi chieu|liet ke|tao(?: giup toi)? phieu|lap(?: giup toi)? phieu|huy phieu|chuyen phieu)\b/.test(normalized)) return undefined;
+  const missing = collectValues(workflow, provided).missing;
+  if (missing.length !== 1) return undefined;
+  const field = workflow.fields.find(candidate => candidate.label === missing[0]);
+  if (!field || field.type !== "text") return undefined;
+  const escapedLabel = field.label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const labelPrefix = new RegExp(`^\\s*(?:${escapedLabel})\\s*(?:(?:là|la)\\s+|[:：-]\\s*)?`, "iu");
+  const identifierMatch = ["inventory.transfer.create", "inventory.stock-log.internal.issue.create"].includes(workflow.actionId)
+    ? text.match(/\b(?:imei|serial)\b.{0,80}?\b(?:là|la)\s*[:\-]?\s*([a-z0-9][a-z0-9-]{5,})/iu)
+    : null;
+  const answerText = identifierMatch ? text.replace(identifierMatch[0], "") : text;
+  const value = answerText.replace(labelPrefix, "").replace(/[.!?;]+$/u, "").trim();
+  if (!value) return undefined;
+  const result: Record<string, AssistantValue> = { [field.key]: value };
+  if (identifierMatch && typeof provided.items === "string") {
+    try {
+      const items = JSON.parse(provided.items);
+      if (Array.isArray(items) && items.length && items.every(item => item && typeof item === "object" && !Array.isArray(item))) {
+        items[0].unitIdentifiers = [identifierMatch[1]];
+        result.items = JSON.stringify(items);
+      }
+    } catch { /* leave malformed structured values for the workflow validator */ }
+  }
+  return result;
+}
 function taskTimestamp(value: unknown): number | null {
   if (typeof value !== "string" || !value.trim()) return null;
   const input = value.trim();
@@ -1121,6 +1151,10 @@ function assistantChoiceOptions(op: AssistantOperation, field: AssistantField, v
   return values.map(value => ({ value, label: assistantOptionLabel(op, field, value) }));
 }
 function receiptProductSearchFromIntent(intent: string) {
+  const namedModel = intent.match(/\b(?:iPhone\s+\d+(?:\s+Pro(?:\s+Max)?|\s+Plus|\s+Mini)?|(?:Samsung\s+)?Galaxy\s+Ultra|Redmi\s+Note\s+\d+|Huawei\s+Honor\s+\d+)\b/iu)?.[0]?.trim();
+  if (namedModel) return namedModel;
+  const productCue = intent.match(/(?:dòng(?:\s+máy)?|máy|sản phẩm|mặt hàng)\s+(.+?)(?=\s+(?:từ|vào|sang|theo|giá|số lượng|nhà cung cấp|kho nhập)|[?.!,;]|$)/iu)?.[1]?.trim();
+  if (productCue && !/^(?:nào|nào khác|sản phẩm|dòng|máy)$/iu.test(productCue)) return productCue;
   const match = intent.trim().match(/^(?:(?:tạo\s+(?:(?:yêu cầu|phiếu)\s+)?nhập\s+kho)|(?:lập\s+phiếu\s+nhập\s+kho)|(?:nhập\s+(?:hàng|kho)))(?:\s+cho)?(?:\s+(?:sản phẩm|mặt hàng))?(?:\s+(.+))?$/iu);
   return match?.[1]?.replace(/\s+(?:số lượng|sl|giá nhập|đơn giá|kho nhập|nhà cung cấp)\b.*$/iu, "").trim() || "";
 }
@@ -2007,7 +2041,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
     }
     // Quotation document exports have their own job/download lifecycle. Only
     // list lookups may become generic workbooks, never export-job responses.
-    if (isBusinessExcelRequest(requestIntent) && !op.assistantFileFormat && (op.module !== "quotation" || op.id.endsWith(".list"))) {
+    if (isBusinessExcelRequest(requestIntent) && !op.assistantFileFormat && op.id !== "inventory.export.capability" && (op.module !== "quotation" || op.id.endsWith(".list"))) {
       return exportBusinessList(req, op, checked.values, dispatch, {
         conversationId: input.conversationId, requestId: input.requestId, requestText: requestIntent,
       });
@@ -2152,6 +2186,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
         "retail.order.debt-ranking", "retail.order.warranty-match", "retail.order.invoice-debt-exceptions",
         "retail.customer.purchase-warranty-summary", "retail.customer.profile-summary", "retail.partner.supplier-dealer-directory",
         "retail.finance.cashbook.expense-report", "retail.finance.cashbook.latest-close", "retail.warranty.status-counts",
+        "student.assignment.missing-submissions", "student.debt.report", "student.notification.audience.counts", "student.suspension.report", "student.batch.roadmap.lookup", "partner.payout.report", "worker.report.overview",
       ].includes(op.id)) {
         readResultSynthesized = true;
         pending = null;
@@ -2361,8 +2396,15 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
       delete contextualValues[key];
     }
     for (const field of op.fields) if (contextualValues[field.key] !== undefined && String(contextualValues[field.key]).trim()) skippedReferenceKeys.delete(field.key);
-    const selectedBranchField = op.fields.find(field => field.source === "query" && field.apiKey === "branchId");
-    if (op.id !== "employee.count" && req.user?.branchId && selectedBranchField && contextualValues[selectedBranchField.key] === undefined) contextualValues[selectedBranchField.key] = req.user.branchId;
+    const selectedBranchField = op.fields.find(field => field.source === "query"
+      && (field.apiKey === "branchId" || op.module === "inventory" && field.apiKey === "targetBranch"));
+    const requestBranchHeader = req.headers?.["x-branch-id"] || req.headers?.["X-Branch-Id"];
+    const activeInventoryBranch = op.module === "inventory"
+      ? req.user?.branchId || (typeof requestBranchHeader === "string" ? requestBranchHeader : "")
+      : req.user?.branchId || "";
+    if (op.id !== "employee.count" && activeInventoryBranch && selectedBranchField && contextualValues[selectedBranchField.key] === undefined) {
+      contextualValues[selectedBranchField.key] = activeInventoryBranch;
+    }
     const selectedValues = inferCustomerQuoteMode(
       op,
       inferCustomWorkHoursMode(op, inferTaskDeadline(op, contextualValues, intent), intent, input.text || intent),
@@ -2895,10 +2937,49 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
         : "";
       const effectiveInputText = input.text?.trim() || attachmentIntentHint;
       const knownModules = [...new Set(availableWorkflows.map(workflow => workflow.module))];
-      let interpreted = qaBusinessInterpretation;
+      const pendingWorkflow = pending && session.lastReply?.status === "collecting"
+        ? workflows.find(workflow => workflow.enabled && workflow.actionId === pending!.actionId)
+        : undefined;
+      const pendingScalarValues = pendingWorkflow && input.text
+        ? extractPendingScalarAnswer(pendingWorkflow, pending!.provided as Record<string, AssistantValue>, input.text)
+        : undefined;
+      let interpreted = qaBusinessInterpretation || (pending && pendingScalarValues ? {
+        actionId: pending.actionId,
+        values: pendingScalarValues,
+        intentType: "workflow" as const,
+        newRequest: false,
+      } : undefined);
       if (!interpreted) {
         budget.plan();
         interpreted = await interpretRequest(effectiveInputText, workflows, pending ? { actionId: pending.actionId, values: pending.provided, intent: pending.intent } : null, session.messages as any, [settings?.instructions || "", projectInstructions].filter(Boolean).join("\n"), memories, [sessionMemory, remainingRequests.length ? `Các yêu cầu chưa hoàn tất (chỉ ngữ cảnh, không tự xác nhận): ${JSON.stringify(remainingRequests)}` : ""].filter(Boolean).join("\n"), knownModules, false, session.lastReply?.status === "collecting");
+      }
+      const normalizedPendingSupplement = normalizeAssistantText(effectiveInputText);
+      const looksLikeFieldAnswer = Boolean(effectiveInputText)
+        && !/[?]/.test(effectiveInputText)
+        && !/\b(?:bao nhieu|o dau|tai sao|vi sao|cai nao|xem|tra cuu|thong ke|liet ke)\b/.test(normalizedPendingSupplement);
+      if (!pendingScalarValues && pending && session.lastReply?.status === "collecting" && looksLikeFieldAnswer
+        && !interpreted.newRequest && !interpreted.cancel
+        && interpreted.intentType !== "general_question" && interpreted.intentType !== "unsupported"
+        && !interpreted.businessDiscovery) {
+        const pendingWorkflow = workflows.find(workflow => workflow.enabled && workflow.actionId === pending!.actionId);
+        if (pendingWorkflow) {
+          budget.plan();
+          const focusedContinuation = await interpretRequest(
+            effectiveInputText,
+            [pendingWorkflow],
+            { actionId: pending.actionId, values: pending.provided, intent: pending.intent },
+            session.messages as any,
+            [settings?.instructions || "", projectInstructions].filter(Boolean).join("\n"),
+            memories,
+            sessionMemory,
+            knownModules,
+            false,
+            true,
+          );
+          if (focusedContinuation.actionId === pending.actionId && Object.keys(focusedContinuation.values || {}).length) {
+            interpreted = { ...focusedContinuation, newRequest: false };
+          }
+        }
       }
       const correctsPendingReference = pending?.actionId === interpreted.actionId
         && Boolean(pending?.awaitingPathReferenceKeys?.length) && isReferenceCorrectionReply(input.text || "");
@@ -3076,6 +3157,9 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
         ]);
         const isRetailBusinessOverviewPlan = retailOverviewActionIds.size === interpreted.queryPlan.length
           && interpreted.queryPlan.every(query => retailOverviewActionIds.has(query.actionId));
+        const retailCashierCancellationActionIds = new Set(["retail.report.cashier-ranking", "retail.order.cancelled.report"]);
+        const isRetailCashierCancellationPlan = retailCashierCancellationActionIds.size === interpreted.queryPlan.length
+          && interpreted.queryPlan.every(query => retailCashierCancellationActionIds.has(query.actionId));
         let blockedReply: AssistantReply | undefined;
         for (const [index, query] of interpreted.queryPlan.entries()) {
           const queryWorkflow = workflows.find(candidate => candidate.enabled && candidate.actionId === query.actionId);
@@ -3121,6 +3205,53 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
           }
         }
         if (blockedReply) reply = blockedReply;
+        else if (isRetailCashierCancellationPlan) {
+          const reportData = (value: unknown) => {
+            const root = value && typeof value === "object" ? value as Record<string, any> : {};
+            return root.data && typeof root.data === "object" ? root.data as Record<string, any> : root;
+          };
+          const cashierPlan = interpreted.queryPlan.find(query => query.actionId === "retail.report.cashier-ranking")!;
+          const cancelledPlan = interpreted.queryPlan.find(query => query.actionId === "retail.order.cancelled.report")!;
+          const cashierReport = reportData(sourceResultsByAction.get("retail.report.cashier-ranking"));
+          const cancelledReport = reportData(sourceResultsByAction.get("retail.order.cancelled.report"));
+          const cashiers = (Array.isArray(cashierReport.cashiers) ? cashierReport.cashiers : [])
+            .filter((row: any) => row && typeof row.cashierName === "string" && Number.isFinite(Number(row.netSales)));
+          const highestNetSales = cashiers.reduce((highest: number, row: any) => Math.max(highest, Number(row.netSales)), Number.NEGATIVE_INFINITY);
+          const leaders = cashiers.filter((row: any) => Number(row.netSales) === highestNetSales)
+            .sort((left: any, right: any) => left.cashierName.localeCompare(right.cashierName, "vi"));
+          const cancelledOrders = Array.isArray(cancelledReport.items) ? cancelledReport.items : [];
+          const cancelledTotal = Number.isSafeInteger(Number(cancelledReport.total)) && Number(cancelledReport.total) >= 0
+            ? Number(cancelledReport.total) : cancelledOrders.length;
+          const money = (value: unknown) => `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(Number(value) || 0)} ₫`;
+          const count = (value: unknown) => new Intl.NumberFormat("vi-VN").format(Number(value) || 0);
+          const date = (value: unknown) => typeof value === "string" ? formatAssistantTemporalValue(value) || value : "";
+          const cashierRange = [cashierPlan.values.from, cashierPlan.values.to].map(date).filter(Boolean);
+          const cancelledRange = [cancelledPlan.values.cancelledFrom, cancelledPlan.values.cancelledTo].map(date).filter(Boolean);
+          const cashierPeriod = cashierRange.length === 2 ? cashierRange[0] === cashierRange[1] ? cashierRange[0] : `${cashierRange[0]} đến ${cashierRange[1]}` : "tháng được hỏi";
+          const cancelledPeriod = cancelledRange.length === 2 ? cancelledRange[0] === cancelledRange[1] ? cancelledRange[0] : `${cancelledRange[0]} đến ${cancelledRange[1]}` : "ngày được hỏi";
+          const rows: Array<Record<string, string>> = leaders.map((row: any) => ({
+            "Nội dung": "Thu ngân có doanh số sau hoàn cao nhất",
+            "Thu ngân": row.cashierName,
+            "Doanh số sau hoàn": money(row.netSales),
+            "Số đơn": count(row.orderCount),
+          }));
+          if (!leaders.length) rows.push({ "Nội dung": "Doanh số thu ngân", "Kết quả": "Không ghi nhận doanh số trong kỳ" });
+          for (const value of cancelledOrders.slice(0, 50)) {
+            const order = value && typeof value === "object" ? value as Record<string, any> : {};
+            if (typeof order.orderCode !== "string") continue;
+            rows.push({
+              "Nội dung": "Đơn bị hủy",
+              "Mã đơn": order.orderCode,
+              "Lý do hủy": typeof order.cancelReason === "string" && order.cancelReason.trim() ? order.cancelReason.trim() : "Không ghi nhận lý do",
+              ...(typeof order.cancelledByName === "string" && order.cancelledByName.trim() ? { "Người hủy": order.cancelledByName.trim() } : {}),
+            });
+          }
+          const after = [`Ngày ${cancelledPeriod} có ${count(cancelledTotal)} đơn bị hủy.`,
+            ...(cancelledTotal === 0 ? ["Không có đơn bị hủy nên không có lý do để liệt kê."] : []),
+            ...(cancelledTotal > 50 ? [`Đang hiển thị lý do của 50 trong ${count(cancelledTotal)} đơn bị hủy.`] : [])];
+          reply = { status: "completed", reply: formatAssistantResultTable(`Doanh số thu ngân tháng ${cashierPeriod} và đơn bị hủy ngày ${cancelledPeriod}`, rows, after) };
+          readResultSynthesized = true;
+        }
         else {
           try {
             const retailDaily = sourceRowsByAction.get("retail.report.daily.summary");
@@ -3285,7 +3416,10 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput, c
   });
   if (completion && [
     "inventory.serial.stock-ranking",
-    "customer.tier.counts", "customer.upcoming-birthdays", "retail.report.top-products",
+    "inventory.export.capability",
+    "inventory.catalog.analysis", "inventory.price.analysis", "inventory.stock.analysis",
+    "inventory.receipt.analysis", "inventory.stock-log.analysis", "inventory.transfer.analysis", "inventory.serial.analysis",
+    "customer.tier.counts", "customer.upcoming-birthdays", "retail.report.top-products", "retail.report.cashier-ranking", "retail.order.cancelled.report",
     "retail.report.daily-extremes", "retail.report.category-brand-summary", "retail.order.top-value",
     "retail.order.top-customers", "retail.order.top-customers.completed", "retail.order.discount-anomalies", "retail.report.margin-watch",
     "retail.report.business-overview", "retail.report.top-products-return-status", "retail.report.employee-cancelled-cash-variance", "retail.shift.variance-report",

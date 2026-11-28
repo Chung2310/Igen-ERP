@@ -4,6 +4,7 @@ import { InventoryBalanceModel } from "../../../model/inventory-balance.model";
 import { InventoryLedgerEntryModel } from "../../../model/inventory-ledger-entry.model";
 import { BranchModel } from "../../../model/branch.model";
 import { ProductCatalogModel } from "../../../model/product-catalog.model";
+import { ProductPriceModel } from "../../../model/product-price.model";
 import { ProductVariantModel } from "../../../model/product-variant.model";
 import { WarehouseModel } from "../../../model/warehouse.model";
 import { listWarehouses } from "./warehouse.service";
@@ -54,7 +55,19 @@ export const warehouseController = {
       const catalogProducts = await ProductCatalogModel.find({ companyCode, status: "active", productType: { $in: ["physical", "bundle"] } }).select("name mediaIds").lean();
       const activeProductIds = catalogProducts.map((product) => String(product._id));
       const productIds = [...new Set([...items.map((i) => i.productId), ...activeProductIds])];
-      const activeVariants = await ProductVariantModel.find({ companyCode, productId: { $in: activeProductIds }, status: "active", trackingMode: { $in: ["quantity", "serial", "unit_barcode", "lot"] } }).select("_id productId sku barcode displayName mediaIds trackingMode").sort({ sku: 1 }).lean();
+      const branchVariantIds = branchId
+        ? await Promise.all([
+          ProductPriceModel.find({ companyCode, branchId, status: "active" }).distinct("variantId"),
+          InventoryLedgerEntryModel.distinct("variantId", { companyCode, branchId, warehouseId: { $in: warehouseIds } }),
+        ]).then(groups => [...new Set([...groups.flat(), ...items.map(item => item.variantId).filter(Boolean)])])
+        : undefined;
+      const activeVariants = await ProductVariantModel.find({
+        companyCode,
+        productId: { $in: activeProductIds },
+        ...(branchVariantIds ? { _id: { $in: branchVariantIds } } : {}),
+        status: "active",
+        trackingMode: { $in: ["quantity", "serial", "unit_barcode", "lot"] },
+      }).select("_id productId sku barcode displayName mediaIds trackingMode").sort({ sku: 1 }).lean();
       const variantIds = [...new Set([...items.map((item) => item.variantId).filter(Boolean), ...activeVariants.map((variant) => String(variant._id))])];
       const [products, variants] = await Promise.all([
         ProductCatalogModel.find({ _id: { $in: productIds }, companyCode }).select("name mediaIds status productType").lean(),

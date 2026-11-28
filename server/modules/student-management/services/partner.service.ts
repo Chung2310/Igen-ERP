@@ -98,6 +98,15 @@ function buildBranchScopeQuery(branchId?: string): Record<string, unknown> {
   return branchId ? { branchId } : {};
 }
 
+function normalizePayoutDate(value: unknown): string | undefined {
+  const raw = String(value || "").trim();
+  const dayFirst = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const iso = dayFirst ? `${dayFirst[3]}-${dayFirst[2]}-${dayFirst[1]}` : raw.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return undefined;
+  const parsed = new Date(`${iso}T00:00:00.000Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === iso ? iso : undefined;
+}
+
 function parseCurrency(val: string | undefined): number {
   return parseInt(String(val || "").replace(/\D/g, ""), 10) || 0;
 }
@@ -200,6 +209,43 @@ export interface ReferredStudentItem {
 
 export class PartnerService {
   static customFieldWrites = customFieldWriteService;
+
+  static async getPayoutReport(ownerId: string | string[], branchId: string | undefined, from: string, to: string) {
+    const isValidDate = (value: string) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+      const date = new Date(`${value}T00:00:00.000Z`);
+      return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+    };
+    if (!isValidDate(from) || !isValidDate(to) || from > to) {
+      throw Object.assign(new Error("Khoảng ngày chi trả không hợp lệ."), { status: 400 });
+    }
+
+    const partners = await Partner.find({ ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) })
+      .select("name payoutHistory")
+      .lean();
+    const payouts = partners.flatMap((partner: any) => (partner.payoutHistory || []).flatMap((payout: any) => {
+      const date = normalizePayoutDate(payout.date);
+      if (!date || date < from || date > to) return [];
+      return [{
+        partnerName: String(partner.name || ""),
+        date,
+        method: payout.method === "Chuyển khoản" ? "Chuyển khoản" : "Tiền mặt",
+        amount: Math.max(0, Number(payout.amount) || 0),
+      }];
+    }));
+    const methodTotals = ["Chuyển khoản", "Tiền mặt"].map((method) => {
+      const matching = payouts.filter((payout) => payout.method === method);
+      return { method, payoutCount: matching.length, totalAmount: matching.reduce((sum, payout) => sum + payout.amount, 0) };
+    });
+    return {
+      from,
+      to,
+      payoutCount: payouts.length,
+      totalAmount: payouts.reduce((sum, payout) => sum + payout.amount, 0),
+      methodTotals,
+      payouts: payouts.sort((left, right) => left.date.localeCompare(right.date) || left.partnerName.localeCompare(right.partnerName, "vi")),
+    };
+  }
 
   static async createPartner(
     ownerId: string,
@@ -365,7 +411,7 @@ export class PartnerService {
     const enriched = (await enrichPartners([partner], branchId))[0];
 
     // Fetch detailed list of referred students
-    const students = await Student.find({ partnerId: id }).sort({ createdAt: -1 });
+    const students = await Student.find({ partnerId: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) }).sort({ createdAt: -1 });
     const studentsList = students.map(student => {
       const commission = Math.round((parseCurrency(student.fee) * enriched.commissionValue) / 100);
 

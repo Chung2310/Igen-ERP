@@ -109,6 +109,7 @@ const calendarSchema = {
 const assistantSummarySchema = {
   query: Joi.object({
     search: Joi.string().trim().max(100).allow(""),
+    status: Joi.string().valid("draft", "active", "paused", "completed", "cancelled", "failed").allow(""),
     page: Joi.number().integer().min(1).max(100).default(1),
     limit: Joi.number().integer().min(1).max(100).default(10),
   }),
@@ -308,13 +309,13 @@ marketingCampaignRouter.get("/public/monthly/:token", marketingCampaignControlle
 marketingCampaignRouter.post("/public/monthly/:token/slots/:slotId/:action", marketingCampaignController.publicMonthlySlotAction as never);
 marketingCampaignRouter.post("/public/monthly/:token/bulk-action", marketingCampaignController.publicMonthlyBulkAction as never);
 
+marketingCampaignRouter.get("/assistant/summaries", requireAuth as never, requirePermission("marketing:read") as never, validateRequest(assistantSummarySchema), marketingCampaignController.listAssistantSummaries as never);
 marketingCampaignRouter.use(requireAuth as never, requirePermission("marketing:post") as never);
 marketingCampaignRouter.post("/preview-drive", marketingCampaignController.previewDrive as never);
 marketingCampaignRouter.get("/assistant/analytics", validateRequest(assistantAnalyticsSchema), marketingCampaignController.getAssistantAnalytics as never);
 marketingCampaignRouter.get("/analytics", marketingCampaignController.getAnalytics as never);
 marketingCampaignRouter.post("/estimate-ai", validateRequest(createSchema), marketingCampaignController.estimateAi as never);
 marketingCampaignRouter.get("/calendar", validateRequest(calendarSchema), marketingCampaignController.calendar as never);
-marketingCampaignRouter.get("/assistant/summaries", validateRequest(assistantSummarySchema), marketingCampaignController.listAssistantSummaries as never);
 marketingCampaignRouter.post("/", validateRequest(createSchema), marketingCampaignController.create as never);
 marketingCampaignRouter.get("/", marketingCampaignController.list as never);
 marketingCampaignRouter.get("/:id/sheet", marketingCampaignController.getSheet as never);

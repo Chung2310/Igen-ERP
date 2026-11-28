@@ -10,6 +10,140 @@ it('keeps the selected class recurring weekdays and times in its shared result t
   expect(reply).not.toContain('private-class');
 });
 
+it("renders marketing campaign summaries in the shared table without internal IDs or briefs", () => {
+  const reply = formatFriendlyAssistantResult(operationById("marketing.campaign.list")!, { data: {
+    campaigns: [{
+      _id: "private-campaign-id", title: "Chiến dịch khuyến mãi QA", status: "active", campaignType: "campaign",
+      startDate: "2026-11-01", endDate: "2026-12-31", sourceBrief: "private campaign brief",
+    }],
+    pagination: { page: 1, limit: 100, hasMore: false },
+  } });
+  const table = parseAssistantResultTable(reply);
+  expect(table?.rows[0].values["Chiến dịch"]).toBe("Chiến dịch khuyến mãi QA");
+  expect(table?.rows[0].values["Trạng thái"]).toBe("Đang hoạt động");
+  expect(table?.rows[0].values["Bắt đầu"]).toBe("01/11/2026");
+  expect(reply).not.toContain("private-campaign-id");
+  expect(reply).not.toContain("private campaign brief");
+});
+
+it("renders student debt and missing-submission reports in the shared table format", () => {
+  const debt = formatFriendlyAssistantResult(operationById("student.debt.report")!, { data: {
+    studentCount: 1, totalOutstandingAmount: 2500000,
+    students: [{ fullName: "Nguyễn An", courseName: "Tiếng Anh", outstandingAmount: 2500000, studentId: "private-student" }],
+  } });
+  expect(parseAssistantResultTable(debt)?.rows[0].values["Còn nợ"]).toContain("2.500.000");
+  expect(debt).not.toContain("private-student");
+
+  const submissions = formatFriendlyAssistantResult(operationById("student.assignment.missing-submissions")!, { data: {
+    assignmentCount: 1, missingCount: 1,
+    students: [{ assignmentTitle: "Test module đăng nhập", batchName: "QA-HN-01", studentName: "Trần Bình", dueDate: "2026-11-30T12:00:00.000Z" }],
+  } });
+  expect(parseAssistantResultTable(submissions)?.rows[0].values["Học viên"]).toBe("Trần Bình");
+  expect(submissions).toContain("2026");
+});
+
+it("renders notification audiences and suspension counts as shared tables", () => {
+  const audiences = formatFriendlyAssistantResult(operationById("student.notification.audience.counts")!, { data: {
+    upcomingExamCount: 2, unpaidTuitionCount: 3, retakeCount: 1,
+  } });
+  expect(parseAssistantResultTable(audiences)?.rows).toHaveLength(3);
+  expect(audiences).toContain("Còn nợ học phí");
+
+  const suspensions = formatFriendlyAssistantResult(operationById("student.suspension.report")!, { data: {
+    studentCount: 1, requestCount: 1, requests: [{ studentName: "Nguyễn An", batchName: "HSK1", requestedAt: "2026-11-10T12:00:00.000Z" }],
+  } });
+  expect(parseAssistantResultTable(suspensions)?.rows[0].values["Học viên"]).toBe("Nguyễn An");
+  expect(suspensions).toContain("10/11/2026");
+});
+
+it("renders commission payout method totals in the shared table format", () => {
+  const reply = formatFriendlyAssistantResult(operationById("partner.payout.report")!, { data: {
+    from: "2026-11-01", to: "2026-11-30", payoutCount: 3, totalAmount: 2400000,
+    methodTotals: [
+      { method: "Chuyển khoản", payoutCount: 2, totalAmount: 1900000 },
+      { method: "Tiền mặt", payoutCount: 1, totalAmount: 500000 },
+    ],
+  } });
+  expect(parseAssistantResultTable(reply)?.rows).toHaveLength(2);
+  expect(reply).toContain("2.400.000");
+  expect(reply).toContain("Chuyển khoản");
+  expect(reply).toContain("Tiền mặt");
+});
+
+it("renders the labor overview with all requested metrics and period details", () => {
+  const reply = formatFriendlyAssistantResult(operationById("worker.report.overview")!, { data: {
+    from: "2026-11-01", to: "2026-11-30", projectCount: 8, workerCount: 24,
+    attendanceRate: 87.5, attendedWorkCount: 70, scheduledWorkCount: 80,
+    expiringContractCount: 1, expiringContracts: [{ code: "HD-01", workerName: "Nguyễn An", endDate: "2026-11-28" }],
+    unpaidCommissionAmount: 1800000, unpaidCommissionSettlementCount: 1,
+    unpaidCommissionSettlements: [{ partnerName: "Đối tác A", balanceAmount: 1800000 }],
+  } });
+  expect(parseAssistantResultTable(reply)?.rows).toHaveLength(5);
+  expect(reply).toContain("87,5%");
+  expect(reply).toContain("1.800.000");
+  expect(reply).toContain("HD-01");
+});
+
+it("renders roadmap and step fields for a specific class in the shared table format", () => {
+  const reply = formatFriendlyAssistantResult(operationById("student.batch.roadmap.lookup")!, { data: { batches: [{
+    code: "IGEN-1", name: "IGENTEST-1", roadmapName: "Kiểm thử phần mềm dành cho người trái ngành", roadmapStepNumber: 2,
+    courseTitle: "API Testing với Postman", _id: "private-batch", roadmapId: "private-roadmap",
+  }] } });
+  const table = parseAssistantResultTable(reply);
+  expect(table?.rows[0].values["Lộ trình"]).toBe("Kiểm thử phần mềm dành cho người trái ngành");
+  expect(table?.rows[0].values["Chặng"]).toBe("2");
+  expect(reply).not.toContain("private-batch");
+  expect(reply).not.toContain("private-roadmap");
+});
+
+it("shows labor type counts in Vietnamese labels", () => {
+  const reply = formatFriendlyAssistantResult(operationById("worker.report")!, [
+    { laborType: "official", workerCount: 2 },
+    { laborType: "seasonal", workerCount: 1 },
+  ]);
+  expect(parseAssistantResultTable(reply)?.rows.map(row => row.values["laborType"] || row.values["Loại lao động"])).toContain("Chính thức");
+  expect(reply).toContain("Thời vụ");
+});
+
+it("does not imply commission policies have an expiry date", () => {
+  const reply = formatFriendlyAssistantResult(operationById("retail.partner.commission.policy.list")!, [{
+    partnerName: "Đinh Viết Tường", effectiveAt: "2026-11-01T00:00:00.000Z", config: { phoneAmount: 200000 }, partnerId: "private-partner",
+  }]);
+  expect(reply).toContain("chưa thể xác định chính sách nào sắp hết hiệu lực");
+  expect(reply).not.toContain("private-partner");
+});
+
+it("keeps the requested report type for shared inventory summaries", () => {
+  const catalog = formatFriendlyAssistantResult(operationById("inventory.catalog.analysis")!, {
+    data: { reportType: "product-count", summary: { productCount: 12 }, categories: [], products: [] },
+  });
+  expect(catalog).toContain("12 dòng sản phẩm");
+  expect(catalog).not.toContain("Danh mục chưa có");
+
+  const serial = formatFriendlyAssistantResult(operationById("inventory.serial.analysis")!, {
+    reportType: "product-stock-and-serial", summary: { skuAvailableQuantity: 6, total: 0, repairing: 0 },
+    products: [{ productName: "Huawei Honor 600", skuAvailableQuantity: 6, total: 0, repairing: 0 }],
+  });
+  expect(serial).toContain("Huawei Honor 600");
+  expect(serial).toContain("SKU còn khả dụng");
+  expect(serial).toContain("Đang sửa");
+  expect(serial).not.toContain("Không có IMEI/serial phù hợp");
+});
+
+it("shows actual quantity and variance in serial reconciliation tables", () => {
+  const reply = formatFriendlyAssistantResult(operationById("inventory.serial.analysis")!, { data: {
+    reportType: "reconciliation",
+    summary: { total: 2, inStock: 1, physicalQuantity: 4, variance: -3, matches: 0, mismatches: 1 },
+    products: [{ productName: "iPhone 14", sku: "IP14-128", total: 2, inStock: 1, physicalQuantity: 4, variance: -3, matches: false }],
+  } });
+  const table = parseAssistantResultTable(reply);
+  expect(table?.headers).toEqual(["D\u00f2ng m\u00e1y", "SKU", "T\u1ed5ng IMEI", "IMEI trong kho", "T\u1ed3n th\u1ef1c t\u1ebf", "Ch\u00eanh l\u1ec7ch", "\u0110\u1ed1i chi\u1ebfu"]);
+  expect(table?.rows[0].values["T\u1ed3n th\u1ef1c t\u1ebf"]).toBe("4");
+  expect(table?.rows[0].values["Ch\u00eanh l\u1ec7ch"]).toBe("-3");
+  expect(table?.rows[0].values["\u0110\u1ed1i chi\u1ebfu"]).toBe("L\u1ec7ch");
+  expect(reply).toContain("SKU kh\u1edbp: 0 · SKU l\u1ec7ch: 1");
+});
+
 it("renders an uncoded retail draft as a document rather than its line items", () => {
   const reply = formatFriendlyAssistantResult(operationById("retail.order.draft.create")!, { data: {
     _id: "private-order", status: "draft", grandTotal: 100000, dueAmount: 100000, version: 0,
@@ -29,6 +163,15 @@ it("summarizes retail returns and does not claim installment status when only de
   expect(returns).toContain("1.250.000");
   const debt = formatFriendlyAssistantResult(operationById("retail.order.installment-balances")!, { orders: [], installmentTypeTracked: false });
   expect(debt).toContain("không có cờ riêng");
+});
+
+it("does not claim that returned goods were put back into stock", () => {
+  const reply = formatFriendlyAssistantResult(operationById("retail.after-sale.list")!, [{
+    code: "PT-001", type: "return", status: "completed", orderCode: "DH-001",
+    customerName: "Khách A", totalAmount: 250_000,
+  }]);
+  expect(parseAssistantResultTable(reply)?.rows).toHaveLength(1);
+  expect(reply).toContain("không xác nhận tình trạng hàng đã nhập lại kho");
 });
 
 it("labels retail dealers separately from suppliers", () => {
@@ -175,6 +318,33 @@ it("shows cancellation reason and actor in the retail order result table", () =>
   expect(row).toMatchObject({ "Mã đơn hàng": "POS-CANCELLED-001", "Lý do hủy": "Khách đổi nhu cầu", "Người hủy": "Thu ngân QA" });
   expect(reply).not.toContain("private-actor-id");
   expect(reply).not.toContain("Thông tin:");
+});
+
+it("shows the top cashier by net sales for the selected month", () => {
+  const reply = formatFriendlyAssistantResult(operationById("retail.report.cashier-ranking")!, { data: {
+    range: { from: "2026-11-01", to: "2026-11-30" },
+    cashiers: [
+      { cashierName: "Thu ngân A", orderCount: 4, grossSales: 2_000_000, refunds: 300_000, netSales: 1_700_000 },
+      { cashierName: "Thu ngân B", orderCount: 3, grossSales: 1_500_000, refunds: 0, netSales: 1_500_000 },
+    ],
+  } });
+  const table = parseAssistantResultTable(reply);
+
+  expect(table?.rows).toHaveLength(1);
+  expect(table?.rows[0]?.values).toMatchObject({ "Thu ngân": "Thu ngân A", "Doanh số sau hoàn": "1.700.000 ₫", "Số đơn": "4" });
+  expect(reply).toContain("01/11/2026 đến 30/11/2026");
+});
+
+it("shows the cancellation count and recorded reason for the cancellation date", () => {
+  const reply = formatFriendlyAssistantResult(operationById("retail.order.cancelled.report")!, { data: {
+    cancelledFrom: "2026-11-27", cancelledTo: "2026-11-27", total: 1,
+    items: [{ orderCode: "POS-CANCELLED-002", cancelReason: "Khách đổi nhu cầu", cancelledByName: "Thu ngân QA", cancelledAt: "2026-11-27T08:30:00.000Z", _id: "private-order-id" }],
+  } });
+  const table = parseAssistantResultTable(reply);
+
+  expect(table?.rows[0]?.values).toMatchObject({ "Mã đơn": "POS-CANCELLED-002", "Lý do hủy": "Khách đổi nhu cầu", "Người hủy": "Thu ngân QA" });
+  expect(reply).toContain("27/11/2026");
+  expect(reply).not.toContain("private-order-id");
 });
 
 it("renders an empty onboarded report as a confirmed zero", () => {
@@ -450,4 +620,38 @@ describe("HR reports", () => {
     expect(reply).toContain("30/04/2027");
     expect(reply).not.toContain("private-id");
   });
+});
+
+it("renders inventory analysis rows as shared tables and hides internal identifiers", () => {
+  const reply = formatFriendlyAssistantResult(operationById("inventory.stock.analysis")!, { data: {
+    reportType: "stock-summary",
+    summary: { productCount: 1, stockQuantity: 7, inventoryValue: 210_000_000 },
+    products: [{ _id: "private-stock-row", productName: "iPhone 14", sku: "IP14-01", quantity: 7, inventoryValue: 210_000_000 }],
+  } });
+
+  const table = parseAssistantResultTable(reply);
+  expect(table?.rows).toHaveLength(1);
+  expect(Object.values(table?.rows[0]?.values || {})).toEqual(expect.arrayContaining(["iPhone 14", "IP14-01", "7", "210.000.000 ₫"]));
+  expect(reply).not.toContain("private-stock-row");
+});
+
+it("renders stock movement summaries as a shared table", () => {
+  const reply = formatFriendlyAssistantResult(operationById("inventory.stock-log.analysis")!, { data: {
+    reportType: "issue-counts",
+    summary: [{ period: "11/2026", documentType: "Xuất bán hàng", documentCount: 3, totalQuantity: 6 }],
+    transactions: [],
+  } });
+
+  const table = parseAssistantResultTable(reply);
+  expect(table?.rows).toHaveLength(1);
+  expect(Object.values(table?.rows[0]?.values || {})).toEqual(expect.arrayContaining(["11/2026", "Xuất bán hàng", "3", "6"]));
+});
+
+it("explains that warehouse Excel export is unavailable and offers an in-chat result", () => {
+  const reply = formatFriendlyAssistantResult(operationById("inventory.export.capability")!, { data: {
+    finding: "Trợ lý hiện chưa có API tạo tệp Excel cho bảng tồn kho. Có thể xem kết quả trong cuộc trò chuyện.",
+  } });
+
+  expect(reply).toContain("chưa có API tạo tệp Excel");
+  expect(reply).toContain("cuộc trò chuyện");
 });

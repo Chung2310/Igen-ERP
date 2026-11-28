@@ -237,6 +237,119 @@ function studentInstallmentDueAt(value: string) {
 export class StudentService {
   static customFieldWrites = customFieldWriteService;
 
+  static async getOutstandingTuitionReport(ownerId: string | string[], branchId?: string) {
+    const students = await Student.find({
+      ...buildOwnerScopeQuery(ownerId),
+      ...buildBranchScopeQuery(branchId),
+    }).select("fullName fee paidAmount tuitionWaived courseId").lean();
+
+    const rows = students.flatMap((student) => {
+      const totalFee = Number(String(student.fee || "0").replace(/\\D/g, "")) || 0;
+      const paidAmount = Math.max(0, Number(student.paidAmount) || 0);
+      const outstandingAmount = student.tuitionWaived ? 0 : Math.max(0, totalFee - paidAmount);
+      return outstandingAmount > 0 ? [{
+        studentId: String(student._id),
+        fullName: student.fullName,
+        courseId: String(student.courseId || ""),
+        outstandingAmount,
+      }] : [];
+    });
+
+    const courseIds = [...new Set(rows.map((row) => row.courseId).filter((id) => Types.ObjectId.isValid(id)))];
+    const courses = courseIds.length ? await Course.find({ _id: { $in: courseIds }, ...buildOwnerScopeQuery(ownerId) }).select("_id title code").lean() : [];
+    const courseNames = new Map(courses.map((course) => [String(course._id), String(course.title || course.code || "")] as const));
+    const items = rows.map(({ courseId, fullName, outstandingAmount }) => ({ fullName, outstandingAmount, ...(courseNames.get(courseId) ? { courseName: courseNames.get(courseId) } : {}) }));
+
+    return {
+      studentCount: items.length,
+      totalOutstandingAmount: items.reduce((sum, student) => sum + student.outstandingAmount, 0),
+      students: items,
+    };
+  }
+
+  static async getOutstandingTuitionEmailDrafts(ownerId: string | string[], branchId?: string) {
+    const report = await this.getOutstandingTuitionReport(ownerId, branchId);
+    const drafts = report.students.map((student) => {
+      const amount = `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(student.outstandingAmount)} ₫`;
+      const course = student.courseName || "khóa học của bạn";
+      return {
+        fullName: student.fullName,
+        courseName: student.courseName || "Chưa xác định",
+        outstandingAmount: student.outstandingAmount,
+        subject: `Nhắc hoàn thành học phí - ${student.fullName}`,
+        body: `Kính gửi ${student.fullName},\n\nTrung tâm xin nhắc học phí khóa ${course} của bạn hiện còn ${amount}. Nếu bạn đã thanh toán, vui lòng bỏ qua email này hoặc liên hệ trung tâm để đối chiếu.\n\nTrân trọng.`,
+      };
+    });
+    return { draftCount: drafts.length, drafts };
+  }
+
+  static async getNotificationAudienceCounts(ownerId: string | string[], branchId?: string) {
+    const ownerQuery = buildOwnerScopeQuery(ownerId);
+    const branchQuery = buildBranchScopeQuery(branchId);
+    const [students, retakeCount] = await Promise.all([
+      Student.find({ ...ownerQuery, ...branchQuery }).select("status exams fee paidAmount tuitionWaived").lean(),
+      BatchEnrollment.distinct("studentId", {
+        ...ownerQuery,
+        ...branchQuery,
+        status: { $in: ["Chờ xếp học lại", "Học lại"] },
+      }),
+    ]);
+
+    const upcomingExamIds = new Set<string>();
+    const unpaidIds = new Set<string>();
+    const retakeIds = new Set<string>(retakeCount.map(String));
+    for (const student of students) {
+      const studentId = String(student._id);
+      const statuses = Array.isArray(student.status) ? student.status : student.status ? [student.status] : [];
+      if (statuses.includes("Đang thi") || (student.exams || []).some((exam: any) => exam.status === "Sắp thi")) upcomingExamIds.add(studentId);
+      const totalFee = Number(String(student.fee || "0").replace(/\\D/g, "")) || 0;
+      if (!student.tuitionWaived && (Number(student.paidAmount) || 0) < totalFee) unpaidIds.add(studentId);
+      if (statuses.some((status) => ["Thi lại", "Học lại", "Cần học lại"].includes(status))) retakeIds.add(studentId);
+    }
+
+    return {
+      upcomingExamCount: upcomingExamIds.size,
+      unpaidTuitionCount: unpaidIds.size,
+      retakeCount: retakeIds.size,
+    };
+  }
+
+  static async getSuspensionReport(ownerId: string | string[], branchId: string | undefined, from: string, to: string, mode: "requests" | "upcoming" = "requests") {
+    const fromDate = new Date(`${from}T00:00:00.000+07:00`);
+    const toDate = new Date(`${to}T23:59:59.999+07:00`);
+    if (!Number.isFinite(fromDate.getTime()) || !Number.isFinite(toDate.getTime()) || from > to) {
+      throw Object.assign(new Error("Khoảng thời gian bảo lưu không hợp lệ."), { status: 400 });
+    }
+
+    const baseQuery = {
+      ...buildOwnerScopeQuery(ownerId),
+      ...buildBranchScopeQuery(branchId),
+    };
+    const enrollments = mode === "upcoming"
+      ? await BatchEnrollment.find({ ...baseQuery, status: "Bảo lưu", expectedReturnAt: { $gte: from, $lte: to } }).select("studentId batchId expectedReturnAt").lean()
+      : await BatchEnrollment.find({ ...baseQuery, history: { $elemMatch: { action: "suspended", at: { $gte: fromDate, $lte: toDate } } } }).select("studentId batchId history").lean();
+    const requests = mode === "upcoming"
+      ? enrollments.map((enrollment: any) => ({ studentId: enrollment.studentId, batchId: enrollment.batchId, expectedReturnAt: enrollment.expectedReturnAt }))
+      : enrollments.flatMap((enrollment) => (enrollment.history || [])
+        .filter((entry: any) => entry.action === "suspended" && new Date(entry.at).getTime() >= fromDate.getTime() && new Date(entry.at).getTime() <= toDate.getTime())
+        .map((entry: any) => ({ studentId: enrollment.studentId, batchId: enrollment.batchId, requestedAt: entry.at })));
+    const studentIds = [...new Set(requests.map((request) => request.studentId))];
+    const batchIds = [...new Set(requests.map((request) => request.batchId))];
+    const [students, batches] = await Promise.all([
+      studentIds.length ? Student.find({ _id: { $in: studentIds }, ...buildOwnerScopeQuery(ownerId), ...buildBranchScopeQuery(branchId) }).select("_id fullName").lean() : [],
+      batchIds.length ? Batch.find({ _id: { $in: batchIds }, ...buildOwnerScopeQuery(ownerId), ...buildBranchScopeQuery(branchId) }).select("_id code name").lean() : [],
+    ]);
+    const studentNames = new Map(students.map((student) => [String(student._id), student.fullName] as const));
+    const batchNames = new Map(batches.map((batch) => [String(batch._id), String(batch.code || batch.name || "")] as const));
+    const items = requests.flatMap((request: any) => studentNames.has(request.studentId) ? [{
+      studentName: studentNames.get(request.studentId),
+      batchName: batchNames.get(request.batchId) || "",
+      ...(mode === "upcoming" ? { expectedReturnAt: request.expectedReturnAt } : { requestedAt: request.requestedAt }),
+    }] : []);
+    const matchedStudentIds = new Set(requests.filter((request) => studentNames.has(request.studentId)).map((request) => request.studentId));
+    return { mode, studentCount: matchedStudentIds.size, requestCount: items.length, requests: items };
+  }
+
   static async createStudent(
     ownerId: string,
     ownerScope: string | string[],

@@ -64,12 +64,18 @@ describe("internal stock issue assistant contract", () => {
     expect(missing.values).not.toHaveProperty("items");
   });
 
-  it("validates positive quantities and requires the identifier list for each SKU", () => {
+  it("marks structured item references as body fields so SKU and product choices are resolved", () => {
+    expect(operation.fields.find(field => field.key === "items")?.source).toBe("body");
+    expect(operation.fields.find(field => field.key === "items")?.structure?.items?.keys?.productId?.reference).toBe("product.list");
+    expect(operation.fields.find(field => field.key === "items")?.structure?.items?.keys?.sku?.reference).toBe("inventory.product.detail");
+  });
+
+  it("validates positive quantities and permits the server to determine whether identifiers are required", () => {
     const itemField = operation.fields.find(field => field.key === "items")!;
     const baseItem = { productId: "Redmi Note 14", sku: "REDMI-N14", quantity: 1, unitIdentifiers: [] };
     expect(() => validateField(itemField, JSON.stringify([baseItem]))).not.toThrow();
     expect(() => validateField(itemField, JSON.stringify([{ ...baseItem, quantity: 0 }]))).toThrow();
-    expect(() => validateField(itemField, JSON.stringify([{ productId: "Redmi Note 14", sku: "REDMI-N14", quantity: 1 }]))).toThrow();
+    expect(() => validateField(itemField, JSON.stringify([{ productId: "Redmi Note 14", sku: "REDMI-N14", quantity: 1 }]))).not.toThrow();
     expect(() => validateField(itemField, JSON.stringify([]))).toThrow();
   });
 

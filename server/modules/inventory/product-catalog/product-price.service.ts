@@ -12,7 +12,20 @@ export const ProductPriceService = {
     if (query.productId) filter.productId = String(query.productId);
     if (query.sku) filter.sku = String(query.sku).trim().toUpperCase();
     const items = await ProductPriceModel.find(filter).sort({ sku: 1 }).lean();
-    return { items };
+    const productIds = [...new Set(items.map(item => String(item.productId || "")).filter(Boolean))];
+    const variantIds = [...new Set(items.map(item => String(item.variantId || "")).filter(Boolean))];
+    const [products, variants] = await Promise.all([
+      productIds.length ? ProductCatalogModel.find({ _id: { $in: productIds }, companyCode }).select("name categoryCode").lean() : [],
+      variantIds.length ? ProductVariantModel.find({ _id: { $in: variantIds }, companyCode }).select("displayName").lean() : [],
+    ]);
+    const productById = new Map(products.map(product => [String(product._id), product] as const));
+    const variantById = new Map(variants.map(variant => [String(variant._id), variant] as const));
+    return { items: items.map(item => ({
+      ...item,
+      productName: productById.get(String(item.productId || ""))?.name || "",
+      categoryCode: productById.get(String(item.productId || ""))?.categoryCode || "",
+      variantName: variantById.get(String(item.variantId || ""))?.displayName || "",
+    })) };
   },
   async upsert(companyCode: string, branchId: string, variantId: string, input: any, actor: string) {
     const variant: any = await ProductVariantModel.findOne({ _id: variantId, companyCode, status: "active" }).lean();

@@ -230,10 +230,10 @@ function missingRecruitmentJobReadiness(job: Record<string, any>, now = new Date
   return missing;
 }
 function isBranchScopedAssistantOperation(op: AssistantOperation) {
-  return op.id.startsWith("inventory.serial.") || op.id === "inventory.warehouse.locations.list" || op.path === "/inventory/transfers" || op.path.startsWith("/inventory/transfers/") || op.id === "inventory.stock-log.list" || op.id === "inventory.stock-log.reverse" || op.id === "finance.tax.from-invoice" || op.id === "retail.invoice.list" || op.id === "retail.warranty.serial.update" || op.id === "retail.coupon.create" || op.id === "retail.coupon.tier.list" || isInventoryCountOperation(op) || op.path.startsWith("/inventory/reconciliation/") || op.path.startsWith("/finance/receivables") || op.path.startsWith("/finance/reporting/") || op.path.startsWith("/finance/reminders/") || op.path === "/finance/management/debts" || op.path === "/finance/management/payables" || op.path === "/finance/management/followups" || op.path.startsWith("/payroll/periods/") || op.path.startsWith("/payroll/runs") || op.id.startsWith("payroll.payment.") || op.path === "/retail/settings" || op.path.startsWith("/retail/debt-reminders/") || isRetailPosOperation(op) || isRetailCashbookOperation(op) || isRetailFinanceCommissionOperation(op) || isRetailReceivableOperation(op) || isRetailAfterSaleOperation(op) || isCommissionLevelOperation(op) || isRecruitmentOperation(op) || op.id === "repair.device.lookup" || op.id === "repair.notification.resend" || op.id === "repair.feedback.link.create";
+  return op.id.startsWith("inventory.serial.") || ["inventory.warehouse.locations.list", "inventory.stock-log.list", "inventory.stock-log.analysis", "inventory.receipt.analysis", "inventory.stock.analysis", "inventory.serial.analysis", "inventory.price.analysis", "inventory.stock-log.reverse", "inventory.stock-log.internal.issue.create", "finance.tax.from-invoice", "retail.invoice.list", "retail.warranty.serial.update", "retail.coupon.create", "retail.coupon.tier.list"].includes(op.id) || op.path === "/inventory/transfers" || op.path.startsWith("/inventory/transfers/") || isInventoryCountOperation(op) || op.path.startsWith("/inventory/reconciliation/") || op.path.startsWith("/finance/receivables") || op.path.startsWith("/finance/reporting/") || op.path.startsWith("/finance/reminders/") || op.path === "/finance/management/debts" || op.path === "/finance/management/payables" || op.path === "/finance/management/followups" || op.path.startsWith("/payroll/periods/") || op.path.startsWith("/payroll/runs") || op.id.startsWith("payroll.payment.") || op.path === "/retail/settings" || op.path.startsWith("/retail/debt-reminders/") || isRetailPosOperation(op) || isRetailCashbookOperation(op) || isRetailFinanceCommissionOperation(op) || isRetailReceivableOperation(op) || isRetailAfterSaleOperation(op) || isCommissionLevelOperation(op) || isRecruitmentOperation(op) || op.id === "repair.device.lookup" || op.id === "repair.notification.resend" || op.id === "repair.feedback.link.create";
 }
 function requiresBranchChoice(op: AssistantOperation) {
-  return op.id.startsWith("inventory.serial.") || op.id === "inventory.warehouse.locations.list" || op.path === "/inventory/transfers" || op.path.startsWith("/inventory/transfers/") || op.id === "inventory.stock-log.list" || op.id === "inventory.stock-log.reverse" || op.id === "finance.tax.from-invoice" || ["retail.invoice.list", "retail.invoice.bulk-pdf", "retail.order.payment-qr", "retail.report.top-products"].includes(op.id) || op.id === "retail.warranty.serial.update" || op.id === "retail.coupon.create" || op.id === "retail.coupon.tier.list" || isInventoryCountOperation(op) || op.path.startsWith("/inventory/reconciliation/") || op.path.startsWith("/finance/receivables") || op.path.startsWith("/finance/reporting/") || op.path.startsWith("/finance/reminders/") || op.path === "/finance/management/debts" || op.path === "/finance/management/payables" || op.path === "/finance/management/followups" || op.path.startsWith("/payroll/periods/") || op.path.startsWith("/payroll/runs") || op.id.startsWith("payroll.payment.") || op.path === "/retail/settings" || op.path.startsWith("/retail/debt-reminders/") || isRetailPosOperation(op) || isRetailCashbookOperation(op) || isRetailFinanceCommissionOperation(op) || isRetailReceivableOperation(op) || isRetailAfterSaleOperation(op) || (isCommissionLevelOperation(op) && op.method !== "GET") || isRecruitmentOperation(op) || op.id === "repair.device.lookup" || op.id === "repair.notification.resend" || op.id === "repair.feedback.link.create";
+  return op.id.startsWith("inventory.serial.") || ["inventory.warehouse.locations.list", "inventory.stock-log.list", "inventory.stock-log.analysis", "inventory.receipt.analysis", "inventory.stock.analysis", "inventory.serial.analysis", "inventory.price.analysis", "inventory.stock-log.reverse", "inventory.stock-log.internal.issue.create", "finance.tax.from-invoice"].includes(op.id) || op.path === "/inventory/transfers" || op.path.startsWith("/inventory/transfers/") || ["retail.invoice.list", "retail.invoice.bulk-pdf", "retail.order.payment-qr", "retail.report.top-products"].includes(op.id) || op.id === "retail.warranty.serial.update" || op.id === "retail.coupon.create" || op.id === "retail.coupon.tier.list" || isInventoryCountOperation(op) || op.path.startsWith("/inventory/reconciliation/") || op.path.startsWith("/finance/receivables") || op.path.startsWith("/finance/reporting/") || op.path.startsWith("/finance/reminders/") || op.path === "/finance/management/debts" || op.path === "/finance/management/payables" || op.path === "/finance/management/followups" || op.path.startsWith("/payroll/periods/") || op.path.startsWith("/payroll/runs") || op.id.startsWith("payroll.payment.") || op.path === "/retail/settings" || op.path.startsWith("/retail/debt-reminders/") || isRetailPosOperation(op) || isRetailCashbookOperation(op) || isRetailFinanceCommissionOperation(op) || isRetailReceivableOperation(op) || isRetailAfterSaleOperation(op) || (isCommissionLevelOperation(op) && op.method !== "GET") || isRecruitmentOperation(op) || op.id === "repair.device.lookup" || op.id === "repair.notification.resend" || op.id === "repair.feedback.link.create";
 }
 
 function assertScheduledCampaignInput(input: Record<string, AssistantValue>) {
@@ -310,6 +310,12 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     const value = aliasesFor(field);
     if (value !== undefined) normalizedInput[field.key] = value;
   }
+  const branchQueryField = op.fields.find(field => field.source === "query" && field.apiKey === "branchId");
+  const branchHeader = req.headers?.["x-branch-id"] || req.headers?.["X-Branch-Id"];
+  if (op.module === "inventory" && branchQueryField && normalizedInput[branchQueryField.key] === undefined
+    && !req.user?.branchId && typeof branchHeader === "string" && branchHeader) {
+    normalizedInput[branchQueryField.key] = branchHeader;
+  }
   input = normalizedInput;
   const collectPages = async (actionId: string, base: Record<string, AssistantValue>, pageSize = 100) => {
     const source = ASSISTANT_OPERATIONS.find(candidate => candidate.id === actionId);
@@ -328,6 +334,515 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     }
     return rows;
   };
+  if (op.id === "retail.order.cancelled.report") {
+    const cancelledFrom = String(input.cancelledFrom || "");
+    const cancelledTo = String(input.cancelledTo || "");
+    if (!cancelledFrom || !cancelledTo) throw new AssistantError("Cần chọn đủ ngày bắt đầu và kết thúc cần kiểm tra đơn hủy.");
+    const items = await collectPages("retail.order.list", {
+      ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
+      cancelledFrom,
+      cancelledTo,
+      query_status: "cancelled",
+    });
+    return { success: true, data: { items, total: items.length, page: 1, limit: items.length, cancelledFrom, cancelledTo } };
+  }
+  if (op.id === "inventory.export.capability") {
+    const report = String(input.reportType || "stock-balance");
+    const finding = report === "stock-log"
+      ? "Trợ lý hiện chưa có API tạo tệp Excel cho toàn bộ lịch sử giao dịch kho. Tôi có thể lọc và hiển thị giao dịch trong cuộc trò chuyện theo kỳ hoặc loại phiếu."
+      : "Trợ lý hiện chưa có API tạo tệp Excel cho bảng tồn kho. Tôi có thể hiển thị số liệu tồn theo sản phẩm trong cuộc trò chuyện để bạn đối chiếu.";
+    return { success: true, data: { finding } };
+  }
+  if (op.id === "inventory.catalog.analysis") {
+    const reportType = String(input.reportType || "");
+    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.method === "GET" && candidate.path === "/inventory/catalog/prices");
+    if (!source) throw new AssistantError("Thiếu danh sách sản phẩm để thống kê danh mục.", 503);
+    const branchPrices = await collectPages(source.id, {}, 100);
+    const search = normalize(String(input.search ?? input.q ?? ""));
+    const matchingPrices = search ? branchPrices.filter(row => normalize(`${row.productName || ""} ${row.categoryCode || ""} ${row.sku || ""}`).includes(search)) : branchPrices;
+    const unique = new Map<string, Record<string, any>>();
+    for (const row of matchingPrices) {
+      const id = String(row.productId || row.productName || row.sku || "");
+      if (!unique.has(id)) unique.set(id, { ...row, name: row.productName, productCode: row.sku, status: row.status, productType: "physical" });
+    }
+    const products = [...unique.values()];
+    const resourceSource = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "inventory.catalog.resource.list");
+    const categoryNames = new Map<string, string>();
+    if (resourceSource) {
+      const categoryResponse = await callOperation(req, resourceSource, { path_kind: "categories" }, password, requestId);
+      for (const category of rawRecords(categoryResponse)) {
+        if (category.code && category.name) categoryNames.set(String(category.code), String(category.name));
+      }
+    }
+    const categories = new Map<string, number>();
+    for (const product of products) {
+      const categoryCode = String(product.categoryCode || "");
+      const categoryName = categoryNames.get(categoryCode) || "Chưa phân nhóm";
+      categories.set(categoryName, (categories.get(categoryName) || 0) + 1);
+    }
+    const categoryRows = [...categories].map(([categoryCode, productCount]) => ({ categoryCode, productCount }))
+      .sort((a, b) => b.productCount - a.productCount || a.categoryCode.localeCompare(b.categoryCode, "vi"));
+    if (reportType === "product-count") return { success: true, data: { reportType, summary: { productCount: products.length }, products: [], categories: [] } };
+    if (reportType === "category-count") return { success: true, data: { reportType, summary: { productCount: products.length }, categories: categoryRows, products: [] } };
+    if (reportType === "category-list") return { success: true, data: { reportType, summary: { productCount: products.length }, categories: [], products: products.slice(0, 100).map(product => ({ name: product.name, productCode: product.productCode, categoryCode: categoryNames.get(String(product.categoryCode || "")) || "Chưa phân nhóm", productType: product.productType, status: product.status })) } };
+    throw new AssistantError("Chưa xác định được dạng thống kê danh mục.");
+  }
+  if (op.id === "inventory.price.analysis") {
+    const reportType = String(input.reportType || "");
+    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.method === "GET" && candidate.path === "/inventory/catalog/prices");
+    if (!source) throw new AssistantError("Thiếu danh sách giá bán theo SKU.", 503);
+    const response = await callOperation(req, source, { ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }) }, password, requestId);
+    const prices = rawRecords(response).filter(row => typeof row.sku === "string");
+    const search = String(input.search ?? input.q ?? "").trim();
+    const searchTerms = search.split(/\s*\|\s*/).map(normalize).filter(Boolean);
+    const resourceSource = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "inventory.catalog.resource.list");
+    const categories = resourceSource && searchTerms.length
+      ? rawRecords(await callOperation(req, resourceSource, { path_kind: "categories" }, password, requestId))
+      : [];
+    const categoryCodes = new Set(searchTerms.flatMap(term => {
+      const categoryTerm = term === "phone" ? "dien thoai" : term === "case" ? "tam op nhua" : term;
+      return categories.filter(row => normalize(String(row.name || "")).includes(categoryTerm)
+        || normalize(String(row.code || "")) === term).map(row => normalize(String(row.code || "")));
+    }));
+    const exactPriceMatches = new Map(searchTerms.map(term => [term, prices.filter(row => normalize(String(row.productName || "")) === term || normalize(String(row.sku || "")) === term)] as const));
+    const matched = searchTerms.length ? prices.filter(row => {
+      const productName = normalize(String(row.productName || ""));
+      const searchable = normalize(`${row.productName || ""} ${row.categoryCode || ""} ${row.variantName || ""} ${row.sku || ""}`);
+      const sku = normalize(String(row.sku || ""));
+      if (categoryCodes.has(normalize(String(row.categoryCode || "")))) return true;
+      if (categoryCodes.size && searchTerms.every(term => !exactPriceMatches.get(term)?.length
+        && !normalize(`${row.productName || ""} ${row.variantName || ""} ${row.sku || ""}`).includes(term))) return false;
+      return searchTerms.some(term => exactPriceMatches.get(term)?.length
+        ? productName === term || sku === term
+        : searchable.includes(term));
+    }) : prices;
+    let products = matched.map(row => ({ productName: row.productName, categoryCode: row.categoryCode, variantName: row.variantName, sku: row.sku, sellingPrice: Number(row.sellingPrice) || 0, costPrice: Number(row.costPrice) || 0, status: row.status }));
+    if (input.includeAvailability === true || input.includeAvailability === "true") {
+      const balanceOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "inventory.warehouse.balances.list");
+      if (!balanceOperation) throw new AssistantError("Thiếu nguồn tra cứu tồn kho.", 503);
+      const balanceResponse = await callOperation(req, balanceOperation, {
+        ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
+        query_includeCatalogZeroBalances: "true",
+      }, password, requestId);
+      const availabilityBySku = new Map(rawRecords(balanceResponse).map(row => [normalize(String(row.sku || "")), Number(row.availableQuantity) || 0] as const));
+      products = products.map(row => ({ ...row, availableQuantity: availabilityBySku.get(normalize(String(row.sku || ""))) || 0 }));
+    }
+    if (reportType === "zero-price") products = products.filter(row => row.sellingPrice === 0);
+    else if (reportType === "highest-price") {
+      products.sort((a, b) => b.sellingPrice - a.sellingPrice);
+      const highest = products[0]?.sellingPrice;
+      products = highest === undefined ? [] : products.filter(row => row.sellingPrice === highest);
+    } else if (reportType !== "product-prices") throw new AssistantError("Chưa xác định được dạng tra cứu giá.");
+    return { success: true, data: { reportType, products: products.slice(0, 100), finding: products.length ? undefined : "Không có SKU phù hợp trong danh sách giá của chi nhánh." } };
+  }
+  if (op.id === "inventory.stock.analysis") {
+    const source = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "inventory.warehouse.balances.list");
+    if (!source) throw new AssistantError("Thiếu nguồn tra cứu tồn kho.", 503);
+    const reportType = String(input.reportType || "");
+    const targetBranch = input.targetBranch;
+    const balanceResponse = await callOperation(req, source, {
+      ...(targetBranch === undefined ? {} : { targetBranch }),
+      ...(input.warehouseId === undefined ? {} : { query_warehouseId: input.warehouseId }),
+      ...((input.search ?? input.q) === undefined ? {} : { query_q: input.search ?? input.q }),
+      query_includeCatalogZeroBalances: "true",
+    }, password, requestId);
+    const balanceRows = rawRecords(balanceResponse).filter(row => typeof row.productName === "string");
+    const byProduct = new Map<string, Record<string, any>>();
+    for (const row of balanceRows) {
+      const name = String(row.productName || "").trim();
+      const key = String(row.productId || "").trim() || normalize(name);
+      const current = byProduct.get(key) || { productName: name, sku: [], warehouseName: [], quantity: 0, reservedQuantity: 0, availableQuantity: 0, inventoryValue: 0, minimum: 0, productId: String(row.productId || ""), hasBalanceRecord: false };
+      const quantity = Number(row.quantity) || 0;
+      const averageCost = Number(row.averageCost) || 0;
+      current.quantity += quantity;
+      current.reservedQuantity += Number(row.reservedQuantity) || 0;
+      current.availableQuantity += Number(row.availableQuantity) || 0;
+      current.inventoryValue += quantity * averageCost;
+      current.minimum += Number(row.minStock) || 0;
+      current.hasBalanceRecord ||= row.hasBalanceRecord === true;
+      if (row.sku && !current.sku.includes(String(row.sku))) current.sku.push(String(row.sku));
+      if (row.warehouseName && !current.warehouseName.includes(String(row.warehouseName))) current.warehouseName.push(String(row.warehouseName));
+      if (quantity > 0) current.averageCost = current.inventoryValue / current.quantity;
+      byProduct.set(key, current);
+    }
+    const products: Array<Record<string, any>> = [...byProduct.values()].map(row => ({
+      productName: row.productName,
+      sku: row.sku.join(", "),
+      warehouseName: row.warehouseName.join(", "),
+      quantity: row.quantity,
+      reservedQuantity: row.reservedQuantity,
+      availableQuantity: row.availableQuantity,
+      minStock: row.minimum,
+      averageCost: row.quantity > 0 ? Math.round(row.inventoryValue / row.quantity) : 0,
+      inventoryValue: row.inventoryValue,
+      productId: row.productId,
+      hasBalanceRecord: row.hasBalanceRecord,
+    }));
+    const search = String(input.search ?? input.q ?? "").trim();
+    const searchTerms = search.split(/\s*\|\s*/).map(normalize).filter(Boolean);
+    let filtered = searchTerms.length ? products.filter(row => {
+      const name = normalize(String(row.productName || ""));
+      const skus = String(row.sku || "").split(/\s*,\s*/).map(normalize);
+      return searchTerms.some(term => name === term || skus.includes(term));
+    }) : products;
+    if (searchTerms.length && !filtered.length) {
+      filtered = products.filter(row => searchTerms.some(term => normalize(String(row.productName || "")).includes(term)));
+    }
+    const from = String(input.from || "");
+    const to = String(input.to || "");
+    if (reportType === "count-variance") {
+      const physicalCount = Number(input.physicalCount);
+      if (!search || !Number.isFinite(physicalCount) || physicalCount < 0) throw new AssistantError("Cần nêu dòng sản phẩm và số lượng kiểm đếm thực tế để đối chiếu.");
+      if (!filtered.length) return { success: true, data: { reportType, range: { from, to }, summary: {}, products: [], finding: "Không tìm thấy đúng dòng sản phẩm trong sổ tồn nên chưa thể tính chênh lệch." } };
+      if (filtered.length > 1) return { success: true, data: { reportType, range: { from, to }, summary: {}, products: [], finding: "Tên sản phẩm khớp với nhiều dòng hàng; cần chọn đúng phiên bản hoặc SKU trước khi tính chênh lệch." } };
+      const bookQuantity = filtered.reduce((sum, row) => sum + row.quantity, 0);
+      const variance = physicalCount - bookQuantity;
+      const summary = { productCount: filtered.length, stockQuantity: bookQuantity, availableQuantity: filtered.reduce((sum, row) => sum + row.availableQuantity, 0), inventoryValue: filtered.reduce((sum, row) => sum + row.inventoryValue, 0), physicalCount, variance, varianceStatus: variance === 0 ? "Khớp sổ sách" : variance > 0 ? "Thực tế nhiều hơn sổ sách" : "Thực tế ít hơn sổ sách" };
+      const products = filtered.map(row => ({ ...row, physicalCount, variance }));
+      return { success: true, data: { reportType, range: { from, to }, summary, products: products.slice(0, 100) } };
+    }
+    const needsSales = ["no-sales-with-stock", "days-cover", "slow-moving", "forecast-30d", "reorder-status", "reorder-within-14", "stability-assessment"].includes(reportType);
+    let salesRange = { from, to };
+    if (needsSales) {
+      const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+      const toDay = to || today;
+      const startDay = new Date(`${toDay}T00:00:00Z`);
+      if (!from) startDay.setUTCDate(startDay.getUTCDate() - 29);
+      const fromDay = from || startDay.toISOString().slice(0, 10);
+      const salesOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.report.summary");
+      if (!salesOperation) throw new AssistantError("Thiếu báo cáo bán hàng để tính tốc độ bán.", 503);
+      const salesResponse = await callOperation(req, salesOperation, {
+        ...(targetBranch === undefined ? {} : { targetBranch }),
+        query_from: fromDay,
+        query_to: toDay,
+      }, password, requestId);
+      const salesData = salesResponse?.data && typeof salesResponse.data === "object" ? salesResponse.data : {};
+      const salesRows = Array.isArray(salesData.products) ? salesData.products : [];
+      const salesByName = new Map<string, number>();
+      for (const row of salesRows) {
+        const key = normalize(String(row.productName || ""));
+        if (!key) continue;
+        salesByName.set(key, (salesByName.get(key) || 0) + Math.max(0, Number(row.netQuantity) || 0));
+      }
+      const days = Math.max(1, Math.floor((Date.parse(`${toDay}T00:00:00Z`) - Date.parse(`${fromDay}T00:00:00Z`)) / 86_400_000) + 1);
+      salesRange = { from: fromDay, to: toDay };
+      for (const row of filtered) {
+        row.soldQuantity = salesByName.get(normalize(row.productName)) || 0;
+        row.averageDailySales = row.soldQuantity / days;
+        row.estimatedDaysRemaining = row.averageDailySales > 0 ? Math.floor(row.availableQuantity / row.averageDailySales) : null;
+        row.forecastSales30d = row.averageDailySales * 30;
+        row.projectedRemainingQuantity = row.availableQuantity - row.forecastSales30d;
+        row.reorderStatus = row.minStock > 0 && row.quantity <= row.minStock
+          ? "Dưới ngưỡng tồn tối thiểu"
+          : row.averageDailySales > 0 && row.estimatedDaysRemaining <= 30
+            ? "Có thể cần bổ sung trong 30 ngày"
+            : row.minStock > 0 || row.averageDailySales > 0 ? "Chưa cần bổ sung theo ngưỡng hiện có" : "Chưa đủ dữ liệu để khuyến nghị";
+      }
+    }
+    let ranked = filtered;
+    if (reportType === "no-available-stock") ranked = filtered.filter(row => !row.hasBalanceRecord || row.availableQuantity <= 0);
+    else if (reportType === "capital-ranking") ranked = [...filtered].sort((a, b) => b.inventoryValue - a.inventoryValue);
+    else if (reportType === "stock-summary" || reportType === "product-summary" || reportType === "stability-assessment") ranked = [...filtered];
+    else if (reportType === "product-capital") ranked = [...filtered];
+    else if (reportType === "capital-over-threshold") {
+      const threshold = Number(input.thresholdAmount);
+      if (!Number.isFinite(threshold) || threshold <= 0) throw new AssistantError("Cần nêu ngưỡng tiền vốn tồn để lọc đúng mặt hàng.");
+      ranked = filtered.filter(row => row.inventoryValue >= threshold).sort((a, b) => b.inventoryValue - a.inventoryValue);
+    } else if (reportType === "highest-stock") ranked = [...filtered].sort((a, b) => b.availableQuantity - a.availableQuantity);
+    else if (reportType === "lowest-stock") ranked = [...filtered].filter(row => row.quantity > 0).sort((a, b) => a.quantity - b.quantity);
+    else if (reportType === "below-minimum") ranked = filtered.filter(row => row.minStock > 0 && row.quantity <= row.minStock).sort((a, b) => a.quantity - b.quantity);
+    else if (reportType === "no-sales-with-stock") ranked = filtered.filter(row => row.quantity > 0 && row.soldQuantity === 0).sort((a, b) => b.quantity - a.quantity);
+    else if (reportType === "days-cover") ranked = filtered.filter(row => row.averageDailySales > 0).sort((a, b) => a.estimatedDaysRemaining - b.estimatedDaysRemaining);
+    else if (reportType === "slow-moving") ranked = filtered.filter(row => row.quantity > 0).sort((a, b) => (b.estimatedDaysRemaining ?? Number.POSITIVE_INFINITY) - (a.estimatedDaysRemaining ?? Number.POSITIVE_INFINITY));
+    else if (reportType === "forecast-30d") ranked = [...filtered].sort((a, b) => b.forecastSales30d - a.forecastSales30d);
+    else if (reportType === "reorder-status") ranked = filtered.sort((a, b) => a.estimatedDaysRemaining - b.estimatedDaysRemaining);
+    else if (reportType === "reorder-within-14") ranked = filtered.filter(row => row.minStock > 0 && row.quantity <= row.minStock || row.estimatedDaysRemaining !== null && row.estimatedDaysRemaining <= 14).sort((a, b) => (a.estimatedDaysRemaining ?? 0) - (b.estimatedDaysRemaining ?? 0));
+    else throw new AssistantError("Chưa xác định được dạng phân tích tồn kho.");
+    const firstValue = reportType === "capital-ranking" ? ranked[0]?.inventoryValue
+      : reportType === "highest-stock" ? ranked[0]?.availableQuantity
+        : reportType === "lowest-stock" ? ranked[0]?.quantity : undefined;
+    if (["capital-ranking", "highest-stock", "lowest-stock"].includes(reportType) && firstValue !== undefined) {
+      const field = reportType === "capital-ranking" ? "inventoryValue" : reportType === "highest-stock" ? "availableQuantity" : "quantity";
+      ranked = ranked.filter(row => row[field] === firstValue);
+    }
+    const summary = {
+      productCount: filtered.length,
+      stockQuantity: filtered.reduce((sum, row) => sum + row.quantity, 0),
+      availableQuantity: filtered.reduce((sum, row) => sum + row.availableQuantity, 0),
+      inventoryValue: filtered.reduce((sum, row) => sum + row.inventoryValue, 0),
+      ...(needsSales ? { forecastSales30d: filtered.reduce((sum, row) => sum + row.forecastSales30d, 0) } : {}),
+    };
+    const finding = reportType === "no-available-stock" && !ranked.length ? "Không có sản phẩm nào thiếu số liệu tồn hoặc đang hết số lượng khả dụng ở chi nhánh này."
+      : reportType === "stability-assessment"
+      ? "Chưa có lịch sử tồn kho theo ngày để kết luận mặt hàng nào duy trì mức tồn ổn định. Bảng dưới đây thể hiện tồn hiện tại; có thể đối chiếu số tồn với ngưỡng tối thiểu và tốc độ bán."
+      : reportType === "no-sales-with-stock" && !ranked.length ? "Không có dòng máy nào vừa còn tồn vừa không ghi nhận bán ròng trong kỳ." : undefined;
+    return { success: true, data: { reportType, range: needsSales ? salesRange : { from, to }, summary, products: ranked.slice(0, 100), ...(finding ? { finding } : {}) } };
+  }
+  if (op.id === "inventory.receipt.analysis") {
+    const reportType = String(input.reportType || "");
+    const rows = await collectPages("inventory.receipt.list", {
+      ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
+      ...(input.from === undefined ? {} : { query_from: input.from }),
+      ...(input.to === undefined ? {} : { query_to: input.to }),
+      ...((input.search ?? input.q) === undefined ? {} : { query_q: input.search ?? input.q }),
+    }, 100);
+    const confirmed = rows.filter(row => row.status === "confirmed");
+    const pending = rows.filter(row => ["draft", "pending", "receiving"].includes(String(row.status || "")));
+    const receiptSummary = (row: any) => ({ receiptCode: row.receiptCode, supplierName: row.supplierName, status: row.status, subtotal: row.subtotal, createdAt: row.createdAt, receivedAt: row.receivedAt,
+      productsSummary: Array.isArray(row.items) ? row.items.map((item: any) => `${Number(item.quantity) || 0} × ${item.productName || item.sku || "mặt hàng"}`).join("; ") : "" });
+    const bySupplier = new Map<string, { supplierName: string; receiptCount: number; totalAmount: number }>();
+    for (const row of confirmed) {
+      const supplierName = String(row.supplierName || "Nhà cung cấp chưa ghi tên");
+      const key = normalize(supplierName);
+      const value = bySupplier.get(key) || { supplierName, receiptCount: 0, totalAmount: 0 };
+      value.receiptCount += 1;
+      value.totalAmount += Number(row.subtotal) || 0;
+      bySupplier.set(key, value);
+    }
+    const suppliers = [...bySupplier.values()].sort((a, b) => b.totalAmount - a.totalAmount || a.supplierName.localeCompare(b.supplierName, "vi"));
+    let receipts: any[] = [];
+    if (reportType === "period-summary") receipts = confirmed.map(receiptSummary);
+    else if (reportType === "supplier-spend") receipts = suppliers as any[];
+    else if (reportType === "paid-total") receipts = confirmed.map(receiptSummary);
+    else if (reportType === "top-supplier") receipts = suppliers.length ? [suppliers[0]] : [];
+    else if (reportType === "largest-receipt") receipts = confirmed.length ? [receiptSummary([...confirmed].sort((a, b) => Number(b.subtotal || 0) - Number(a.subtotal || 0))[0])] : [];
+    else if (reportType === "latest-receipt") receipts = confirmed.length ? [receiptSummary([...confirmed].sort((a, b) => String(b.receivedAt || b.createdAt || "").localeCompare(String(a.receivedAt || a.createdAt || "")))[0])] : [];
+    else if (reportType === "pending-receipts") receipts = pending.map(receiptSummary);
+    else throw new AssistantError("Chưa xác định được dạng thống kê phiếu nhập.");
+    const paidRecords = confirmed.filter(row => Number.isFinite(Number(row.financeTerms?.paidAmount)));
+    const summary = {
+      receiptCount: confirmed.length,
+      totalAmount: confirmed.reduce((sum, row) => sum + (Number(row.subtotal) || 0), 0),
+      paidAmount: paidRecords.reduce((sum, row) => sum + (Number(row.financeTerms?.paidAmount) || 0), 0),
+      paidRecordCount: paidRecords.length,
+      unrecordedPaymentCount: confirmed.length - paidRecords.length,
+    };
+    return { success: true, data: { reportType, range: { from: input.from || "", to: input.to || "" }, summary, receipts: ["supplier-spend", "top-supplier"].includes(reportType) ? [] : receipts, suppliers: ["supplier-spend", "top-supplier"].includes(reportType) ? receipts : [], finding: receipts.length || suppliers.length ? undefined : "Không có phiếu nhập phù hợp trong phạm vi đã chọn." } };
+  }
+  if (op.id === "inventory.stock-log.analysis") {
+    const reportType = String(input.reportType || "");
+    if (reportType === "monthly-comparison") {
+      const readPeriod = (from: AssistantValue | undefined, to: AssistantValue | undefined) => collectPages("inventory.stock-log.list", {
+        ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
+        ...(from === undefined ? {} : { createdFrom: from }),
+        ...(to === undefined ? {} : { createdTo: to }),
+      }, 1000);
+      const [current, previous] = await Promise.all([
+        readPeriod(input.createdFrom, input.createdTo),
+        readPeriod(input.previousFrom, input.previousTo),
+      ]);
+      const summarizePeriod = (rows: Record<string, any>[], period: string, from: unknown, to: unknown) => {
+        const outbound = rows.filter(row => row.type === "xuất");
+        return { period, from: String(from || ""), to: String(to || ""), documentCount: outbound.length, totalQuantity: outbound.reduce((sum, row) => sum + (Array.isArray(row.items) ? row.items.reduce((lineTotal: number, item: any) => lineTotal + (Number(item.quantity) || 0), 0) : Number(row.quantity) || 0), 0) };
+      };
+      return { success: true, data: { reportType, range: { from: input.createdFrom || "", to: input.createdTo || "" }, summary: [summarizePeriod(current, "Kỳ hiện tại", input.createdFrom, input.createdTo), summarizePeriod(previous, "Kỳ trước", input.previousFrom, input.previousTo)], transactions: [], operators: [] } };
+    }
+    const searchByOperator = ["operator-ranking", "operator-history"].includes(reportType);
+    const rows = await collectPages("inventory.stock-log.list", {
+      ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
+      ...(input.createdFrom === undefined ? {} : { createdFrom: input.createdFrom }),
+      ...(input.createdTo === undefined ? {} : { createdTo: input.createdTo }),
+    }, 1000);
+    const search = normalize(String(input.search ?? input.q ?? ""));
+    const eligibleRows = input.purpose ? rows.filter(row => normalize(String(row.purpose || "")) === normalize(String(input.purpose))) : rows;
+    const matchesProduct = (row: any) => searchByOperator || !search || normalize(`${row.productName || ""} ${row.sku || ""} ${Array.isArray(row.items) ? row.items.map((item: any) => `${item.productName || ""} ${item.sku || ""}`).join(" ") : ""}`).includes(search);
+    const records = eligibleRows.flatMap(row => {
+      const lines = Array.isArray(row.items) ? row.items : [];
+      const selected = lines.filter(matchesProduct);
+      if (search && lines.length && !selected.length && !matchesProduct(row)) return [];
+      const quantity = selected.length ? selected.reduce((sum: number, item: any) => sum + (Number(item.quantity) || 0), 0) : Number(row.quantity) || 0;
+      return [{ title: row.title, type: row.type, purpose: row.purpose, status: row.status, operatorName: row.operatorName, customerName: row.customerName, productName: selected.length ? [...new Set(selected.map((item: any) => String(item.productName || item.sku || "")))].join(", ") : row.productName, sku: selected.length ? [...new Set(selected.map((item: any) => String(item.sku || "")))].join(", ") : row.sku, quantity, createdAt: row.createdAt, notes: row.notes }];
+    });
+    let transactions = records;
+    let operators: Array<{ operatorName: string; documentCount: number; totalQuantity: number }> = [];
+    let summary: any[] = [];
+    if (reportType === "issue-counts") {
+      const issueRows = records.filter(row => row.type === "xuất");
+      summary = ["bán", "nội bộ"].map(purpose => ({ documentType: purpose === "bán" ? "Phiếu xuất bán hàng" : "Phiếu xuất dùng nội bộ", documentCount: issueRows.filter(row => row.purpose === purpose).length, totalQuantity: issueRows.filter(row => row.purpose === purpose).reduce((sum, row) => sum + row.quantity, 0) }));
+      transactions = [];
+    } else if (reportType === "outbound-total") {
+      const outbound = records.filter(row => row.type === "xuất");
+      summary = [{ documentType: "Tổng phiếu xuất kho", documentCount: outbound.length, totalQuantity: outbound.reduce((sum, row) => sum + row.quantity, 0) }];
+      transactions = outbound;
+    } else if (reportType === "product-outbound" || reportType === "recipient-history" || reportType === "daily-flow") {
+      transactions = reportType === "product-outbound" ? records.filter(row => row.type === "xuất")
+      : reportType === "recipient-history" ? records.filter(row => row.type === "xuất")
+          : records;
+      if (reportType === "daily-flow") summary = [{ documentType: "Phiếu nhập/xuất", documentCount: records.length, totalQuantity: records.reduce((sum, row) => sum + row.quantity, 0) }];
+    } else if (reportType === "pending-status") {
+      transactions = records.filter(row => /(?:dang cho|cho duyet|chua hoan thanh|dang xuat|xuat do|dang xu ly|pending|draft|processing)/u.test(normalize(String(row.status || ""))));
+    } else if (reportType === "operator-ranking" || reportType === "operator-history") {
+      const selectedOperators = records.filter(row => String(row.operatorName || "").trim() && (!search || normalize(String(row.operatorName || "")).includes(search)));
+      const byOperator = new Map<string, { operatorName: string; documentCount: number; totalQuantity: number }>();
+      for (const row of selectedOperators) {
+        const operatorName = String(row.operatorName).trim();
+        const key = normalize(operatorName);
+        const current = byOperator.get(key) || { operatorName, documentCount: 0, totalQuantity: 0 };
+        current.documentCount += 1;
+        current.totalQuantity += Number(row.quantity) || 0;
+        byOperator.set(key, current);
+      }
+      operators = [...byOperator.values()].sort((a, b) => b.documentCount - a.documentCount || a.operatorName.localeCompare(b.operatorName, "vi"));
+      if (reportType === "operator-ranking") {
+        const highest = operators[0]?.documentCount;
+        operators = highest === undefined ? [] : operators.filter(row => row.documentCount === highest);
+        transactions = [];
+      } else transactions = selectedOperators;
+    } else if (reportType === "flow-reconciliation") {
+      const outbound = records.filter(row => row.type === "xuất");
+      const receiptRows = await collectPages("inventory.receipt.list", { ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }), query_status: "confirmed", ...(input.createdFrom === undefined ? {} : { query_from: input.createdFrom }), ...(input.createdTo === undefined ? {} : { query_to: input.createdTo }) }, 100);
+      const inboundQuantity = receiptRows.reduce((total, receipt) => total + (Array.isArray(receipt.items) ? receipt.items.reduce((sum: number, item: any) => sum + (Number(item.quantity) || 0), 0) : 0), 0);
+      let sold = 0;
+      if (input.createdFrom || input.createdTo) {
+        const retailReport = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "retail.report.summary");
+        const retailResponse = retailReport ? await callOperation(req, retailReport, { ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }), ...(input.createdFrom === undefined ? {} : { query_from: input.createdFrom }), ...(input.createdTo === undefined ? {} : { query_to: input.createdTo }) }, password, requestId) : null;
+        sold = Array.isArray(retailResponse?.data?.products) ? retailResponse.data.products.reduce((sum: number, item: any) => sum + Math.max(0, Number(item.netQuantity) || 0), 0) : 0;
+      } else {
+        const orderRows = await collectPages("retail.order.list", { ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }) }, 100);
+        sold = orderRows.filter(row => ["confirmed", "completed"].includes(String(row.status || "")))
+          .reduce((sum, row) => sum + (Array.isArray(row.items) ? row.items.reduce((lineTotal: number, item: any) => lineTotal + Math.max(0, Number(item.quantity) || 0), 0) : 0), 0);
+      }
+      summary = [{ documentType: "Tổng biến động trong kỳ", documentCount: records.length, inboundQuantity, posQuantity: sold, internalQuantity: outbound.filter(row => row.purpose === "nội bộ").reduce((sum, row) => sum + row.quantity, 0), totalQuantity: outbound.reduce((sum, row) => sum + row.quantity, 0) }];
+      transactions = [];
+    } else throw new AssistantError("Chưa xác định được dạng thống kê giao dịch kho.");
+    const finding = reportType.startsWith("operator") && !operators.length && !transactions.some(row => row.operatorName)
+      ? "Phiếu kho trong phạm vi hiện tại không có tên người lập để xếp hạng." : undefined;
+    return { success: true, data: { reportType, range: { from: input.createdFrom || "", to: input.createdTo || "" }, summary, transactions: transactions.slice(0, 100), operators, ...(finding ? { finding } : {}) } };
+  }
+  if (op.id === "inventory.transfer.analysis") {
+    const reportType = String(input.reportType || "");
+    const rows = await collectPages("inventory.transfer.list", {
+      ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
+      ...(input.status === undefined ? {} : { query_status: input.status }),
+      ...(input.from === undefined ? {} : { query_from: input.from }),
+      ...(input.to === undefined ? {} : { query_to: input.to }),
+    }, 500);
+    const fromWarehouse = normalize(String(input.fromWarehouseName || ""));
+    const toWarehouse = normalize(String(input.toWarehouseName || ""));
+    const product = normalize(String(input.search || ""));
+    const filtered = rows.filter(row => (!fromWarehouse || normalize(String(row.fromWarehouseName || "")).includes(fromWarehouse))
+      && (!toWarehouse || normalize(String(row.toWarehouseName || "")).includes(toWarehouse))
+      && (!product || normalize(Array.isArray(row.items) ? row.items.map((item: any) => `${item.productName || ""} ${item.sku || ""}`).join(" ") : "").includes(product)));
+    const ordered = [...filtered].sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+    const summary = {
+      transferCount: filtered.length,
+      inTransitCount: filtered.filter(row => row.status === "in_transit").length,
+      receivedCount: filtered.filter(row => row.status === "received").length,
+      cancelledCount: filtered.filter(row => row.status === "cancelled").length,
+    };
+    const selected = reportType === "latest-to-warehouse" ? ordered.slice(0, 1) : reportType === "period-summary" ? [] : ordered;
+    const transfers = selected.slice(0, 100).map(row => ({
+      transferCode: row.transferCode || row.code,
+      status: row.status,
+      reason: row.reason,
+      fromWarehouseName: row.fromWarehouseName,
+      toWarehouseName: row.toWarehouseName,
+      createdAt: row.createdAt,
+      items: Array.isArray(row.items) ? row.items.map((item: any) => ({ productName: item.productName, sku: item.sku, quantity: item.quantity })) : [],
+    }));
+    return { success: true, data: { reportType, range: { from: input.from || "", to: input.to || "" }, summary, transfers, finding: rows.length ? undefined : "Không có phiếu điều chuyển phù hợp trong phạm vi đã chọn." } };
+  }
+  if (op.id === "inventory.serial.analysis") {
+    const reportType = String(input.reportType || "");
+    const all = await collectPages("inventory.serial.list", {
+      ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
+      ...(input.warehouseId === undefined ? {} : { query_warehouseId: input.warehouseId }),
+      ...(["identifier-detail", "identifier-history"].includes(reportType) && input.search !== undefined ? { query_serial: input.search } : {}),
+      query_trackingMode: "serial",
+    }, 100);
+    if (["identifier-detail", "identifier-history"].includes(reportType)) {
+      const identifier = normalize(String(input.search || ""));
+      const serial = all.find(row => normalize(String(row.serialNumber || "")) === identifier || normalize(String(row.internalBarcode || "")) === identifier);
+      if (!serial) return { success: true, data: { reportType, serialNumber: String(input.search || ""), finding: `Không tìm thấy IMEI/serial ${String(input.search || "")} trong phạm vi chi nhánh hiện tại.` } };
+      const summary = { serialNumber: serial.serialNumber, productName: serial.productName, sku: serial.sku, status: serial.status, warehouseName: serial.warehouseName, soldAt: serial.soldAt };
+      if (reportType === "identifier-detail") return { success: true, data: { reportType, ...summary } };
+      const historyOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "inventory.serial.history");
+      if (!historyOperation) throw new AssistantError("Thiếu nguồn tra cứu lịch sử IMEI/serial.", 503);
+      const historyResponse = await callOperation(req, historyOperation, {
+        path_id: String(serial._id || serial.id || ""),
+        ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
+      }, password, requestId);
+      const events = rawRecords(historyResponse).map(event => ({ eventType: event.eventType, fromStatus: event.fromStatus, toStatus: event.toStatus, reason: event.reason, occurredAt: event.occurredAt, actorName: event.actorName }));
+      return { success: true, data: { reportType, ...summary, events, finding: events.length ? undefined : "Đã tìm thấy máy nhưng hệ thống chưa ghi nhận sự kiện lịch sử." } };
+    }
+    const search = normalize(String(input.search || ""));
+    const selected = search ? all.filter(row => normalize(`${row.productName || ""} ${row.sku || ""}`).includes(search)) : all;
+    const statusFields: Record<string, string> = { in_stock: "inStock", sold: "sold", repairing: "repairing", defective: "defective", in_transit: "inTransit", internal_use: "internalUse", returned: "returned", scrapped: "scrapped", lost: "lost" };
+    const summarize = (rows: Record<string, any>[]) => {
+      const summary: Record<string, number> = { total: rows.length, inStock: 0, sold: 0, repairing: 0, defective: 0, inTransit: 0, internalUse: 0, returned: 0, scrapped: 0, lost: 0 };
+      for (const row of rows) { const key = statusFields[String(row.status || "")]; if (key) summary[key] += 1; }
+      return summary;
+    };
+    if (reportType === "product-stock-and-serial") {
+      const balanceOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "inventory.warehouse.balances.list");
+      if (!balanceOperation) throw new AssistantError("Thiếu nguồn tra cứu tồn kho.", 503);
+      const balanceResponse = await callOperation(req, balanceOperation, {
+        ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
+        ...(input.warehouseId === undefined ? {} : { query_warehouseId: input.warehouseId }),
+        ...(input.search === undefined ? {} : { query_q: input.search }),
+        query_includeCatalogZeroBalances: "true",
+      }, password, requestId);
+      const productName = selected[0]?.productName || rawRecords(balanceResponse)[0]?.productName || String(input.search || "");
+      const nameKey = normalize(String(productName));
+      const availableQuantity = rawRecords(balanceResponse).filter(row => normalize(String(row.productName || "")) === nameKey)
+        .reduce((sum, row) => sum + (Number(row.availableQuantity) || 0), 0);
+      const serialSummary = summarize(selected);
+      return { success: true, data: { reportType, productName, summary: { ...serialSummary, skuAvailableQuantity: availableQuantity }, products: [{ productName, skuAvailableQuantity: availableQuantity, total: serialSummary.total, inStock: serialSummary.inStock, repairing: serialSummary.repairing, defective: serialSummary.defective }], devices: [] } };
+    }
+    const byProduct = new Map<string, Record<string, any>[]>();
+    for (const row of selected) {
+      const name = String(row.productName || "").trim();
+      if (!name) continue;
+      const key = normalize(name);
+      byProduct.set(key, [...(byProduct.get(key) || []), row]);
+    }
+    const products = ([...byProduct.values()].map(rows => ({ productName: String(rows[0]?.productName || ""), ...summarize(rows) })) as Array<Record<string, any>>).sort((a, b) => b.total - a.total || a.productName.localeCompare(b.productName, "vi"));
+    if (reportType === "reconciliation") {
+      const balanceOperation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === "inventory.warehouse.balances.list");
+      if (!balanceOperation) throw new AssistantError("Thiếu dữ liệu tồn kho để đối chiếu số IMEI.", 503);
+      const balanceResponse = await callOperation(req, balanceOperation, {
+        ...(input.targetBranch === undefined ? {} : { targetBranch: input.targetBranch }),
+        ...(input.warehouseId === undefined ? {} : { query_warehouseId: input.warehouseId }),
+        ...(input.search === undefined ? {} : { query_q: input.search }),
+        query_includeCatalogZeroBalances: "true",
+      }, password, requestId);
+      const quantities = new Map<string, { productName: string; quantity: number }>();
+      for (const row of rawRecords(balanceResponse)) {
+        const sku = String(row.sku || "").trim();
+        if (!sku) continue;
+        const current = quantities.get(sku) || { productName: String(row.productName || ""), quantity: 0 };
+        current.quantity += Number(row.quantity) || 0;
+        quantities.set(sku, current);
+      }
+      const serialCounts = new Map<string, { productName: string; total: number; inStock: number; repairing: number; defective: number }>();
+      for (const row of selected) {
+        const sku = String(row.sku || "").trim();
+        if (!sku) continue;
+        const current = serialCounts.get(sku) || { productName: String(row.productName || ""), total: 0, inStock: 0, repairing: 0, defective: 0 };
+        current.total += 1;
+        if (row.status === "in_stock") current.inStock += 1;
+        if (row.status === "repairing") current.repairing += 1;
+        if (row.status === "defective") current.defective += 1;
+        serialCounts.set(sku, current);
+      }
+      const skuSet = new Set([...quantities.keys(), ...serialCounts.keys()]);
+      const reconciled = [...skuSet].map(sku => {
+        const quantity = quantities.get(sku);
+        const serial = serialCounts.get(sku);
+        const physicalQuantity = quantity?.quantity || 0;
+        const inStock = serial?.inStock || 0;
+        return { productName: quantity?.productName || serial?.productName || "", sku, total: serial?.total || 0, inStock, repairing: serial?.repairing || 0, defective: serial?.defective || 0, physicalQuantity, variance: inStock - physicalQuantity, matches: inStock === physicalQuantity };
+      }).sort((a, b) => Math.abs(b.variance) - Math.abs(a.variance) || a.productName.localeCompare(b.productName, "vi") || a.sku.localeCompare(b.sku, "vi"));
+      const variance = reconciled.reduce((sum, row) => sum + row.variance, 0);
+      const matchedSkuCount = reconciled.filter(row => row.matches).length;
+      const mismatchedSkuCount = reconciled.length - matchedSkuCount;
+      return { success: true, data: { reportType, summary: { total: selected.length, inStock: selected.filter(row => row.status === "in_stock").length, repairing: selected.filter(row => row.status === "repairing").length, defective: selected.filter(row => row.status === "defective").length, physicalQuantity: reconciled.reduce((sum, row) => sum + row.physicalQuantity, 0), variance, matches: matchedSkuCount, mismatches: mismatchedSkuCount }, products: reconciled } };
+    }
+    const devices = reportType === "repair-list" ? selected.filter(row => ["repairing", "defective"].includes(String(row.status || "")))
+      : reportType === "available-list" ? selected.filter(row => row.status === "in_stock") : [];
+    const deviceRows = devices.map(row => ({ productName: row.productName, serialNumber: row.serialNumber, sku: row.sku, status: row.status, createdAt: row.createdAt, warehouseName: row.warehouseName }));
+    return { success: true, data: { reportType, summary: summarize(selected), products: ["product-status-counts", "reconciliation"].includes(reportType) ? products : [], devices: deviceRows } };
+  }
   const branchFromInput = () => input.targetBranch ?? input.branchId;
   const dateInput = () => ({
     ...(branchFromInput() === undefined ? {} : { targetBranch: branchFromInput() }),
@@ -1109,8 +1624,9 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
   const queryBranchField = op.fields.find(field => field.source === "query" && field.apiKey === "branchId");
   const branchField = branchScopedOperation ? queryBranchField : undefined;
   const requestedBranch = queryBranchField && input[queryBranchField.key] !== undefined ? String(input[queryBranchField.key]) : "";
-  let effectiveBranchId = req.user?.branchId || "";
+  let effectiveBranchId = req.user?.branchId || (op.module === "inventory" && typeof branchHeader === "string" ? branchHeader : "");
   if (branchScopedOperation) {
+    if (req.user?.role === "admin" && requestedBranch) effectiveBranchId = requestedBranch;
     if (requestedBranch && effectiveBranchId && requestedBranch !== effectiveBranchId) throw new AssistantError("Tài khoản này chỉ được thao tác trong chi nhánh đã được gán.");
     if (req.user?.role === "admin") effectiveBranchId = requestedBranch || effectiveBranchId;
     if (!effectiveBranchId && requiresBranchChoice(op)) {
@@ -3935,7 +4451,7 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
     const projected = projectApprovedReportRecord(responseData, op);
     return Object.keys(projected).length ? [projected] : [];
   }
-  if (["retail.report.summary", "retail.report.daily.summary", "retail.report.compare"].includes(op.id) || op.path === "/retail/finance/profit") {
+  if (["retail.report.summary", "retail.report.daily.summary", "retail.report.compare", "retail.report.cashier-ranking"].includes(op.id) || op.path === "/retail/finance/profit") {
     const projected = projectApprovedReportRecord(responseData, op);
     return Object.keys(projected).length ? [projected] : [];
   }
@@ -4293,11 +4809,15 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
     ? treasuryItems.filter((item: any) => !item.voucherId)
     : treasuryItems;
   const companyWideCategoryOperation = op.id.startsWith("category.") || op.id === "hr.workflow.list";
+  const branchHeader = req.headers?.["x-branch-id"] || req.headers?.["X-Branch-Id"];
+  const selectedBranchId = isBranchScopedAssistantOperation(op)
+    ? String(input.targetBranch || input.branchId || (op.module === "inventory" && typeof branchHeader === "string" ? branchHeader : req.user?.branchId || ""))
+    : String(req.user?.branchId || "");
   const partnerBankFilter = op.id === "partner.list" ? String(input.query_bankAccountFilter || "") : "";
   const partnerUnpaidOnly = op.id === "partner.list" && (input.query_unpaidOnly === true || input.query_unpaidOnly === "true");
   return items.filter((item: any) => (!item.companyCode || item.companyCode === req.user?.companyCode)
-    && (companyWideCategoryOperation || !req.user?.branchId || !item.branchId || String(item.branchId) === req.user.branchId
-      || (op.id === "inventory.serial.list" && item.status === "in_transit" && String(item.transferToBranchId || "") === req.user.branchId))
+    && (companyWideCategoryOperation || !selectedBranchId || !item.branchId || String(item.branchId) === selectedBranchId
+      || (op.id === "inventory.serial.list" && item.status === "in_transit" && String(item.transferToBranchId || "") === selectedBranchId))
     && (op.id !== "partner.list" || !partnerBankFilter
       || (partnerBankFilter === "has" ? Boolean(String(item.bankAccountNo || "").trim()) : !String(item.bankAccountNo || "").trim()))
     && (!partnerUnpaidOnly || Number(item.unpaidBalance) > 0)).map((item: any) => {
@@ -4750,6 +5270,7 @@ function referenceLabel(record: Record<string, any>) {
   return parts.join(" — ");
 }
 const referenceOptionDisambiguators = [
+  { label: "m\u00e3 SP", keys: ["productCode"] },
   { label: "ô giữ đơn", keys: ["__assistantHeldSlot"] },
   { label: "người tạo", keys: ["__assistantDraftCreatorName"] },
   { label: "mã", keys: ["code", "employeeCode", "customerCode", "sku", "assetCode", "barcode", "ticketCode", "shiftCode", "orderCode"] },
@@ -5376,7 +5897,9 @@ async function lookupReceiptProductCandidates(
     const id = String(row.id || row._id || "");
     if (id) unique.set(id, row);
   }
-  return [...unique.values()];
+  const candidates = [...unique.values()];
+  const exactNameMatches = candidates.filter(row => normalize(String(row.name || row.productName || "")) === normalize(search));
+  return exactNameMatches.length ? exactNameMatches : candidates;
 }
 
 async function lookupReceiptSkuCandidates(req: AuthenticatedRequest, productId: string) {
@@ -5393,7 +5916,6 @@ export async function suggestReferenceOptions(
   field: AssistantField,
   values: Record<string, AssistantValue>,
 ) {
-  if (op.id === "inventory.transfer.create") console.log("transfer reference debug", field.key, field.referenceParentKey, values);
   if (!field.reference) return [];
   if (field.referenceParentKey
     && (values[field.referenceParentKey] === undefined || values[field.referenceParentKey] === null || String(values[field.referenceParentKey]).trim() === "")) return [];
@@ -5480,17 +6002,16 @@ export async function suggestReferenceOptions(
   const payrollPeriodSearch = op.id === "payroll.run.reconciliation.publish" && field.key === "path_id"
     && /^\d{4}-(?:0[1-9]|1[0-2])$/.test(String(values.path_id || "")) ? String(values.path_id) : "";
   const referenceSearch = String(values[`__assistantReferenceSearch_${field.key}`] || payrollPeriodSearch).trim();
-  if (op.id === "inventory.transfer.create") console.log("transfer lookup context", field.key, parentValue, context, referenceSearch);
   const isReceiptProductSelector = ["inventory.receipt.create", "inventory.receipt.update"].includes(op.id)
     && field.reference === "product.list" && /^items\[\d+\]\.productId$/.test(field.key);
-  const isReceiptSkuSelector = ["inventory.receipt.create", "inventory.receipt.update"].includes(op.id)
-    && field.reference === "inventory.product.detail" && /^items\[\d+\]\.variantId$/.test(field.key);
-  let candidates = isReceiptSkuSelector && parentValue !== undefined
+  const isProductSkuSelector = field.reference === "inventory.product.detail"
+    && Boolean(field.referenceParentKey)
+    && /^items\[\d+\]\.(?:sku|variantId)$/.test(field.key);
+  let candidates = isProductSkuSelector && parentValue !== undefined
     ? await lookupReceiptSkuCandidates(req, String(parentValue))
     : isReceiptProductSelector
       ? await lookupReceiptProductCandidates(req, referenceSearch, context)
       : await lookupReferenceCandidates(req, op, field, referenceSearch, context);
-  if (op.id === "inventory.transfer.create") console.log("transfer reference candidates", field.key, parentValue, context, candidates.map(candidate => ({ id: candidate.id, branchId: candidate.branchId, name: candidate.name })));
   if (isBatchWorkflow && field.apiKey === "roadmapId") candidates = candidates.filter(candidate => candidate.status === "active");
   candidates = filterRelationshipCandidates(op, field, candidates, values);
   if (["inventory.receipt.create", "inventory.receipt.update"].includes(op.id)
@@ -5524,10 +6045,89 @@ function nestedReferenceLabel(shape: NonNullable<AssistantField["structure"]>, k
   return shape.label || ({ productId: "Sản phẩm", variantId: "SKU", unitCode: "Đơn vị tính", categoryCode: "Thể loại / thư mục", templateCode: "Mẫu sản phẩm", brandCode: "Thương hiệu" } as Record<string, string>)[key] || key;
 }
 
+async function validateInventoryUnitIdentifiers(
+  req: AuthenticatedRequest,
+  op: AssistantOperation,
+  items: any[],
+  values: Record<string, AssistantValue>,
+  errors: string[],
+) {
+  const stockLogIssue = op.id === "inventory.stock-log.internal.issue.create";
+  const transfer = op.id === "inventory.transfer.create";
+  if ((!stockLogIssue && !transfer) || !Array.isArray(items)) return;
+  const warehouseId = String(values[stockLogIssue ? "warehouseId" : "fromWarehouseId"] || "");
+  const sourceBranch = String(values.targetBranch || req.user?.branchId || "");
+  const serialOperation = operationById("inventory.serial.list");
+
+  for (const [index, item] of items.entries()) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const line = index + 1;
+    const productId = String(item.productId || "");
+    const variantId = String(stockLogIssue ? item.sku || "" : item.variantId || "");
+    if (!productId || !variantId) continue;
+    const variants = await lookupReceiptSkuCandidates(req, productId);
+    const matches = variants.filter(variant => String(variant.id || variant._id || "") === variantId
+      || stockLogIssue && String(variant.sku || "") === variantId);
+    if (matches.length !== 1) {
+      errors.push(`Mục ${line}: chưa xác định được chế độ theo dõi của SKU đã chọn; vui lòng chọn lại SKU.`);
+      continue;
+    }
+    const variant = matches[0];
+    const trackingMode = String(variant.trackingMode || "");
+    const identifiers = Array.isArray(item.unitIdentifiers) ? item.unitIdentifiers.map((value: unknown) => String(value).trim()) : [];
+    item.unitIdentifiers = identifiers;
+
+    if (transfer && trackingMode === "lot") {
+      errors.push(`Mục ${line}: SKU ${variant.sku || "đã chọn"} đang quản lý theo lô; phiếu điều chuyển này chưa hỗ trợ hàng theo lô.`);
+      continue;
+    }
+    if (!["serial", "unit_barcode"].includes(trackingMode)) {
+      if (identifiers.length) errors.push(`Mục ${line}: SKU ${variant.sku || "đã chọn"} không theo dõi từng máy nên không cần mã IMEI/serial.`);
+      item.unitIdentifiers = [];
+      continue;
+    }
+
+    const quantity = Number(item.quantity);
+    if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 500 || identifiers.length !== quantity || identifiers.some((identifier: string) => !identifier)) {
+      errors.push(`Mục ${line}: SKU ${variant.sku || "đã chọn"} cần đủ mã IMEI/serial cho ${Number.isFinite(quantity) ? quantity : "số lượng"} máy.`);
+      continue;
+    }
+    if (new Set(identifiers.map((identifier: string) => identifier.toLocaleUpperCase())).size !== identifiers.length) {
+      errors.push(`Mục ${line}: danh sách IMEI/serial có mã trùng nhau.`);
+      continue;
+    }
+    if (!warehouseId || !sourceBranch || !serialOperation) {
+      errors.push(`Mục ${line}: chưa xác định được kho gửi để kiểm tra tình trạng IMEI/serial.`);
+      continue;
+    }
+
+    for (const identifier of identifiers) {
+      const records = await lookupRecords(req, "inventory.serial.list", identifier, {
+        targetBranch: sourceBranch,
+        warehouseId,
+        query_sku: String(variant.sku || ""),
+        query_status: "in_stock",
+        query_limit: 100,
+      });
+      if (records.length !== 1 || String(records[0].status || "") !== "in_stock") {
+        errors.push(`Mục ${line}: mã ${identifier} không còn trong kho gửi với trạng thái sẵn sàng cho SKU ${variant.sku || "đã chọn"}. Hãy kiểm tra hoặc nhập mã khác.`);
+      }
+    }
+  }
+}
+
 export async function resolveReferences(req: AuthenticatedRequest, op: AssistantOperation, values: Record<string, AssistantValue>) {
   if (op.module === "quotation") return resolveQuotationReferences(req, op, values, lookupRecords, matchesReference);
   if (op.module === "healthcare") return resolveHealthcareReferences(req, op, values, lookupRecords, matchesReference);
   const resolved = { ...values };
+  const branchHeader = req.headers?.["x-branch-id"] || req.headers?.["X-Branch-Id"];
+  const inventoryBranchField = op.module === "inventory"
+    ? op.fields.find(field => field.source === "query" && ["branchId", "targetBranch"].includes(String(field.apiKey || "")))
+    : undefined;
+  const selectedInventoryBranch = req.user?.branchId || (typeof branchHeader === "string" ? branchHeader : "");
+  if (inventoryBranchField && resolved[inventoryBranchField.key] === undefined && selectedInventoryBranch) {
+    resolved[inventoryBranchField.key] = selectedInventoryBranch;
+  }
   const labels: Record<string, string> = {};
   const errors: string[] = [];
   const unresolvedReferenceKeys = new Set<string>();
@@ -5775,7 +6375,7 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
   }
   const branchScopedOperation = isBranchScopedAssistantOperation(op);
   if (branchScopedOperation) {
-    const branchField = op.fields.find(field => field.source === "query" && field.apiKey === "branchId");
+    const branchField = op.fields.find(field => field.source === "query" && ["branchId", "targetBranch"].includes(String(field.apiKey || field.key)));
     const selectedBranch = branchField ? String(resolved[branchField.key] || "") : "";
     if (!selectedBranch && req.user?.branchId && branchField) resolved[branchField.key] = req.user.branchId;
     else if (!selectedBranch && req.user?.role === "admin" && requiresBranchChoice(op) && isRetailAfterSaleOperation(op)) errors.push(op.method === "POST" ? "Chi nhánh bán lẻ: hãy nêu tên chi nhánh cần lập phiếu đổi trả hoặc thu mua." : "Chi nhánh bán lẻ: hãy nêu tên chi nhánh cần tra cứu chứng từ đổi trả hoặc thu mua.");
@@ -5968,6 +6568,7 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
       return node;
     };
     parsed = await resolveNode(parsed, display, field.structure, {}, field.key);
+    if (field.key === "items" && Array.isArray(parsed)) await validateInventoryUnitIdentifiers(req, op, parsed, resolved, errors);
     resolved[field.key] = JSON.stringify(parsed);
     if (!(op.id === "hr.workflow.update" && field.key === "steps")) labels[field.key] = JSON.stringify(display, null, 2);
     if (["payroll.period.inputs.bulk", "payroll.period.line-overrides.bulk"].includes(op.id) && field.apiKey === "rows" && Array.isArray(parsed) && Array.isArray(display)) {

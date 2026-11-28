@@ -5,8 +5,26 @@ import { getAllowedOwnerIds, resolveCreateOwnerId, requireStudentBranch } from "
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
 import { resourceIndexingService } from "../../../service/resource-indexing.service";
 import { BatchProgressSettingService } from "../services/batch-progress-setting.service";
+import { StudentService } from "../services/student.service";
 
 export class BatchController {
+  static async getSuspensionReport(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const from = String(req.query.from || "");
+      const to = String(req.query.to || "");
+      const rawMode = String(req.query.mode || "requests");
+      const isValidDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value)
+        && Number.isFinite(new Date(value + "T00:00:00.000Z").getTime())
+        && new Date(value + "T00:00:00.000Z").toISOString().slice(0, 10) === value;
+      if (!isValidDate(from) || !isValidDate(to) || from > to || !["requests", "upcoming"].includes(rawMode)) {
+        return res.status(400).json({ success: false, error: "Vui lòng cung cấp khoảng ngày hợp lệ." });
+      }
+      const ownerId = await getAllowedOwnerIds(req.user!);
+      const data = await StudentService.getSuspensionReport(ownerId, req.user!.branchId, from, to, rawMode as "requests" | "upcoming");
+      res.json({ success: true, data });
+    } catch (error) { next(error); }
+  }
+
   static async getProgressColors(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);

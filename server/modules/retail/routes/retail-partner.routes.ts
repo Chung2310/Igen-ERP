@@ -153,6 +153,12 @@ retailPartnerRoutes.get("/", read, route(async (req) => {
     if (!RETAIL_PARTNER_ROLES.includes(req.query.role)) throw bad("Vai trò không hợp lệ.");
     filter.roles = req.query.role;
   }
+  const supplierLink = String(req.query.supplierLink || "");
+  if (supplierLink && !["linked", "missing"].includes(supplierLink)) throw bad("Trạng thái liên kết nhà cung cấp không hợp lệ.");
+  if (supplierLink) {
+    filter.roles = "supplier";
+    filter.supplierId = supplierLink === "linked" ? { $exists: true, $ne: "" } : { $in: [null, ""] };
+  }
   const search = String(req.query.search || "").trim();
   if (search) {
     const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -163,7 +169,7 @@ retailPartnerRoutes.get("/", read, route(async (req) => {
   const supplierIds = partners.flatMap((partner) => partner.supplierId ? [partner.supplierId] : []);
   const suppliers = await SupplierModel.find({ companyCode: filter.companyCode, _id: { $in: supplierIds } }).select("name code status").lean();
   const byId = new Map(suppliers.map((supplier) => [String(supplier._id), supplier]));
-  return partners.map((partner) => ({ ...partner, supplier: partner.supplierId ? byId.get(partner.supplierId) || null : null }));
+  return partners.map((partner) => ({ ...partner, supplierLinked: Boolean(partner.supplierId), supplier: partner.supplierId ? byId.get(partner.supplierId) || null : null }));
 }));
 
 retailPartnerRoutes.post("/", manage, route(async (req) => {

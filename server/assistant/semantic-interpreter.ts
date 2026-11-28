@@ -157,10 +157,32 @@ function dayBoundsFromText(value: string) {
   return Number.isFinite(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === from ? { from, to: from } : undefined;
 }
 
+function relativeDayBoundsFromText(value: string) {
+  const today = vietnamToday();
+  if (/\b(?:hom qua|ngay hom qua)\b/.test(value)) {
+    const yesterday = shiftDate(today, -1);
+    return { from: yesterday, to: yesterday };
+  }
+  if (/\b(?:hom nay|ngay hom nay)\b/.test(value)) return { from: today, to: today };
+  return dayBoundsFromText(value);
+}
+
 function currentWeekBounds() {
   const today = vietnamToday();
   const weekday = new Date(`${today}T00:00:00.000Z`).getUTCDay();
   return { from: shiftDate(today, -((weekday + 6) % 7)), to: today };
+}
+
+function nextCalendarMonthBounds() {
+  const today = vietnamToday();
+  const parts = today.split("-").map(Number);
+  const first = new Date(Date.UTC(parts[0], parts[1], 1));
+  const year = first.getUTCFullYear();
+  const month = first.getUTCMonth() + 1;
+  return {
+    from: `${year}-${String(month).padStart(2, "0")}-01`,
+    to: `${year}-${String(month).padStart(2, "0")}-${String(new Date(Date.UTC(year, month, 0)).getUTCDate()).padStart(2, "0")}`,
+  };
 }
 
 function vietnamToday() {
@@ -211,10 +233,635 @@ function directReadInterpretation(query: AssistantCompositeQuery | undefined): A
   return { actionId: query.actionId, values: query.values, intentType: "workflow", actionIntent: "lookup" };
 }
 
+function explicitRetailCashierCancellationPlan(text: string, workflows: AssistantWorkflow[]): AssistantInterpretation | null {
+  const request = normalizedVietnameseText(text);
+  const month = monthBoundsFromText(request);
+  const cancellationDay = relativeDayBoundsFromText(request);
+  const asksTopCashier = Boolean(month)
+    && /\b(?:thu ngan|cashier)\b/.test(request)
+    && /\b(?:doanh so|doanh thu)\b/.test(request)
+    && /\b(?:tot nhat|cao nhat|dan dau|nhieu nhat)\b/.test(request);
+  const asksCancelledOrders = Boolean(cancellationDay)
+    && /\b(?:don|don hang|don ban)\b/.test(request)
+    && /\b(?:bi huy|huy)\b/.test(request)
+    && /\b(?:bao nhieu|may|dem|thong ke|ly do|vi sao)\b/.test(request);
+  if (!asksTopCashier || !asksCancelledOrders) return null;
+
+  const cashierQuery = readQueryFromApiValues(workflows, "retail.report.cashier-ranking",
+    "Tìm thu ngân có doanh số ròng cao nhất trong tháng được hỏi", month!, ["range", "cashiers"]);
+  const cancelledQuery = readQueryFromApiValues(workflows, "retail.order.cancelled.report",
+    "Đếm đơn bị hủy theo ngày hủy hôm qua và lấy lý do đã ghi nhận", {
+      cancelledFrom: cancellationDay!.from, cancelledTo: cancellationDay!.to, page: 1, limit: 100,
+    }, ["orderCode", "cancelledAt", "cancelReason", "cancelledByName"]);
+  return deterministicReadPlan(text, workflows, [cashierQuery, cancelledQuery], [
+    {
+      evidence: "thu ngân nào đang có doanh số tốt nhất tháng này",
+      requirement: "Xác định thu ngân có doanh số ròng cao nhất trong tháng được hỏi, gồm doanh số và số đơn",
+      mappedTo: [
+        "query:retail.report.cashier-ranking:values.from", "query:retail.report.cashier-ranking:values.to",
+        "query:retail.report.cashier-ranking:result.cashiers",
+      ],
+    },
+    {
+      evidence: "hôm qua có mấy đơn bị hủy và cho tôi biết lí do bị hủy",
+      requirement: "Đếm đơn theo ngày hủy hôm qua và liệt kê lý do hủy đã được lưu trên đơn",
+      mappedTo: [
+        "query:retail.order.cancelled.report:values.cancelledFrom", "query:retail.order.cancelled.report:values.cancelledTo",
+        "query:retail.order.cancelled.report:result.orderCode", "query:retail.order.cancelled.report:result.cancelReason",
+      ],
+    },
+  ]);
+}
+
+function explicitMarketingCampaignLookupPlan(text: string, workflows: AssistantWorkflow[]) {
+  const request = normalizedVietnameseText(text);
+  if (!/\bchien dich\b/.test(request)) return null;
+  const status = /\b(?:dang hoat dong|dang chay|dang trien khai|active|running)\b/.test(request) ? "active"
+    : /\b(?:tam dung|dang tam dung|paused)\b/.test(request) ? "paused"
+      : /\b(?:da hoan tat|ket thuc|completed)\b/.test(request) ? "completed"
+        : undefined;
+  return directReadInterpretation(readQueryFromApiValues(workflows, "marketing.campaign.list",
+    status ? `Liệt kê chiến dịch marketing có trạng thái ${status}` : "Liệt kê chiến dịch marketing",
+    { ...(status ? { status } : {}), page: 1, limit: 100 }, ["campaigns"]));
+}
+
+function explicitWorkerIssueRecovery(text: string, workflows: AssistantWorkflow[]): AssistantInterpretation | null {
+  const request = normalizedVietnameseText(text);
+  if (/\blao dong\b/.test(request) && /\bbao cao tong quan\b/.test(request)
+    && /\b(?:du an|cham cong|chuyen can|hop dong|cong no hoa hong)\b/.test(request)) {
+    const bounds = monthBoundsFromText(request);
+    if (bounds) return directReadInterpretation(readQueryFromApiValues(workflows, "worker.report.overview", `Báo cáo tổng quan Lao động từ ${bounds.from} đến ${bounds.to}`, bounds, ["projectCount", "workerCount", "attendanceRate", "expiringContractCount", "unpaidCommissionAmount"]));
+  }
+  if (/\b(?:hop dong lao dong|hop dong cua lao dong)\b/.test(request)
+    && /\b(?:het han|sap het han|den han|ket thuc)\b/.test(request)
+    && /\b(?:thang nay|trong thang nay)\b/.test(request)) {
+    const bounds = monthBoundsFromText(request);
+    const today = vietnamToday();
+    const endDateFrom = bounds && bounds.from < today ? today : bounds?.from;
+    if (bounds && endDateFrom && endDateFrom <= bounds.to) return directReadInterpretation(readQueryFromApiValues(workflows, "worker.labor.contract.list", `Hop dong lao dong ket thuc trong ky ${endDateFrom} den ${bounds.to}`, { endDateFrom, endDateTo: bounds.to, limit: 100 }, ["code", "workerName", "endDate", "alertLevel"]));
+    if (bounds && endDateFrom && endDateFrom > bounds.to) return { actionId: null, values: {}, intentType: "workflow", actionIntent: "lookup", requestCoverage: [{ evidence: text, requirement: "Khong co ngay nao con lai trong thang nay de hop dong sap het han", mappedTo: ["result.endDate"] }] };
+  }
+  if (/\b(?:lao dong|nhan cong)\b/.test(request)
+    && /\b(?:chinh thuc|thoi vu)\b/.test(request)
+    && /\b(?:bao nhieu|so luong|thong ke|dem)\b/.test(request)
+    && (/\b(?:theo loai|loai lao dong)\b/.test(request) || /\bchinh thuc\b.{0,45}\bthoi vu\b/.test(request))) {
+    return directReadInterpretation(readQueryFromApiValues(workflows, "worker.report", "Thống kê số lượng lao động theo loại hợp đồng", { mode: "labor-types" }, ["laborType", "workerCount"]));
+  }
+  if (/\b(?:xoa|go|bo)\b/.test(request) && /\b(?:khoi|ra khoi)\b/.test(request) && /\b(?:du an|cong trinh)\b/.test(request)) {
+    const match = text.match(/(?:xóa|xoa|gỡ|go|bỏ|bo)\s+(?:(?:nhân\s+sự|lao\s+động|người\s+lao\s+động|nhan\s+su|lao\s+dong|nguoi\s+lao\s+dong)\s+)?(.+?)\s+(?:khỏi|khoi|ra\s+khỏi|ra\s+khoi)\s+(?:dự\s+án|du\s+an|công\s+trình|cong\s+trinh)\s+(.+?)\s*[.!?]*$/iu);
+    const operation = workflows.find(workflow => workflow.actionId === "worker.project.worker.remove");
+    if (match && operation) {
+      const projectField = operation.fields.find(field => field.apiKey === "id");
+      const workerField = operation.fields.find(field => field.apiKey === "workerId");
+      if (projectField && workerField) return {
+        actionId: operation.actionId,
+        values: { [projectField.key]: match[2].trim(), [workerField.key]: match[1].trim() },
+        intentType: "workflow",
+        actionIntent: "delete",
+        requestCoverage: [
+          { evidence: match[1].trim(), requirement: "Chọn đúng người lao động cần gỡ khỏi dự án", mappedTo: [`values.${workerField.key}`] },
+          { evidence: match[2].trim(), requirement: "Chọn đúng dự án cần gỡ người lao động", mappedTo: [`values.${projectField.key}`] },
+        ],
+      };
+    }
+  }
+
+  if (/\b(?:du an|cong trinh)\b/.test(request) && /\b(?:tuyen du chi tieu|du chi tieu|tuyen du dinh muc|du dinh muc|da du chi tieu)\b/.test(request)) {
+    return directReadInterpretation(readQueryFromApiValues(workflows, "worker.report", "Các dự án đã tuyển đủ chỉ tiêu lao động", { mode: "filled" }, ["projectName", "quota", "allocated", "gap"]));
+  }
+  if (/\b(?:du an|cong trinh)\b/.test(request) && /\b(?:gps|gioi han vi tri|gioi han cham cong|bat gioi han|bat dinh vi)\b/.test(request)) {
+    return directReadInterpretation(readQueryFromApiValues(workflows, "worker.report", "Các dự án đang yêu cầu chấm công trong phạm vi GPS", { mode: "gps-enabled" }, ["projectName", "gpsAttendanceEnabled"]));
+  }
+  if (/\b(?:lao dong|nguoi lao dong|cong nhan|nhan cong)\b/.test(request)
+    && /\b(?:chua duoc gan|chua gan|khong co)\b/.test(request)
+    && /\b(?:doi tac gioi thieu|doi tac|ben gioi thieu)\b/.test(request)) {
+    return directReadInterpretation(readQueryFromApiValues(workflows, "worker.list", "Người lao động chưa được gắn đối tác giới thiệu", { referralStatus: "missing" }, ["fullName", "laborType"]));
+  }
+  return null;
+}
+
+function explicitPartnerIssueRecovery(text: string, workflows: AssistantWorkflow[]): AssistantInterpretation | null {
+  const request = normalizedVietnameseText(text);
+  if (/\bdoi tac\b/.test(request) && /\bhoc vien\b/.test(request)
+    && /\b(?:lich su|danh sach)\b/.test(request) && /\b(?:gioi thieu|duoc gioi thieu)\b/.test(request)
+    && !/\b(?:lao dong|cong nhan|nhan cong)\b/.test(request)) {
+    const workflow = workflows.find(candidate => candidate.actionId === "partner.referrals.list");
+    const pathField = workflow?.fields.find(field => field.apiKey === "id");
+    const partnerMatch = text.match(/(?:của|do)\s+đối\s+tác(?:\s+tuyển\s+sinh)?\s+(.+?)(?=[,.!?]|$)/iu);
+    if (workflow && pathField && partnerMatch?.[1]?.trim()) return {
+      actionId: workflow.actionId,
+      values: { [pathField.key]: partnerMatch[1].trim() },
+      intentType: "workflow",
+      actionIntent: "lookup",
+      requestCoverage: [
+        { evidence: partnerMatch[0], requirement: "Chọn đúng đối tác tuyển sinh cần xem lịch sử giới thiệu", mappedTo: [`values.${pathField.key}`] },
+        { evidence: text, requirement: "Liệt kê học viên được đối tác giới thiệu", mappedTo: ["action", "result.referredStudents"] },
+      ],
+    };
+  }
+
+  if (/\bdoi tac\b/.test(request) && /\b(?:tai khoan ngan hang|ngan hang|nhan hoa hong)\b/.test(request)
+    && /\b(?:dang dung|dang nhan|nhan hoa hong|tai khoan nao)\b/.test(request)
+    && !/\b(?:cap nhat|sua|them|doi thong tin)\b/.test(request)) {
+    const workflow = workflows.find(candidate => candidate.actionId === "partner.list");
+    const searchField = workflow?.fields.find(field => field.apiKey === "search");
+    const nameMatch = text.match(/đối\s+tác(?:\s+tuyển\s+sinh)?\s+(.+?)(?=\s+(?:đang|dùng|sử dụng|nhận|để|dung|nhan|de)\b|[,.!?]|$)/iu);
+    if (workflow && searchField && nameMatch?.[1]?.trim()) return {
+      actionId: workflow.actionId,
+      values: { [searchField.key]: nameMatch[1].trim() },
+      intentType: "workflow",
+      actionIntent: "lookup",
+      requestCoverage: [{ evidence: nameMatch[1].trim(), requirement: "Tìm đúng đối tác tuyển sinh theo tên", mappedTo: [`values.${searchField.key}`] }],
+    };
+  }
+
+  if (/\b(?:nha cung cap|doi tac ban le)\b/.test(request)
+    && /\b(?:chua lien ket|chua duoc lien ket|khong lien ket|thieu lien ket)\b/.test(request)
+    && /\b(?:du lieu|nha cung cap|lien ket)\b/.test(request)) {
+    return directReadInterpretation(readQueryFromApiValues(workflows, "retail.partner.list", "Nhà cung cấp trong phân hệ bán lẻ chưa liên kết hồ sơ nhà cung cấp kho", { role: "supplier", supplierLink: "missing" }, ["code", "name", "supplierLinked"]));
+  }
+
+  if (/\b(?:doi tac|cong tac vien)\b/.test(request)
+    && /\b(?:tai khoan sao ke|lien ket sao ke|tai khoan ngan hang lien ket)\b/.test(request)) {
+    return { actionId: null, values: {}, intentType: "ambiguous", clarification: "Phân hệ bán lẻ hiện chưa lưu trạng thái liên kết tài khoản sao kê của cộng tác viên, nên mình chưa thể xác minh trạng thái này." };
+  }
+
+  if (/\b(?:chinh sach hoa hong|hoa hong ban le|chinh sach cong tac vien)\b/.test(request)
+    && /\b(?:sap het hieu luc|het hieu luc|ngay het han|sap het han)\b/.test(request)) {
+    return directReadInterpretation(readQueryFromApiValues(workflows, "retail.partner.commission.policy.list", "Kiểm tra cấu hình hoa hồng bán lẻ hiện có; hệ thống chỉ lưu ngày bắt đầu hiệu lực và không có ngày hết hạn để xác định chính sách sắp hết hiệu lực", {}, ["effectiveAt", "config"]));
+  }
+  return null;
+}
+
+function explicitStudentIssueRecovery(text: string, workflows: AssistantWorkflow[]): AssistantInterpretation | null {
+  const request = normalizedVietnameseText(text);
+  if (/\b(?:gui|gui email|email hang loat)\b/.test(request) && /\b(?:hoc lai|thi lai)\b/.test(request)) {
+    return { actionId: null, values: {}, intentType: "ambiguous", clarification: "Ứng dụng hiện chưa gửi email hàng loạt cho nhóm học lại/thi lại. Mình có thể tra cứu số học viên thuộc nhóm này hoặc soạn nội dung để bạn gửi qua email riêng; bạn muốn làm việc nào?" };
+  }
+
+  const missingSubmission = /\b(?:ai|hoc vien nao|nhung ai)\b/.test(request)
+    && /\b(?:chua nop|chua gui|chua lam)\b/.test(request)
+    && /\b(?:bai tap|bai test|bai kiem tra)\b/.test(request);
+  if (missingSubmission) {
+    const workflow = workflows.find(candidate => candidate.actionId === "student.assignment.missing-submissions" && candidate.enabled);
+    const searchField = workflow?.fields.find(field => field.apiKey === "search");
+    const assignmentName = text.match(/\b(?:bài tập|bài test|bài kiểm tra)\s+(.+?)\s*[?.!]*$/iu)?.[1]?.trim();
+    if (workflow && searchField && assignmentName && !/^(?:gan nhat|moi nhat)$/i.test(normalizedVietnameseText(assignmentName))) return {
+      actionId: workflow.actionId,
+      values: { [searchField.key]: assignmentName },
+      intentType: "workflow",
+      actionIntent: "lookup",
+      requestCoverage: [{ evidence: assignmentName, requirement: "Tìm đúng bài tập để đối chiếu danh sách đã nộp", mappedTo: [`values.${searchField.key}`] }, { evidence: text, requirement: "Liệt kê học viên trong lớp chưa có bài nộp", mappedTo: ["action", "result.students"] }],
+    };
+    if (/\b(?:gan nhat|moi nhat)\b/.test(request)) return {
+      actionId: null,
+      values: {},
+      intentType: "ambiguous",
+      clarification: "Ban muon kiem tra bai tap moi nhat cua lop nao?",
+    };
+  }
+
+  if (/\b(?:nhom nhan thong bao|so luong hoc vien theo tung nhom|danh sach nhan thong bao)\b/.test(request)
+    || (/(?:sap thi|con no hoc phi|can hoc lai)/.test(request) && /\b(?:thong ke|dem|nhom hoc vien)\b/.test(request))) {
+    return directReadInterpretation(readQueryFromApiValues(workflows, "student.notification.audience.counts", "Đếm học viên theo các nhóm thông báo đang hỗ trợ", {}, ["upcomingExamCount", "unpaidTuitionCount", "retakeCount"]));
+  }
+
+  if (/\b(?:hoc vien|trung tam|hoc phi)\b/.test(request) && /\b(?:con no|no hoc phi|no trung tam|so tien con no)\b/.test(request)) {
+    return directReadInterpretation(readQueryFromApiValues(workflows, "student.debt.report", "Tổng hợp học viên còn nợ học phí và số tiền còn phải thu", {}, ["studentCount", "totalOutstandingAmount", "students"]));
+  }
+
+  if (/\bhoa hong\b/.test(request) && /\b(?:da chi tra|chi tra)\b/.test(request)
+    && /\b(?:phuong thuc|chuyen khoan|tien mat)\b/.test(request)) {
+    const bounds = monthBoundsFromText(request);
+    if (bounds) return directReadInterpretation(readQueryFromApiValues(workflows, "partner.payout.report", `Thống kê hoa hồng đã chi trả theo phương thức từ ${bounds.from} đến ${bounds.to}`, bounds, ["methodTotals", "payoutCount", "totalAmount"]));
+  }
+
+  if (/\bbao luu\b/.test(request) && /\b(?:sap het han|han bao luu|du kien quay lai)\b/.test(request)) {
+    const days = Number(request.match(/\b(\d{1,3})\s*ngay\s*toi\b/)?.[1] || 10);
+    const from = vietnamToday();
+    const to = shiftDate(from, Math.min(Math.max(days, 1), 365));
+    return directReadInterpretation(readQueryFromApiValues(workflows, "student.suspension.report", `Học viên đang bảo lưu có ngày dự kiến quay lại từ ${from} đến ${to}`, { mode: "upcoming", from, to }, ["mode", "studentCount", "requests"]));
+  }
+
+  if (/\b(?:hoc vien|bao luu)\b/.test(request) && /\b(?:bao nhieu|thang|tuan nay|tuan hien tai|moi xin)\b/.test(request)) {
+    const bounds = monthBoundsFromText(request) || (/(?:\btuan nay\b|\btuan hien tai\b)/.test(request) ? currentWeekBounds() : undefined);
+    if (bounds) return directReadInterpretation(readQueryFromApiValues(workflows, "student.suspension.report", `Thống kê lượt xin bảo lưu từ ${bounds.from} đến ${bounds.to}`, { mode: "requests", ...bounds }, ["mode", "studentCount", "requestCount"]));
+  }
+
+  if (/\b(?:lao dong|ung vien|ho so lao dong)\b/.test(request)
+    && /\b(?:duong link|link|lien ket)\b/.test(request)
+    && /\b(?:dang ky|cong khai|tu dien|tu khai)\b/.test(request)) {
+    const workflow = workflows.find(candidate => candidate.actionId === "worker.public-registration-link.create" && candidate.enabled);
+    if (workflow) return {
+      actionId: workflow.actionId,
+      values: {},
+      intentType: "workflow",
+      actionIntent: "create",
+      requestCoverage: [{ evidence: text, requirement: "Tạo liên kết công khai để ứng viên tự đăng ký hồ sơ lao động", mappedTo: ["action", "fixedBodyValues.entityPreset"] }],
+    };
+  }
+
+  return null;
+}
+
+function explicitBatchRoadmapLookup(text: string, workflows: AssistantWorkflow[]): AssistantInterpretation | null {
+  const request = normalizedVietnameseText(text);
+  if (!/\blop\b/.test(request) || !/\b(?:lo trinh|chang|giai doan)\b/.test(request)) return null;
+  const className = text.match(/\blớp\s+([\p{L}\p{N}_-]+)/iu)?.[1]?.trim();
+  if (!className) return null;
+  const query = readQueryFromApiValues(workflows, "student.batch.roadmap.lookup", `Tra cứu lộ trình và chặng học của lớp ${className}`, { search: className }, ["code", "name", "roadmapName", "roadmapStepNumber"]);
+  return directReadInterpretation(query);
+}
+
+function explicitInventoryWarehouseName(text: string): string | undefined {
+  const canonical = text.match(/\bkho\s+(trụ\s+sở\s+chính|KHO[-_]?[A-Z0-9][A-Z0-9_-]*)\b/iu)?.[1]?.trim();
+  if (canonical) return canonical;
+  const properName = text.match(/\bkho\s+([\p{Lu}][\p{L}\p{N}_-]*(?:\s+[\p{L}\p{N}_-]+){0,2})(?=\s+(?:hôm nay|hom nay|hiện tại|hien tai|mình|minh|đang|dang|có|co|còn|con|nào|nao|nhiều|nhieu|ít|it|nhất|nhat|đủ|du|vẫn|van|theo|để|de|cho|giao|bán|ban|trong|xem|kiểm tra|kiem tra|nhập|nhap|xuất|xuat|sang|đến|den|về|ve|30\s+ngày|14\s+ngày)|[()?.!,;]|$)/u)?.[1]?.trim();
+  return properName && properName.length <= 60 ? properName : undefined;
+}
+
+function explicitInventoryProductName(text: string): string | undefined {
+  const namedModel = text.match(/\b(?:iPhone\s+\d+(?:\s+Pro(?:\s+Max)?|\s+Plus|\s+Mini)?|(?:Samsung\s+)?Galaxy\s+Ultra|Redmi\s+Note\s+\d+|Huawei\s+Honor\s+\d+)\b/iu)?.[0]?.trim();
+  if (namedModel) return namedModel;
+  const cues = [
+    /(?:dòng\s+máy|dong\s+may)\s+(.+?)(?=\s+(?:nào|đang|dang|hiện|hien|còn|con|đã|da|gần đây|gan day|với|voi|số lượng|so luong|trong|theo|bán|ban|tồn|ton|giá|gia|và|va|ở|o|là|la|bao nhiêu|bao nhieu|nên|nen)|[?.!,;]|$)/iu,
+    /(?:sản phẩm|san pham|mặt hàng|mat hang|mẫu máy|mau may|sku)\s+(.+?)(?=\s+(?:nào|đang|dang|hiện|hien|còn|con|đã|da|gần đây|gan day|với|voi|số lượng|so luong|trong|theo|bán|ban|tồn|ton|giá|gia|và|va|ở|o|là|la|bao nhiêu|bao nhieu|nên|nen)|[?.!,;]|$)/iu,
+    /(?:dòng|dong)\s+(.+?)(?=\s+(?:nào|đang|dang|hiện|hien|còn|con|đã|da|gần đây|gan day|với|voi|số lượng|so luong|trong|theo|bán|ban|tồn|ton|giá|gia|và|va|ở|o|là|la|bao nhiêu|bao nhieu|nên|nen)|[?.!,;]|$)/iu,
+    /(?:máy|may)\s+(.+?)(?=\s+(?:nào|đang|dang|hiện|hien|còn|con|đã|da|gần đây|gan day|với|voi|số lượng|so luong|trong|theo|bán|ban|tồn|ton|giá|gia|và|va|ở|o|là|la|bao nhiêu|bao nhieu|nên|nen)|[?.!,;]|$)/iu,
+  ];
+  const generic = /^(?:nào|đang|hiện|còn|còn lại|máy|máy không|sản phẩm|dòng sản phẩm|mặt hàng|quản lý|quản lý theo imei|đọng vốn|đang đọng vốn|ổn định|bán chạy|bán ế|nên|và|và dòng|và dòng nào|dòng nào|máy nào|mặt hàng nào|sản phẩm nào|không|đã xuất|nhập|xuất|bao nhiêu|toàn cửa hàng|toàn bộ)$/iu;
+  for (const cue of cues) {
+    const candidate = text.match(cue)?.[1]?.trim().replace(/\s+/g, " ").replace(/\s+(?:nào|nao)$/iu, "");
+    if (!candidate || generic.test(candidate)) continue;
+    const normalizedCandidate = normalizedVietnameseText(candidate);
+    if (/^(?:nao|dong nao|dong may nao|san pham nao|mat hang nao|may nao|dang|hien|con|da|va|nen|may|san pham|dong san pham|mat hang|on dinh|dong von|ban chay|ban e)(?:\b|[()[\]{}.,;!?])/.test(normalizedCandidate)) continue;
+    return candidate.slice(0, 120);
+  }
+  return undefined;
+}
+
+function explicitInventoryLookupPlan(text: string, workflows: AssistantWorkflow[]): AssistantInterpretation | null {
+  const request = normalizedVietnameseText(text);
+  // Keep mixed commercial and inventory overviews in the composite planner so
+  // one inventory phrase cannot swallow the sales, debt or commission parts.
+  if (/\b(?:doanh thu|lai gop|cong no|hoa hong ctv)\b/.test(request)
+    && /\b(?:ton kho|dong may|phieu xuat|imei|serial)\b/.test(request)) return null;
+  const explicitPeriod = monthBoundsFromText(request) || dateRangeFromText(request) || dayBoundsFromText(request);
+  const recentPeriod = lastDaysBoundsFromText(request) || { from: shiftDate(vietnamToday(), -29), to: vietnamToday() };
+  const todayPeriod = { from: vietnamToday(), to: vietnamToday() };
+  const period = explicitPeriod || (/(?:\bhom nay\b|\bhien tai\b)/.test(request) ? todayPeriod : undefined);
+  const hasInventorySubject = /\b(?:kho|ton|hang|san pham|dong may|imei|serial)\b/.test(request);
+  const inventoryProductSearch = explicitInventoryProductName(text);
+  if (hasInventorySubject && /\b(?:con ton nhieu nhat|ton kho nhieu nhat|so luong ton nhieu nhat)\b/.test(request)) {
+    return directReadInterpretation(readQueryFromApiValues(workflows, "inventory.stock.analysis", "Xep cac dong san pham theo so luong ton kho hien tai cao nhat", {
+      reportType: "highest-stock", ...(inventoryProductSearch ? { q: inventoryProductSearch } : {}),
+    }, ["range", "summary", "products", "finding"]));
+  }
+  if (hasInventorySubject && inventoryProductSearch && /\bcon bao nhieu\b/.test(request) && /\bkho\b/.test(request)
+    && !/\b(?:co the ban ngay|kha dung|giao ngay|du hang giao ngay)\b/.test(request)) {
+    const warehouseId = explicitInventoryWarehouseName(text);
+    return directReadInterpretation(readQueryFromApiValues(workflows, "inventory.stock.analysis", "Tra cuu so luong ton cua san pham trong kho duoc hoi", {
+      reportType: "product-summary", q: inventoryProductSearch, ...(warehouseId ? { warehouseId } : {}),
+    }, ["range", "summary", "products", "finding"]));
+  }
+  const confirmationAction = /\bxac nhan\b/.test(request)
+    && !/\b(?:chua\s+duoc|chua|khong|da|duoc|can|dang|cho)\s+xac nhan\b/.test(request);
+  const createIntent = /\b(?:tao|lap|them|cap nhat|nhan phieu|nhan hang)\b/.test(request)
+    || confirmationAction
+    || /\b(?:sua|huy|duyet)\s+(?:phieu|don|san pham|gia|thong tin|giao dich)\b/.test(request);
+  const asksAboutExistingReceipt = /\bphieu nhap(?: hang)? nao\b/.test(request)
+    && /\b(?:hom nay|moi nhat|duoc tao|phat sinh|da tao)\b/.test(request);
+  const receiptReadIntent = asksAboutExistingReceipt || /\b(?:xem|tra cuu|tim kiem|kiem tra|danh sach|liet ke|bao cao|thong ke|lich su|da xac nhan|cho xu ly|nhap gi|nhap nhung may gi|nhap nhung gi|hien co|gan nhat|lan nhap|tao nhap|chua hoan thanh|chua xong|can xu ly|tong tien|bao nhieu|nhieu tien nhat|lon nhat|nha cung cap nao)\b/.test(request);
+  const receiptCreateIntent = /\b(?:tao|lap|ghi nhan)\b.{0,32}\bphieu nhap\b/.test(request)
+    || (/\b(?:nhap kho|nhap hang)\b/.test(request) && !receiptReadIntent);
+  if (receiptCreateIntent && /\b(?:phieu nhap|nhap kho|nhap hang)\b/.test(request)
+    && !/\b(?:du bao ton|du bao|du kien ton)\b/.test(request)) {
+    const workflow = workflows.find(candidate => candidate.actionId === "inventory.receipt.create" && candidate.enabled);
+    if (workflow) {
+      const model = text.match(/\b(?:iPhone\s+\d+(?:\s+Pro(?:\s+Max)?|\s+Plus|\s+Mini)?|(?:Samsung\s+)?Galaxy\s+Ultra|Redmi\s+Note\s+\d+|Huawei\s+Honor\s+\d+|C\u00e1p\s+s\u1ea1c\s+Gia\s+B\u1ea3o)\b/iu)?.[0]?.trim();
+      const itemCue = text.match(/(?:d\u00f2ng(?:\s+m\u00e1y)?|m\u00e1y|s\u1ea3n ph\u1ea9m|m\u1eb7t h\u00e0ng)\s+(.+?)(?=\s+(?:t\u1eeb|v\u00e0o|sang|theo|gi\u00e1|s\u1ed1 l\u01b0\u1ee3ng|nh\u00e0 cung c\u1ea5p|kho nh\u1eadp)|[?.!,;]|$)/iu)?.[1]?.trim();
+      const productName = model || (itemCue && !/^\d+(?:[.,]\d+)?$/u.test(itemCue) ? itemCue : undefined);
+      const quantityMatch = text.match(/(?:ph\u00e9u nh\u1eadp|nh\u1eadp(?: kho| h\u00e0ng)?)\s+(?:h\u00e0ng\s+)?(\d+(?:[.,]\d+)?)\s*(?:m\u00e1y|c\u00e1i|chi\u1ebfc|s\u1ea3n ph\u1ea9m)?/iu)
+        || text.match(/(\d+(?:[.,]\d+)?)\s*(?:m\u00e1y|c\u00e1i|chi\u1ebfc)\s+(?=(?:iPhone|Samsung|Galaxy|Redmi|Huawei|C\u00e1p))/iu);
+      const quantity = quantityMatch?.[1] ? Number(quantityMatch[1].replace(",", ".")) : undefined;
+      const supplier = text.match(/(?:t\u1eeb\s+)?nh\u00e0 cung c\u1ea5p\s+(.+?)(?=\s+(?:v\u00e0o kho|kho nh\u1eadp|gi\u00e1 nh\u1eadp|\u0111\u01a1n gi\u00e1)|[,;.!?]|$)/iu)?.[1]?.trim();
+      const warehouseName = explicitInventoryWarehouseName(text);
+      const normalizedMoneyText = normalizedVietnameseText(text);
+      const moneyMatch = normalizedMoneyText.match(/(?:gia nhap|don gia(?: nhap)?|gia von)\s+(?:la\s+)?([\d.,]+)\s*(ty|trieu|tr|nghin|ngan|k|dong|d)?/u);
+      const moneyRaw = moneyMatch?.[1]?.replace(/\.(?=\d{3}(?:\D|$))/g, "").replace(",", ".");
+      const moneyNumber = moneyRaw ? Number(moneyRaw) : Number.NaN;
+      const moneyUnit = moneyMatch?.[2] || "";
+      const unitCost = Number.isFinite(moneyNumber)
+        ? Math.round(moneyNumber * (moneyUnit === "ty" ? 1_000_000_000 : ["trieu", "tr"].includes(moneyUnit) ? 1_000_000 : ["nghin", "ngan", "k"].includes(moneyUnit) ? 1_000 : 1))
+        : undefined;
+      const values: Record<string, unknown> = {};
+      if (supplier) values.supplierId = supplier;
+      if (warehouseName) values.warehouseId = warehouseName;
+      if (productName || quantity !== undefined || unitCost !== undefined) {
+        values.items = JSON.stringify([{
+          ...(productName ? { productId: productName } : {}),
+          ...(quantity !== undefined && Number.isFinite(quantity) ? { quantity } : {}),
+          ...(unitCost !== undefined ? { unitCost } : {}),
+        }]);
+      }
+      return {
+        actionId: workflow.actionId,
+        values,
+        intentType: "workflow",
+        actionIntent: "create",
+        requestCoverage: [{ evidence: text, requirement: "Lập phiếu nhập nháp, giữ nhà cung cấp, kho, sản phẩm, số lượng và giá nhập đã nêu; hỏi thông tin còn thiếu rồi chờ xác nhận trước khi tạo.", mappedTo: ["action", ...Object.keys(values).map(key => `values.${key}`)] }],
+      };
+    }
+  }
+  const run = (actionId: string, purpose: string, values: Record<string, unknown>, resultFields: string[]) => {
+    const query = readQueryFromApiValues(workflows, actionId, purpose, values, resultFields);
+    return directReadInterpretation(query);
+  };
+
+  if (hasInventorySubject && /\b(?:xuất file|xuat file|tải file|tai file|xuất excel|xuat excel|xlsx|file excel)\b/.test(request)) {
+    const reportType = /\b(?:lịch sử|lich su|giao dịch|giao dich|phiếu nhập xuất|phieu nhap xuat)\b/.test(request) ? "stock-log" : "stock-balance";
+    const warehouseName = explicitInventoryWarehouseName(text);
+    const actionId = reportType === "stock-log" ? "inventory.stock-log.list" : "inventory.warehouse.balances.list";
+    const values = reportType === "stock-log"
+      ? {
+          ...(period ? { createdFrom: period.from, createdTo: period.to } : {}),
+        }
+      : {
+          ...(warehouseName ? { query_warehouseId: warehouseName } : {}),
+        };
+    return directReadInterpretation(readQueryFromApiValues(workflows, actionId,
+      "Xuất danh sách kho từ dữ liệu API trong phạm vi và bộ lọc đã nêu", values,
+      reportType === "stock-log" ? ["title", "type", "status", "purpose", "productName", "sku", "quantity", "createdAt", "customerName", "operatorName", "notes"]
+        : ["warehouseName", "productName", "variantName", "sku", "quantity", "reservedQuantity", "availableQuantity", "minStock", "averageCost"]));
+  }
+
+  if (createIntent && /\b(?:phieu kiem ke|tao phieu kiem ke|lap phieu kiem ke)\b/.test(request)) {
+    const warehouseName = explicitInventoryWarehouseName(text);
+    const productName = text.match(/(?:dòng máy|dong may|dòng|dong)\s+(.+?)(?:\s+(?:với|voi|số lượng|so luong|thực tế|thuc te)|[?.!,;]|$)/iu)?.[1]?.trim();
+    const quantity = text.match(/(?:số lượng đếm thực tế|số lượng thực tế|số đếm thực tế|thực tế là|thuc te la)\s*(\d+(?:[.,]\d+)?)/iu)?.[1]?.replace(",", ".");
+    const notes = productName && quantity
+      ? `Yêu cầu kiểm đếm ${productName}: ${quantity} máy. Số đếm chưa được ghi nhận; cần cập nhật dòng hàng sau khi tạo phiếu.`
+      : undefined;
+    const query = readQueryFromApiValues(workflows, "inventory.count.create", "Tạo phiếu kiểm kê nháp; không bắt đầu đếm hoặc cập nhật tồn", {
+      ...(warehouseName ? { warehouseId: warehouseName } : {}),
+      ...(notes ? { notes } : {}),
+    }, ["countCode", "status", "notes"]);
+    return query ? { ...query, intentType: "workflow", actionIntent: "create" } : null;
+  }
+
+  if (createIntent && /\b(?:phieu xuat|xuat kho)\b/.test(request)
+    && /\b(?:noi bo|su dung noi bo|dung noi bo|cap phat noi bo)\b/.test(request)) {
+    const workflow = workflows.find(candidate => candidate.actionId === "inventory.stock-log.internal.issue.create" && candidate.enabled);
+    if (!workflow) return null;
+    const productName = text.match(/(?:máy|may|sáº£n pháº©m|san pham|dòng máy|dong may)\s+(.+?)(?=\s+(?:từ kho|tu kho|từ|tu|để|de|cho|số lượng|so luong)|[?.!,;]|$)/iu)?.[1]?.trim();
+    const quantity = text.match(/(?:xuất|xuat|phiếu xuất|phieu xuat)\s+(\d+(?:[.,]\d+)?)\s+(?:máy|may|cái|cai|chiếc|chiec)/iu)?.[1]?.replace(",", ".");
+    const warehouseName = explicitInventoryWarehouseName(text);
+    const recipient = text.match(/(?:cho|để|de)\s+(bộ phận\s+.+?|phòng ban\s+.+?)(?=\s+(?:sử dụng|su dung|dùng|dung)|[?.!,;]|$)/iu)?.[1]?.trim();
+    const values: Record<string, unknown> = {};
+    if (warehouseName) values.warehouseId = warehouseName;
+    if (recipient) values.customerName = recipient;
+    if (/\b(?:su dung noi bo|dung noi bo|cap phat noi bo)\b/.test(request)) values.notes = "Sử dụng nội bộ";
+    if (productName && quantity) values.items = JSON.stringify([{ productId: productName, quantity: Number(quantity) }]);
+    return {
+      actionId: workflow.actionId,
+      values,
+      intentType: "workflow",
+      actionIntent: "create",
+      requestCoverage: [{
+        evidence: text,
+        requirement: "Lập phiếu xuất dùng nội bộ ở trạng thái chờ xác nhận, giữ nguyên các thông tin được nêu và hỏi phần còn thiếu trước khi tạo.",
+        mappedTo: Object.keys(values).map(key => `values.${key}`),
+      }],
+    };
+  }
+
+  if (createIntent && /\b(?:phieu nhap|nhap bo sung|nhap them hang)\b/.test(request)
+    && /\b(?:du bao ton|du bao|du kien ton)\b/.test(request)) {
+    const query = readQueryFromApiValues(workflows, "inventory.receipt.create", "Lập phiếu nhập nháp theo dự báo; cần bổ sung nhà cung cấp, kho, số lượng và giá nhập còn thiếu", {}, ["receiptCode", "status", "supplierName", "warehouseName", "items"]);
+    return query ? { ...query, intentType: "workflow", actionIntent: "create" } : null;
+  }
+
+  if (/\b(?:tao|lap|chuyen giup|dieu chuyen giup)\b/.test(request)
+    && /\b(?:phieu dieu chuyen|dieu chuyen kho|chuyen kho|dieu chuyen|sang kho|den kho)\b/.test(request)) {
+    const workflow = workflows.find(candidate => candidate.actionId === "inventory.transfer.create" && candidate.enabled);
+    if (workflow) {
+      const details = explicitWarehouseTransferDetails(text);
+      const quantity = text.match(/\b(\d+(?:[.,]\d+)?)\s+(?:máy|may|chiếc|chiec|cái|cai|sản phẩm|san pham)\b/iu)?.[1];
+      const productName = text.match(/(?:máy|may|dòng máy|dong may|sản phẩm|san pham)\s+(.+?)(?=\s+(?:đang|dang|từ kho|tu kho|trong kho|theo imei|theo số imei)|[?.!,;]|$)/iu)?.[1]?.trim();
+      const warehouses = text.match(/(?:từ kho|tu kho|trong kho)\s+(.+?)\s+sang kho\s+(.+?)(?:\s+theo|[?.!,;]|$)/iu);
+      const values: Record<string, unknown> = {};
+      const fromWarehouse = details?.fromWarehouse || warehouses?.[1]?.trim();
+      const toWarehouse = details?.toWarehouse || warehouses?.[2]?.trim();
+      const selectedProduct = details?.productName || productName;
+      const selectedQuantity = details?.quantity || (quantity ? Number(quantity.replace(",", ".")) : undefined);
+      if (fromWarehouse) values.fromWarehouseId = fromWarehouse;
+      if (toWarehouse) values.toWarehouseId = toWarehouse;
+      if (selectedProduct && selectedQuantity) values.items = JSON.stringify([{ productId: selectedProduct, quantity: selectedQuantity }]);
+      const reason = text.match(/(?:lý do|để|vì)\s+(.+?)(?:[.!?]|$)/iu)?.[1]?.trim();
+      if (reason) values.reason = reason;
+      return {
+        actionId: workflow.actionId,
+        values,
+        intentType: "workflow",
+        actionIntent: "create",
+        requestCoverage: [{ evidence: text, requirement: "Tạo phiếu điều chuyển nháp, thu thập kho gửi, kho nhận, mặt hàng, số lượng và mã IMEI nếu cần; chờ xác nhận trước khi ghi", mappedTo: ["action", ...Object.keys(values).map(key => `values.${key}`)] }],
+      };
+    }
+  }
+
+  if (/\b(?:imei|im ei|serial)\b/.test(request)
+    && /\b(?:ton|kho|con hang|trong kho)\b/.test(request)
+    && /\b(?:nhieu nhat|cao nhat|lon nhat|top)\b/.test(request)) {
+    return directReadInterpretation(readQueryFromApiValues(workflows, "inventory.serial.stock-ranking",
+      "Xếp dòng máy theo số IMEI/serial đang tồn kho cao nhất", {}, ["products"]));
+  }
+
+  if (/(?:\b(?:gia ban|bao gia|gia niem yet|gia hien tai)\b)/.test(request) && /\b(?:san pham|dong may|mau may|iphone|samsung|redmi|xiaomi|huawei|honor|cap sac|gia ban cao nhat|gia ban bang 0|0 dong|chua dien gia|thieu gia|chua co gia|dang de 0|nhom)\b/.test(request)) {
+    const reportType = /\b(?:cao nhat|dat nhat|cao nhat cua hang)\b/.test(request) ? "highest-price"
+      : /\b(?:0 dong|bang 0|chua dien gia|chua co gia|thieu gia)\b/.test(request) ? "zero-price" : "product-prices";
+    const categoryName = text.match(/(?:nhóm|nhom)(?:\s+hàng)?\s+([\p{L}][\p{L}\s-]*?)(?=\s+(?:hiện|đang|có|mẫu|giá|bao nhiêu)|[?.!,;]|$)/iu)?.[1]?.trim();
+    const explicitModels = [...text.matchAll(/\b(?:iPhone\s+\d+(?:\s+Pro(?:\s+Max)?|\s+Plus|\s+Mini)?|(?:Samsung\s+)?Galaxy\s+Ultra|Redmi\s+Note\s+\d+|Huawei\s+Honor\s+\d+|Cáp\s+sạc\s+Gia\s+Bảo)\b/giu)].map(match => match[0].trim());
+    const productSearch = categoryName
+      ? categoryName
+      : [...new Set(explicitModels)].join(" | ") || text.match(/(?:của|dong|dòng|mẫu|mau|giá bán hiện tại của)\s+(.+?)(?:\s+(?:là|bao nhiêu|giá|gia)|[?.!,;]|$)/iu)?.[1]?.trim()
+        || explicitInventoryProductName(text);
+    return run("inventory.price.analysis", "Tra cứu giá bán hiện tại theo sản phẩm/SKU, không nhầm giá bán với giá vốn", {
+      reportType,
+      ...(productSearch && reportType === "product-prices" ? { search: productSearch.replace(/\s+và\s+/giu, " | ") } : {}),
+      ...(/\b(?:con san|kha dung|ton kho|co the ban|giao ngay)\b/.test(request) ? { includeAvailability: true } : {}),
+    }, ["products", "finding"]);
+  }
+
+  if (/\b(?:bao nhieu|tong cong|so luong|thong ke|dem)\b/.test(request)
+    && /\b(?:dong san pham|san pham|mat hang|nhom hang|phan loai san pham)\b/.test(request)
+    && !/\b(?:phieu|dieu chuyen|ton kho|ton kha dung|gia ban|gia von|nhap hang|xuat kho|imei|serial)\b/.test(request)) {
+    const reportType = /\b(?:theo tung nhom|theo nhom|nhom hang|phan loai)\b/.test(request) ? "category-count" : "product-count";
+    return run("inventory.catalog.analysis", "Đếm sản phẩm/dòng sản phẩm đang hoạt động, hoặc phân nhóm theo danh mục", { reportType }, ["summary", "categories"]);
+  }
+
+  if (/\b(?:phieu nhap|dot nhap|nhap hang|nhap lo|nha cung cap|tong tien hang da nhap|nhap bao nhieu dot|nhap bao nhieu dot hang)\b/.test(request) && (!createIntent || receiptReadIntent)
+    && /\b(?:thong ke|bao cao|tong tien|bao nhieu dot|chi tong cong|nhieu tien nhat|nhap nhieu nhat|lon nhat|gan nhat|cho duyet|dang cho|chua hoan thanh|can xu ly|gia tri bao nhieu|hom nay|moi khong)\b/.test(request)
+    && !(/\bda xac nhan\b/.test(request) && /\bthang\s+\d{1,2}\b/.test(request) && /\bnhap gi\b/.test(request))) {
+    const supplierName = request.match(/(?:nha cung cap|tu nha cung cap)\s+(.+?)(?:\s+(?:la|gan day|nhap|trong|thang)|[?.!,;]|$)/iu)?.[1]?.trim();
+    const reportType = /\b(?:tong tien.*nha cung cap|thong ke tong tien.*nha cung cap|theo tung nha cung cap)\b/.test(request) ? "supplier-spend"
+      : /\b(?:nhap nhieu tien nhat|nha cung cap nao nhieu|nha cung cap nhap nhieu nhat|cao nhat)\b/.test(request) ? "top-supplier"
+      : /\b(?:lon nhat|gia tri lon nhat|dot nhap lon nhat)\b/.test(request) ? "largest-receipt"
+        : /\b(?:gan nhat|lan nhap gan nhat|moi nhat)\b/.test(request) ? "latest-receipt"
+        : /\b(?:nhap hang nao|dot hang nao|cho duyet|dang cho|nhap do|chua hoan thanh|nhap dang treo)\b/.test(request)
+          && !/\b(?:duoc tao|hom nay|phat sinh|moi khong)\b/.test(request) ? "pending-receipts"
+            : /\b(?:da chi|thanh toan|chi tong cong)\b/.test(request) ? "paid-total"
+              : /\b(?:tong tien|het bao nhieu|bao nhieu dot|tong cong|hom nay|moi khong)\b/.test(request) ? "period-summary" : "supplier-spend";
+    const bounds = period || (/\b(?:thang nay|thang truoc|thang\s+\d{1,2})\b/.test(request) ? monthBoundsFromText(request) : undefined);
+    return run("inventory.receipt.analysis", "Thống kê phiếu nhập theo phạm vi chi nhánh và trạng thái xác nhận", {
+      reportType,
+      ...(bounds ? { from: bounds.from, to: bounds.to } : {}),
+      ...(supplierName ? { q: supplierName } : {}),
+    }, ["summary", "receipts", "suppliers", "finding"]);
+  }
+
+  const serialIdentifier = text.match(/\b(?:imei|serial)\s*[:#-]?\s*([a-z0-9-]{8,})\b/iu)?.[1];
+  if (serialIdentifier && /\b(?:trang thai|lich su|da ban|mua ben minh|ngay nao)\b/.test(request)) {
+    const reportType = /\b(?:lich su|da ban|ngay nao)\b/.test(request) ? "identifier-history" : "identifier-detail";
+    return run("inventory.serial.analysis", "Tìm chính xác IMEI/serial trong danh sách; chỉ đọc lịch sử bằng mã bản ghi nội bộ sau khi tìm thấy", {
+      reportType, search: serialIdentifier,
+    }, ["serialNumber", "productName", "sku", "status", "warehouseName", "soldAt", "events", "finding"]);
+  }
+
+  if (/\b(?:khach tra hang|tra hang nhap lai kho|khach tra lai|nhap lai kho)\b/.test(request)
+    && /\b(?:ly do|bao nhieu lan|may lan|moi lan|trong thang)\b/.test(request)) {
+    const bounds = explicitPeriod || monthBoundsFromText(request) || lastDaysBoundsFromText(request);
+    if (bounds) return directReadInterpretation(readQueryFromApiValues(workflows, "retail.after-sale.return-product-analysis",
+      "Thống kê phiếu trả hàng đã hoàn tất và các lý do được ghi nhận trong kỳ", { ...bounds, type: "return", page: 1, limit: 100 }, ["range", "products", "reasons", "returnCount"]));
+  }
+
+  if ((/\b(?:imei|im ei|serial)\b/.test(request) || /\b(?:gui sua|di sua|dang sua|sua chua)\b/.test(request))
+    && /\b(?:bao cao|thong ke|bao nhieu|con trong kho|con san|da ban|dang sua|loi sua|di sua|gui sua|doi chieu|khop voi ton|lich su|trang thai)\b/.test(request)) {
+    if (/\b(?:ton|kho|con hang|trong kho)\b/.test(request) && /\b(?:nhieu nhat|cao nhat|lon nhat|top)\b/.test(request)) {
+      return directReadInterpretation(readQueryFromApiValues(workflows, "inventory.serial.stock-ranking", "Xếp dòng máy theo số IMEI/serial đang tồn kho cao nhất", {}, ["products"]));
+    }
+    const reportType = /\b(?:con kha dung|kha dung|con san|co the ban|ton kho|san sang ban)\b/.test(request) && /\b(?:sua|gui sua|di sua|loi)\b/.test(request) ? "product-stock-and-serial"
+      : /\b(?:doi chieu|khop voi ton|ton thuc te|so sach)\b/.test(request) ? "reconciliation"
+      : /\b(?:bao cao|thong ke|tong bao nhieu|tong so|bao nhieu may|tong cong)\b/.test(request) && /\b(?:da ban|trong kho|loi|sua)\b/.test(request) ? "status-counts"
+      : /\b(?:danh sach|imei con san|con san|lay danh sach)\b/.test(request) ? "available-list"
+      : /\b(?:loi|di sua|dang sua|gui sua)\b/.test(request) ? "repair-list"
+      : /\b(?:theo dong|tung dong|moi dong|danh sach dong)\b/.test(request) ? "product-status-counts" : "status-counts";
+    const productSearch = explicitInventoryProductName(text);
+    const warehouseSearch = explicitInventoryWarehouseName(text);
+    return run("inventory.serial.analysis", "Thống kê IMEI theo trạng thái thực tế, không lấy số tồn SKU thay cho IMEI", {
+      reportType, ...(productSearch ? { search: productSearch } : {}), ...(warehouseSearch ? { warehouseId: warehouseSearch } : {}),
+    }, ["summary", "products", "devices"]);
+  }
+
+  if (/\b(?:phiếu điều chuyển|phieu dieu chuyen|tinh hinh dieu chuyen|điều chuyển kho|dieu chuyen kho|dieu chuyen)\b/.test(request) && !createIntent
+    && /\b(?:thong ke|bao cao|bao nhieu|tong hop|gan nhat|moi nhat|bi huy|da huy|chua xac nhan|tren duong|thang nay|hom nay)\b/.test(request)) {
+    const fromTo = text.match(/từ kho\s+(.+?)\s+(?:sang|đến)\s+kho\s+(.+?)(?:\s+(?:xem|kiểm tra|có|bị|là|ngày|trong)|[?.!,;]|$)/iu);
+    const destination = text.match(/(?:về kho|ve kho|đến kho|den kho)\s+(.+?)(?:\s+(?:là|ngày|ngay|và|va|xem|tra|có|co)|[?.!,;]|$)/iu)?.[1]?.trim();
+    const reportType = /\b(?:gan nhat|moi nhat|dot gan nhat)\b/.test(request) && (destination || fromTo) ? "latest-to-warehouse"
+      : /\b(?:thang|hom nay|tuan|bao nhieu dot|bao nhieu phieu|phat sinh)\b/.test(request) ? "period-summary" : "transfer-list";
+    const summarizesAllStatuses = /\b(?:dang chuyen|da nhan|da huy|tat ca trang thai|tinh hinh dieu chuyen)\b/.test(request);
+    const status = !summarizesAllStatuses && /\b(?:bi huy|da huy|huy)\b/.test(request) ? "cancelled"
+      : /\b(?:tren duong|chua xac nhan|nhan chua xac nhan)\b/.test(request) ? "in_transit" : undefined;
+    const transferRange = explicitPeriod || lastDaysBoundsFromText(request) || (/\bhom nay\b/.test(request) ? todayPeriod : undefined);
+    return run("inventory.transfer.analysis", "Tra cứu phiếu điều chuyển theo kho gửi/nhận, trạng thái và khoảng ngày", {
+      reportType,
+      ...(fromTo ? { fromWarehouseName: fromTo[1].trim(), toWarehouseName: fromTo[2].trim() } : {}),
+      ...(destination ? { toWarehouseName: destination } : {}),
+      ...(status ? { status } : {}),
+      ...(transferRange ? { from: transferRange.from, to: transferRange.to } : {}),
+    }, ["range", "summary", "transfers", "finding"]);
+  }
+
+  if (/\b(?:phieu xuat|xuat kho|xuat ra|xuat cho|giao dich kho|bien dong kho|lich su ra vao kho|nhap xuat kho|giao dich nhap xuat|nguyen hung tai|do nhan vien|nhan vien nao|xuat ban hang|xuat dung noi bo)\b/.test(request)
+    && !createIntent) {
+    const bounds = period || (/(?:\b(?:gan day|gần đây)\b|\b30 ngay\b)/.test(request) ? recentPeriod : undefined);
+    const asksRecipient = /\b(?:ai|nhung ai|bo phan nao|cho ai|nguoi nao nhan)\b/.test(request);
+    const searchName = asksRecipient && !/\b(?:iphone|redmi|samsung|galaxy|huawei|honor)\b/iu.test(text) ? undefined : explicitInventoryProductName(text);
+    const namedOperator = text.match(/(?:do\s+(?:nhân viên\s+)?|nhân viên\s+)([\p{L}][\p{L}\s.]+?)(?=\s+(?:thực hiện|gần đây|trong|ngày|đã|xuất|tạo|lập)|[?.!,;]|$)/iu)?.[1]?.trim();
+    const operatorName = namedOperator || text.match(/\bnguyễn\s+hùng\s+tài\b/iu)?.[0];
+    const bothMonths = /\bthang nay\b/.test(request) && /\bthang truoc\b/.test(request);
+    const reportType = bothMonths ? "monthly-comparison"
+      : /\b(?:so sanh|doi soat|doi chieu).*\b(?:pos|noi bo|nhap vao|ban ra)\b/.test(request) ? "flow-reconciliation"
+      : /\b(?:cho duyet|dang xuat do|dang treo|dang xuat|xuat do|can duyet|chua hoan thanh|dang cho)\b/.test(request) ? "pending-status"
+      : asksRecipient ? "recipient-history"
+      : /\b(?:bao nhieu phieu|dem phieu|xuat ban hang|xuat dung noi bo)\b/.test(request) && /\b(?:ban hang|noi bo)\b/.test(request) ? "issue-counts"
+          : /\b(?:nhieu phieu nhat|phu trach|nguoi nao)\b/.test(request) && /\b(?:nhan vien|nguoi lap|xuat kho)\b/.test(request) ? "operator-ranking"
+            : operatorName ? "operator-history"
+                : /\b(?:tong hop|doi soat|so sanh)\b/.test(request) && /\b(?:nhap|xuat|pos|noi bo)\b/.test(request) ? "flow-reconciliation"
+                  : /\b(?:hom nay|ngay nay|phat sinh giao dich)\b/.test(request) ? "daily-flow"
+                    : searchName ? "product-outbound" : "outbound-total";
+    const range = bothMonths ? monthBoundsFromText(normalizedVietnameseText("tháng này")) : bounds;
+    return run("inventory.stock-log.analysis", "Thống kê phiếu nhập/xuất từ giao dịch kho; đối chiếu POS bằng báo cáo bán lẻ riêng", {
+      reportType,
+      ...(range ? { createdFrom: range.from, createdTo: range.to } : {}),
+    ...(bothMonths ? (() => { const previous = monthBoundsFromText(normalizedVietnameseText("tháng trước")); return previous ? { previousFrom: previous.from, previousTo: previous.to } : {}; })() : {}),
+      ...(reportType === "operator-history" && operatorName ? { search: operatorName } : searchName && ["product-outbound", "recipient-history"].includes(reportType) ? { search: searchName } : {}),
+      ...(reportType === "recipient-history" && /\b(?:noi bo|su dung noi bo|cap phat noi bo)\b/.test(request) ? { purpose: "nội bộ" } : {}),
+    }, ["range", "summary", "transactions", "operators", "finding"]);
+  }
+
+  if (hasInventorySubject && /\b(?:ton kho|hang ton|trong kho|con hang|het hang|sap het|ton kha dung|tien von ton|von ton|dong von|don von|gia von binh quan|ton toi thieu|ton an toan|du hang|du ton|ban e|khong xuat duoc|khong ban duoc|du bao ton|du bao ban|du kien.*ban|du tinh ban|nhap them|xả dòng|xa dong|toi uu hoa ton kho|toi uu ton kho|tốc độ bán|toc do ban|bao nhieu ngay nua|khả dụng|kha dung|giữ hàng|giu hang|giao ngay|ổn định|on dinh|du bao ton kho)\b/.test(request)
+    && !/\b(?:phieu dieu chuyen|dieu chuyen kho|phieu nhap|phieu xuat)\b/.test(request)) {
+    const productSearch = explicitInventoryProductName(text);
+    const reportType = /\b(?:chua co so lieu ton|chua co du lieu ton|khong co so lieu ton|chua co ton kha dung|so lieu ton kha dung)\b/.test(request) ? "no-available-stock"
+      : /\b(?:von ton nhieu nhat|ngon nhieu tien von|nhieu tien von nhat|ngon nhieu tien von ton kho nhat|ngon von)\b/.test(request) ? "capital-ranking"
+      : /\b(?:gia von binh quan|tong tien von|von ton cua|gia tri ton)\b/.test(request) && productSearch ? "product-capital"
+        : /\b(?:lech bao nhieu|doi chieu.*so sach|thuc te.*so sach)\b/.test(request) ? "count-variance"
+          : /\b(?:tu\s*100\s*(?:trieu|tr)|100\s*trieu|100\s*000\s*000)\b/.test(request) ? "capital-over-threshold"
+          : /\b(?:ton kho kha dung nhieu nhat|ton kha dung nhieu nhat|so luong ton kha dung cao nhat)\b/.test(request) ? "highest-stock"
+            : /\b(?:chi con it hang nhat|ton it nhat|so luong ton thap nhat)\b/.test(request) ? "lowest-stock"
+              : /\b(?:ban cham|ton qua nhieu|dong von|xa hang|dieu chuyen bot)\b/.test(request) ? "slow-moving"
+                : /\b(?:ban e|khong xuat duoc|khong ban duoc|ton nhieu|toi uu hoa ton kho|toi uu ton kho)\b/.test(request) ? "no-sales-with-stock"
+                : /\b(?:du bao ban|du kien.*ban|du tinh ban|se ban ra|du bao ton|30 ngay toi)\b/.test(request) ? "forecast-30d"
+                  : /\b(?:bao nhieu ngay nua|du ban trong khoang bao nhieu ngay|toc do ban hien tai)\b/.test(request) ? "days-cover"
+                    : /\b(?:sap het|het hang|duoi muc ton|ton an toan|can nhap gap)\b/.test(request) && /\b(?:14 ngay|sap toi|sau 14 ngay)\b/.test(request) ? "reorder-within-14"
+            : /\b(?:sap het|het hang|duoi muc ton|ton an toan|can nhap gap)\b/.test(request) ? "below-minimum"
+                        : /\b(?:nen nhap them|nhap them hang|dang du ton|co nen nhap|de xuat toi uu|he thong goi y|goi y nhap)\b/.test(request) ? "reorder-status"
+                : /\b(?:on dinh|stable)\b/.test(request) ? "stability-assessment"
+                          : /\b(?:tinh hinh kho|bao cao kho|tong tien hang ton|tong so may con lai|tong gia tri ton)\b/.test(request) ? "stock-summary"
+                : /\b(?:bao nhieu may kha dung|kha dung de ban|giu hang)\b/.test(request) ? "stock-summary"
+                  : /\b(?:kha dung|giao ngay|du hang giao ngay)\b/.test(request) ? "product-summary"
+                            : productSearch ? "product-summary"
+                              : undefined;
+    if (reportType) {
+      const values: Record<string, unknown> = { reportType };
+      if (productSearch) values.q = productSearch;
+      const warehouseSearch = explicitInventoryWarehouseName(text);
+      if (warehouseSearch) values.warehouseId = warehouseSearch;
+      if (reportType === "capital-over-threshold") values.thresholdAmount = 100_000_000;
+      if (reportType === "count-variance") {
+        const count = text.match(/(?:thực tế|thuc te|còn|con)\s+(?:là|la|chỉ còn|chi con)?\s*(\d+)\s*(?:máy|may)?/iu)?.[1];
+        if (count) values.physicalCount = Number(count);
+      }
+      if (["no-sales-with-stock", "days-cover", "slow-moving", "forecast-30d", "reorder-status", "reorder-within-14"].includes(reportType)) {
+        const bounds = lastDaysBoundsFromText(request) || recentPeriod;
+        values.from = bounds.from; values.to = bounds.to;
+      }
+      return run("inventory.stock.analysis", "Phân tích tồn theo dữ liệu kho; tốc độ bán và ước tính dựa trên kỳ bán hàng đã nêu", values, ["range", "summary", "products", "finding"]);
+    }
+  }
+
+  return null;
+}
+
 function explicitRetailLookupPlan(text: string, workflows: AssistantWorkflow[]): AssistantInterpretation | null {
   const request = normalizedVietnameseText(text);
   const month = monthBoundsFromText(request);
   const period = month || lastDaysBoundsFromText(request) || (/(?:\btuan nay\b|\btrong tuan nay\b)/.test(request) ? currentWeekBounds() : undefined);
+
+  const asksCancelledOrders = /\b(?:don hang|don ban|don)\b/.test(request)
+    && /\b(?:bi huy|huy don|don huy)\b/.test(request)
+    && /\b(?:bao nhieu|may|dem|thong ke|liet ke|danh sach|ly do|vi sao)\b/.test(request);
+  const cancellationPeriod = relativeDayBoundsFromText(request)
+    || dateRangeFromText(request)
+    || month
+    || lastDaysBoundsFromText(request);
+  if (asksCancelledOrders && cancellationPeriod
+    && !/\b(?:doanh thu|lai gop|hoa hong|tra hang|doi tra|ton kho|san pham|phieu xuat|redmi|imei|serial)\b/.test(request)) {
+    return directReadInterpretation(readQueryFromApiValues(workflows, "retail.order.cancelled.report",
+      "Đếm đơn bán lẻ theo ngày hủy và lấy lý do đã ghi nhận", {
+        cancelledFrom: cancellationPeriod.from, cancelledTo: cancellationPeriod.to, page: 1, limit: 100,
+      }, ["orderCode", "cancelledAt", "cancelReason", "cancelledByName"]));
+  }
 
   if (/\b(?:ca ban hang|ca thu ngan|ca pos|tien dau ca)\b/.test(request)
     && /\b(?:gan nhat|moi nhat|da dong|da chot)\b/.test(request)) {
@@ -244,6 +891,18 @@ function explicitRetailLookupPlan(text: string, workflows: AssistantWorkflow[]):
       "Đếm khách hàng riêng biệt có phiếu đổi trả hoàn tất và cộng tiền hoàn trong kỳ", { ...bounds, type: "return", page: 1, limit: 100 }, ["range", "customerCount", "returnCount", "refundTotal"]));
   }
 
+  if (period
+    && /\b(?:tra hang|tra lai|doi tra|nhap lai kho)\b/.test(request)
+    && /\b(?:ai tra|khach nao|ten khach|don nao|gia tri|bao nhieu tien|tien hoan)\b/.test(request)) {
+    return directReadInterpretation(readQueryFromApiValues(workflows, "retail.after-sale.list",
+      "Liệt kê phiếu trả hàng theo kỳ đã hỏi, gồm khách hàng và giá trị trên phiếu; không suy ra hệ thống đã nhập lại hàng", {
+        ...period,
+        query_type: "return",
+        query_page: 1,
+        query_limit: 100,
+      }, ["code", "type", "status", "orderCode", "customerName", "totalAmount", "itemsSummary", "reason", "businessDate"]));
+  }
+
   if (/\b(?:mat hang|san pham|hang hoa)\b/.test(request)
     && /\b(?:bi khach tra|tra lai nhieu nhat|ly do|bao loi|che)\b/.test(request)) {
     const bounds = lastDaysBoundsFromText(request) || month || period;
@@ -254,9 +913,15 @@ function explicitRetailLookupPlan(text: string, workflows: AssistantWorkflow[]):
       "Xếp mặt hàng theo số lượng trả và tổng hợp lý do khách ghi trên phiếu", { ...bounds, type: "return", page: 1, limit: 100 }, ["range", "products", "reasons"]));
   }
 
+  if (/\b(?:don hang|don ban|don pos)\b/.test(request)
+    && /\b(?:cho xac nhan|dang cho xac nhan|cho duoc xac nhan|cho duyet|dang cho duyet|cho phe duyet|dang cho phe duyet)\b/.test(request)) {
+    return directReadInterpretation(readQueryFromApiValues(workflows, "retail.order.list",
+      "Don ban le dang cho xac nhan", { heldOnly: true, page: 1, limit: 100 }, ["orderCode", "status", "customerName", "grandTotal", "businessDate"]));
+  }
+
   if (/\b(?:cong no|no cua khach|khach con no|no cua hang)\b/.test(request)
     && /\b(?:khach|qua han|tuoi no|no cua)\b/.test(request)
-    && /\b(?:nhieu tien nhat|lon nhat|lau nhat|qua han lau nhat)\b/.test(request)
+    && /\b(?:nhieu tien nhat|no nhieu nhat|dang no.*nhieu nhat|lon nhat|lau nhat|qua han lau nhat)\b/.test(request)
     && !/\b(?:khong gioi han cong no|khong gioi han no)\b/.test(request)) {
     return directReadInterpretation(readQueryFromApiValues(workflows, "retail.order.debt-ranking",
       "Xếp khách theo tổng công nợ còn lại và khoản nợ quá hạn lâu nhất", {}, ["highestBalance", "oldestOverdue", "overdueAgeAvailable"]));
@@ -408,7 +1073,7 @@ function explicitRetailLookupPlan(text: string, workflows: AssistantWorkflow[]):
 
   if (month && /\b(?:thu ngan|cashier)\b/.test(request)
     && /\b(?:doanh so|doanh thu|ban duoc nhieu|cao nhat|tot nhat)\b/.test(request)) {
-    return directReadInterpretation(readQueryFromApiValues(workflows, "retail.report.summary",
+    return directReadInterpretation(readQueryFromApiValues(workflows, "retail.report.cashier-ranking",
       "Xếp nhân viên thu ngân theo doanh thu ròng trong tháng được hỏi", month, ["range", "cashiers"]));
   }
 
@@ -418,6 +1083,13 @@ function explicitRetailLookupPlan(text: string, workflows: AssistantWorkflow[]):
     && /\b(?:dong may|may nao|san pham|mat hang|sku)\b/.test(request)) {
     return directReadInterpretation(readQueryFromApiValues(workflows, "inventory.serial.stock-ranking",
       "Xếp dòng máy theo số IMEI/serial đang tồn kho cao nhất", {}, ["products"]));
+  }
+
+  const asksProductBestSeller = /\b(?:ban chay nhat|ban duoc nhieu nhat|ban duoc.{0,24}nhieu nhat|tieu thu nhieu nhat)\b/.test(request)
+    && /\b(?:san pham|mat hang|hang hoa)\b/.test(request);
+  if (period && asksProductBestSeller && !/\b(?:top\s*10|top muoi|10 mat hang|muoi mat hang)\b/.test(request)) {
+    return directReadInterpretation(readQueryFromApiValues(workflows, "retail.report.top-products",
+      "Mat hang ban chay nhat theo so luong trong ky duoc hoi", { ...period, topN: 1 }, ["range", "products"]));
   }
 
   if (month && /\b(?:top\s*10|top muoi|10 mat hang|muoi mat hang)\b/.test(request)
@@ -466,7 +1138,11 @@ function explicitRetailLookupPlan(text: string, workflows: AssistantWorkflow[]):
     const operation = workflows.find(candidate => candidate.actionId === "customer.upcoming-birthdays");
     if (!operation) return null;
     const today = vietnamToday();
-    const bounds = month ? { from: today, to: month.to } : { from: today, to: shiftDate(today, 29) };
+    const asksNextMonth = /\b(?:thang sau|thang toi|thang ke tiep)\b/.test(request);
+    const requestedMonth = asksNextMonth ? nextCalendarMonthBounds() : month;
+    const bounds = requestedMonth
+      ? { from: requestedMonth.from > today ? requestedMonth.from : today, to: requestedMonth.to }
+      : { from: today, to: shiftDate(today, 29) };
     return directReadInterpretation(readQueryFromApiValues(workflows, operation.actionId,
       "Liệt kê khách hàng có sinh nhật sắp tới trong khoảng được hỏi", bounds, ["from", "to", "total", "items"]));
   }
@@ -566,7 +1242,7 @@ function explicitLaborOverviewPlan(text: string, workflows: AssistantWorkflow[])
   const request = normalizedVietnameseText(text);
   const isOverview = /\b(?:bao cao|tong quan|thong ke|tong hop)\b/.test(request);
   const hasProjects = /\b(?:cong trinh|du an)\b/.test(request);
-  const hasWorkers = /\b(?:tong cong|tong so|bao nhieu)\b.{0,40}\b(?:lao dong|cong nhan|nhan cong)\b/.test(request);
+  const hasWorkers = /\b(?:tong cong|tong so|tong|bao nhieu)\b.{0,40}\b(?:lao dong|cong nhan|nhan cong)\b/.test(request);
   const hasAttendanceRate = /\b(?:ty le|ti le|phan tram|chuyen can)\b/.test(request)
     && /\b(?:di lam|cham cong|chuyen can)\b/.test(request);
   const hasExpiringContracts = /\b(?:hop dong)\b/.test(request) && /\b(?:sap het han|gan het han|den han|het han)\b/.test(request);
@@ -587,10 +1263,11 @@ function explicitLaborOverviewPlan(text: string, workflows: AssistantWorkflow[])
     readQueryFromApiValues(workflows, "worker.labor.contract.list", "Hợp đồng lao động sắp hết hạn", { alert: "expiring", limit: 100 }, ["code", "workerName", "endDate", "alertLevel"]),
     readQueryFromApiValues(workflows, "worker.partner.settlements.list", "Công nợ hoa hồng đối tác trong kỳ", { periodStart: bounds.from, periodEnd: bounds.to, analysis: debtAnalysis }, ["partnerName", "balanceAmount"]),
   ];
+  const workerCountEvidence = text.match(/(?:tổng(?:\s+cộng\s+bao\s+nhiêu|\s+số)?\s+(?:lao\s+động|công\s+nhân|nhân\s+công)|bao\s+nhiêu\s+(?:lao\s+động|công\s+nhân|nhân\s+công))/iu)?.[0] || "tổng lao động";
   const monthEvidence = text.match(/th[aá]ng\s+\d{1,2}\s*\/\s*\d{4}/iu)?.[0];
   return deterministicReadPlan(text, workflows, queries, [
     { evidence: "bao nhiêu công trình", requirement: "Đếm số công trình lao động", mappedTo: ["query:worker.project.list:result.name", "query:worker.project.list:result.code"] },
-    { evidence: "tổng cộng bao nhiêu lao động", requirement: "Đếm tổng số người lao động", mappedTo: ["query:worker.list:result.fullName"] },
+    { evidence: workerCountEvidence, requirement: "Đếm tổng số người lao động", mappedTo: ["query:worker.list:result.fullName"] },
     { evidence: "tỷ lệ đi làm trong tháng", requirement: "Tính tỷ lệ đi làm từ các ngày công đã ghi nhận trong tháng", mappedTo: ["query:worker.report:values.from", "query:worker.report:values.to", "query:worker.report:values.mode", "query:worker.report:result.attendanceStatus"] },
     { evidence: "hợp đồng nào sắp hết hạn", requirement: "Liệt kê hợp đồng sắp hết hạn", mappedTo: ["query:worker.labor.contract.list:values.query_alert", "query:worker.labor.contract.list:result.workerName", "query:worker.labor.contract.list:result.endDate"] },
     { evidence: "đối tác nào còn nợ hoa hồng", requirement: "Tổng hợp số dư hoa hồng còn phải trả theo đối tác trong tháng", mappedTo: ["query:worker.partner.settlements.list:values.query_periodStart", "query:worker.partner.settlements.list:values.query_periodEnd", "query:worker.partner.settlements.list:analysis.filters.balanceAmount", "query:worker.partner.settlements.list:analysis.groupBy.partnerName", "query:worker.partner.settlements.list:analysis.aggregate.balanceAmount", "query:worker.partner.settlements.list:result.partnerName", "query:worker.partner.settlements.list:result.balanceAmount"] },
@@ -920,8 +1597,22 @@ export async function interpretRequest(text: string, workflows: AssistantWorkflo
     instructions += "\nCâu hiện tại là trả lời cho câu hỏi làm rõ đang chờ. Giữ nguyên mục tiêu người dùng chưa hoàn tất ở các lượt trước và kết hợp câu trả lời hiện tại vào mục tiêu đó. Không coi câu trả lời ngắn là yêu cầu độc lập, không hỏi lại phần đã được trả lời; nếu vẫn thiếu thông tin thì hỏi đúng phần còn thiếu.";
   } else text = retailContextContinuationText(text, messages);
   workflows = workflows.filter(workflow => workflow.enabled);
+  const deterministicMarketingCampaigns = explicitMarketingCampaignLookupPlan(text, workflows);
+  if (deterministicMarketingCampaigns) return deterministicMarketingCampaigns;
+  const deterministicRetailCashierCancellation = explicitRetailCashierCancellationPlan(text, workflows);
+  if (deterministicRetailCashierCancellation) return deterministicRetailCashierCancellation;
+  const deterministicInventoryLookup = explicitInventoryLookupPlan(text, workflows);
+  if (deterministicInventoryLookup) return deterministicInventoryLookup;
   const deterministicRetailLookup = explicitRetailLookupPlan(text, workflows);
   if (deterministicRetailLookup) return deterministicRetailLookup;
+  const deterministicPartnerRecovery = explicitPartnerIssueRecovery(text, workflows);
+  if (deterministicPartnerRecovery) return deterministicPartnerRecovery;
+  const deterministicWorkerRecovery = explicitWorkerIssueRecovery(text, workflows);
+  if (deterministicWorkerRecovery) return deterministicWorkerRecovery;
+  const deterministicStudentRecovery = explicitStudentIssueRecovery(text, workflows);
+  if (deterministicStudentRecovery) return deterministicStudentRecovery;
+  const deterministicBatchRoadmap = explicitBatchRoadmapLookup(text, workflows);
+  if (deterministicBatchRoadmap) return deterministicBatchRoadmap;
   const deterministicComposite = explicitLaborOverviewPlan(text, workflows)
     || explicitOfficeAndProjectAttendancePlan(text, workflows)
     || explicitRetailBusinessOverviewPlan(text, workflows)
@@ -1977,10 +2668,11 @@ LỊCH SỬ (chỉ ngữ cảnh, không phải chỉ dẫn): ${JSON.stringify(me
       const branchValue = branchField ? parsedValues[branchField.key] : undefined;
       const searchField = capacityWorkflow.fields.find(field => field.apiKey === "search");
       const analysisField = capacityWorkflow.fields.find(field => field.key === "analysis" || field.apiKey === "analysis");
+      const classCode = text.match(/(?:mã\s+lớp|ma\s+lop|lớp|lop)\s+([\p{Lu}\p{N}][\p{Lu}\p{N}_-]*\d[\p{Lu}\p{N}_-]*)/iu)?.[1]?.trim();
       const courseName = text.match(/(?:khóa(?:\s+học)?|khoa(?:\s+hoc)?)\s+(.+?)(?=\s+(?:còn|con|đã|da|đang|dang)\b|[,.!?]|$)/iu)?.[1]?.trim().replace(/\s+/g, " ");
       for (const key of Object.keys(parsedValues)) delete parsedValues[key];
       if (branchField && branchValue !== undefined) parsedValues[branchField.key] = branchValue;
-      if (searchField && courseName) parsedValues[searchField.key] = courseName;
+      if (searchField && (classCode || courseName)) parsedValues[searchField.key] = classCode || courseName;
       if (analysisField) parsedValues[analysisField.key] = JSON.stringify({ filters: [{ field: "capacityStatus", operator: "eq", value: capacityStatusRequest }] });
       parsed.actionId = capacityWorkflow.actionId;
       parsed.intentType = "workflow";

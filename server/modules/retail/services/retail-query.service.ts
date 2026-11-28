@@ -20,6 +20,24 @@ export function buildOrderListQuery(scope: RetailBranchScope, query: any) {
     ...(query.from ? { $gte: String(query.from) } : {}),
     ...(query.to ? { $lte: String(query.to) } : {}),
   };
+  if (query?.cancelledFrom || query?.cancelledTo) {
+    const validDate = (value: unknown) => {
+      if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+      const parsed = new Date(`${value}T00:00:00.000Z`);
+      return Number.isFinite(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === value;
+    };
+    if (query.cancelledFrom && !validDate(query.cancelledFrom) || query.cancelledTo && !validDate(query.cancelledTo)) {
+      throw new Error("Khoảng ngày hủy cần đúng định dạng YYYY-MM-DD.");
+    }
+    if (query.cancelledFrom && query.cancelledTo && String(query.cancelledFrom) > String(query.cancelledTo)) {
+      throw new Error("Ngày bắt đầu hủy không được sau ngày kết thúc.");
+    }
+    filter.status = "cancelled";
+    filter.cancelledAt = {
+      ...(query.cancelledFrom ? { $gte: new Date(`${query.cancelledFrom}T00:00:00+07:00`) } : {}),
+      ...(query.cancelledTo ? { $lte: new Date(`${query.cancelledTo}T23:59:59.999+07:00`) } : {}),
+    };
+  }
   const search = escapeRegex(String(query?.q || "").trim());
   if (search) filter.$or = ["orderCode", "customerName", "customerPhone"].map((key) => ({ [key]: { $regex: search, $options: "i" } }));
   return { filter, ...pageValues(query) };

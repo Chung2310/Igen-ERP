@@ -12,6 +12,7 @@ const requireManage = requireAnyPermission([...STUDENT_AREA_PERMISSIONS["student
 
 router.use(authMiddleware);
 
+router.get("/audience-counts", NotificationController.getAudienceCounts);
 router.post("/", requireManage, validate(createNotificationSchema), NotificationController.create);
 router.get("/", NotificationController.getList);
 router.patch("/:id", requireManage, validate(idParamSchema, "params"), validate(updateNotificationSchema), NotificationController.update);

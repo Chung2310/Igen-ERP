@@ -59,6 +59,22 @@ export const createPayoutSchema = Joi.object({
   note: Joi.string().allow("").optional(),
 });
 
+export const payoutReportQuerySchema = Joi.object({
+  companyCode: Joi.string(),
+  branchId: Joi.string(),
+  page: Joi.number().integer().min(1),
+  limit: Joi.number().integer().min(1).max(1000),
+  from: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).required(),
+  to: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).required(),
+}).custom((value, helpers) => {
+  const validDate = (date: string) => {
+    const parsed = new Date(`${date}T00:00:00.000Z`);
+    return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date;
+  };
+  if (!validDate(value.from) || !validDate(value.to) || value.from > value.to) return helpers.error("any.invalid");
+  return value;
+}).messages({ "any.invalid": "Khoảng ngày chi trả không hợp lệ." });
+
 export const createCommissionLevelSchema = Joi.object({
   name: Joi.string().required().messages({
     "any.required": "Tên cấp bậc hoa hồng là bắt buộc.",

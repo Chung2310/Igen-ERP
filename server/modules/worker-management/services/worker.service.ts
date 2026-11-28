@@ -29,6 +29,7 @@ export type WorkerInput = {
 
 export type WorkerListFilters = {
   permitExpiryWithinDays?: number;
+  referralStatus?: "linked" | "missing";
 };
 
 export type BulkWorkerInput = {
@@ -185,7 +186,9 @@ export class WorkerService {
       ...(scope.branchId ? { branchId: scope.branchId } : {}),
       status: { $in: ["pending", "active"] },
     }).sort({ effectiveFrom: -1, createdAt: -1 }).lean();
-    if (!referrals.length) return workers;
+    if (!referrals.length) return filters.referralStatus === "missing"
+      ? workers.map((worker: any) => ({ ...worker, partnerName: "", partnerCode: "" }))
+      : filters.referralStatus === "linked" ? [] : workers;
 
     const partnerIds = Array.from(new Set(referrals.map((referral: any) => String(referral.partnerId))));
     const partners = await LaborPartnerModel.find({
@@ -200,7 +203,7 @@ export class WorkerService {
       const partner = partnerById.get(String(referral.partnerId));
       if (partner && !partnerByWorkerId.has(String(referral.workerId))) partnerByWorkerId.set(String(referral.workerId), partner);
     }
-    return workers.map((worker: any) => ({
+    const enriched = workers.map((worker: any) => ({
       ...worker,
       ...(partnerByWorkerId.has(String(worker._id))
         ? {
@@ -209,6 +212,9 @@ export class WorkerService {
           }
         : {}),
     }));
+    return filters.referralStatus === "missing"
+      ? enriched.filter((worker: any) => !worker.partnerName)
+      : filters.referralStatus === "linked" ? enriched.filter((worker: any) => Boolean(worker.partnerName)) : enriched;
   }
   static async create(scope: WorkerScope, input: WorkerInput) {
     const data = normalizeWorkerInput(input);

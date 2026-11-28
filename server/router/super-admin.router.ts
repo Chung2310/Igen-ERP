@@ -8,6 +8,7 @@ import { superAdminUserAccessRouter } from "./super-admin-user-access.router";
 import { createActivityMonitorRouter } from "./super-admin-activity.router";
 import { superAdminAiSubscriptionRouter } from "./super-admin-ai-subscription.router";
 import { superAdminServicePlanRouter } from "./super-admin-service-plan.router";
+import { createSuperAdminAssistantFeedbackRouter } from "./super-admin-assistant-feedback.router";
 import { superAdminController } from "../controller/super-admin.controller";
 import { superAdminAccountService } from "../service/super-admin-account.service";
 import { validateRequest } from "../middleware/validation";
@@ -95,6 +96,7 @@ superAdminRouter.use(createTenantRouter());
 superAdminRouter.use(createActivityMonitorRouter());
 superAdminRouter.use(superAdminAiSubscriptionRouter);
 superAdminRouter.use(superAdminServicePlanRouter);
+superAdminRouter.use("/assistant-feedback", createSuperAdminAssistantFeedbackRouter());
 superAdminRouter.use("/", superAdminUserAccessRouter);
 superAdminRouter.get("/auth/sessions", async (req: any, res) => res.json({ sessions: await superAdminAuthService.listSessions(req.user.id) }));
 

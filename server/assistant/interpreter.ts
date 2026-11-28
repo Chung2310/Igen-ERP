@@ -82,6 +82,8 @@ function contextualSerialTransferActionIds(text: string, workflows: AssistantWor
 }
 function contextualInventoryReceiptCreateActionId(text: string, workflows: AssistantWorkflow[]) {
   const intent = normalizeIntentText(text);
+  if (/\b(?:hien co|gan nhat|lan nhap|nhap nhung may gi|nhap nhung gi|tao nhap|chua hoan thanh|chua xong|can xu ly|cho xu ly)\b/.test(intent)
+    && /\b(?:phieu nhap|dot nhap|nhap hang|nha cung cap)\b/.test(intent)) return "";
   if (/\b(?:xem|tra cuu|tim kiem|tim|kiem tra|danh sach|liet ke|bao cao|lich su|cap nhat|sua|huy|xoa|xac nhan|hoan tat)\b/.test(intent)) return "";
   const asksToReceive = /\b(?:nhap kho|nhap hang)\b/.test(intent)
     || /\b(?:tao|lap|them|ghi nhan)\b.{0,28}\bphieu nhap\b/.test(intent);

@@ -123,6 +123,53 @@ export class AssignmentService {
     return AssignmentModel.find(query).sort({ createdAt: -1 });
   }
 
+  static async getMissingSubmissions(ownerScope: OwnerScope, branchId?: string, search?: string) {
+    if (!search?.trim()) throw Object.assign(new Error("Cần tên bài tập để tìm học viên chưa nộp."), { status: 400 });
+    const assignments = await AssignmentModel.find({
+      ...buildOwnerQuery(ownerScope),
+      ...buildBranchQuery(branchId),
+      title: { $regex: escapeRegex(search.trim().slice(0, 120)), $options: "i" },
+    }).select("title batchId dueDate branchId").sort({ createdAt: -1 }).limit(50).lean();
+    if (!assignments.length) return { assignmentCount: 0, missingCount: 0, students: [] };
+
+    const batches = await Batch.find({
+      _id: { $in: assignments.map((assignment) => assignment.batchId) },
+      ...buildOwnerQuery(ownerScope),
+      ...buildBranchQuery(branchId),
+    }).select("_id code name learnerIds").lean();
+    const batchesById = new Map(batches.map((batch) => [String(batch._id), batch]));
+    const roster = assignments.flatMap((assignment) => {
+      const batch = batchesById.get(String(assignment.batchId));
+      return (batch?.learnerIds || []).map((studentId: string) => ({ assignmentId: String(assignment._id), studentId: String(studentId) }));
+    });
+    const submitted = roster.length ? await SubmissionModel.find({
+      assignmentId: { $in: assignments.map((assignment) => String(assignment._id)) },
+      studentId: { $in: [...new Set(roster.map((row) => row.studentId))] },
+    }).select("assignmentId studentId").lean() : [];
+    const submittedKeys = new Set(submitted.map((row) => `${row.assignmentId}:${row.studentId}`));
+    const missingRows = roster.filter((row) => !submittedKeys.has(`${row.assignmentId}:${row.studentId}`));
+    const students = missingRows.length ? await Student.find({
+      _id: { $in: [...new Set(missingRows.map((row) => row.studentId))] },
+      ...buildOwnerQuery(ownerScope),
+      ...buildBranchQuery(branchId),
+    }).select("_id fullName").lean() : [];
+    const studentNames = new Map(students.map((student) => [String(student._id), student.fullName]));
+    const assignmentById = new Map(assignments.map((assignment) => [String(assignment._id), assignment]));
+    const batchById = new Map(batches.map((batch) => [String(batch._id), batch]));
+    const rows = missingRows.flatMap((row) => {
+      const assignment = assignmentById.get(row.assignmentId);
+      const batch = assignment ? batchById.get(String(assignment.batchId)) : undefined;
+      const fullName = studentNames.get(row.studentId);
+      return assignment && fullName ? [{
+        assignmentTitle: assignment.title,
+        batchName: String(batch?.code || batch?.name || ""),
+        studentName: fullName,
+        dueDate: assignment.dueDate,
+      }] : [];
+    });
+    return { assignmentCount: assignments.length, missingCount: rows.length, students: rows };
+  }
+
   static async getSubmissions(ownerScope: OwnerScope, assignmentId: string, branchId?: string): Promise<any[]> {
     const assignment = await AssignmentModel.findOne({ _id: assignmentId, ...buildOwnerQuery(ownerScope), ...buildBranchQuery(branchId) });
     if (!assignment) throw new Error("Assignment not found.");

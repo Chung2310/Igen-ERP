@@ -30,6 +30,11 @@ export interface AssistantChatMessage {
   role: "user" | "assistant";
   content: string;
   createdAt?: string;
+  feedback?: {
+    rating: number;
+    comment?: string;
+    submittedAt?: string;
+  };
   files?: AssistantGeneratedFile[];
   sources?: AssistantSource[];
   illustrations?: AssistantIllustration[];

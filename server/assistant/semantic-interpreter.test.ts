@@ -23,6 +23,79 @@ import { quotationIntent } from "./quotation-intent";
 import { validateRequestCoverage } from "./request-coverage";
 afterEach(() => { provider.mockReset(); mockState.inferIntentType = true; mockState.autoCoverage = true; });
 const employee = defaultWorkflow(operationById("employee.update")!);
+it.each([
+  ["Dự án nào đã tuyển đủ chỉ tiêu lao động?", "worker.report", { mode: "filled" }],
+  ["Dự án nào đang bật giới hạn chấm công bằng GPS?", "worker.report", { mode: "gps-enabled" }],
+  ["Lao động nào chưa được gắn đối tác giới thiệu?", "worker.list", { query_referralStatus: "missing" }],
+  ["Thống kê số lượng lao động theo loại: bao nhiêu lao động chính thức, bao nhiêu lao động thời vụ?", "worker.report", { mode: "labor-types" }],
+])("routes a previously unsupported labor report: %s", async (text, actionId, values) => {
+  const workflow = defaultWorkflow(operationById(actionId)!);
+  const result = await interpretRequest(text, [workflow], null, []);
+  expect(result).toMatchObject({ actionId, values, intentType: "workflow" });
+});
+it("routes an overview request across the labor module to its scoped report", async () => {
+  const workflow = defaultWorkflow(operationById("worker.report.overview")!);
+  const result = await interpretRequest("Lập báo cáo tổng quan phân hệ Lao động tháng 11/2026: số dự án, tổng lao động, tỉ lệ chuyên cần, hợp đồng sắp hết hạn và công nợ hoa hồng đối tác", [workflow], null, []);
+  expect(result).toMatchObject({ actionId: "worker.report.overview", intentType: "workflow", values: { query_from: "2026-11-01", query_to: "2026-11-30" } });
+});
+it("routes removing a named worker from a named project to the confirmed membership action", async () => {
+  const workflow = defaultWorkflow(operationById("worker.project.worker.remove")!);
+  const result = await interpretRequest("xóa nhân sự Bùi Đức Minh (mẫu) khỏi dự án VINCOS", [workflow], null, []);
+  expect(result).toMatchObject({ actionId: "worker.project.worker.remove", intentType: "workflow", actionIntent: "delete" });
+  expect(Object.values(result.values)).toEqual(expect.arrayContaining(["Bùi Đức Minh (mẫu)", "VINCOS"]));
+});
+it.each([
+  ["Xem lịch sử giới thiệu học viên của đối tác Tạ Đức Long", "partner.referrals.list"],
+  ["Đối tác Tạ Đức Long đang dùng tài khoản ngân hàng nào để nhận hoa hồng?", "partner.list"],
+  ["Có nhà cung cấp nào trong mục đối tác bán lẻ chưa liên kết dữ liệu không", "retail.partner.list"],
+])("routes a supported partner lookup that used to be unsupported: %s", async (text, actionId) => {
+  const workflow = defaultWorkflow(operationById(actionId)!);
+  const result = await interpretRequest(text, [workflow], null, []);
+  expect(result.actionId).toBe(actionId);
+  expect(result.intentType).toBe("workflow");
+});
+it.each([
+  ["ai chưa nộp bài test module đăng nhập", "student.assignment.missing-submissions", { query_search: "module đăng nhập" }],
+  ["Tổng số học viên còn nợ trung tâm", "student.debt.report", {}],
+  ["Thống kê số lượng học viên theo từng nhóm nhận thông báo (sắp thi, còn nợ học phí, cần học lại)", "student.notification.audience.counts", {}],
+  ["Tháng trước có bao nhiêu học viên xin bảo lưu", "student.suspension.report", { query_mode: "requests" }],
+])("routes a supported student report that used to be unsupported: %s", async (text, actionId, values) => {
+  const workflow = defaultWorkflow(operationById(actionId)!);
+  const result = await interpretRequest(text, [workflow], null, []);
+  expect(result).toMatchObject({ actionId, values, intentType: "workflow" });
+});
+it.each([
+  ["Tuần này có học viên nào mới xin bảo lưu không", "requests"],
+  ["Lọc danh sách học viên sắp hết hạn bảo lưu trong 10 ngày tới", "upcoming"],
+])("routes suspension date filters without asking for a class: %s", async (text, mode) => {
+  const workflow = defaultWorkflow(operationById("student.suspension.report")!);
+  const result = await interpretRequest(text, [workflow], null, []);
+  expect(result).toMatchObject({ actionId: "student.suspension.report", intentType: "workflow", values: { query_mode: mode } });
+  expect(result.values.query_from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(result.values.query_to).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+});
+it("asks for confirmation before creating a public worker registration link", async () => {
+  const workflow = defaultWorkflow(operationById("worker.public-registration-link.create")!);
+  const result = await interpretRequest("Lấy đường link đăng ký hồ sơ lao động công khai để gửi cho ứng viên tự điền", [workflow], null, []);
+  expect(result).toMatchObject({ actionId: "worker.public-registration-link.create", intentType: "workflow", actionIntent: "create" });
+});
+it("routes a class roadmap and step question to the selected class lookup", async () => {
+  const workflow = defaultWorkflow(operationById("student.batch.roadmap.lookup")!);
+  const result = await interpretRequest("Lớp IGENTEST-1 đang thuộc lộ trình nào và đang ở chặng mấy", [workflow], null, []);
+  expect(result).toMatchObject({ actionId: "student.batch.roadmap.lookup", values: { search: "IGENTEST-1" }, intentType: "workflow" });
+});
+it("routes payout totals by payment method to the selected month", async () => {
+  const workflow = defaultWorkflow(operationById("partner.payout.report")!);
+  const result = await interpretRequest("Thống kê hoa hồng đã chi trả theo phương thức chuyển khoản và tiền mặt trong tháng này", [workflow], null, []);
+  expect(result).toMatchObject({ actionId: "partner.payout.report", intentType: "workflow", values: { query_from: "2026-11-01", query_to: "2026-11-30" } });
+});
+it("uses precise limitations for retail partner data the database does not store", async () => {
+  const bankLink = await interpretRequest("Kiểm tra xem cộng tác viên Đinh Viết Tường đã liên kết tài khoản sao kê chưa", [defaultWorkflow(operationById("retail.partner.list")!)], null, []);
+  expect(bankLink).toMatchObject({ actionId: null, intentType: "ambiguous" });
+  expect(bankLink.clarification).toContain("chưa lưu trạng thái liên kết tài khoản sao kê");
+  const policy = await interpretRequest("Kiểm tra xem có chính sách hoa hồng bán lẻ nào sắp hết hiệu lực không", [defaultWorkflow(operationById("retail.partner.commission.policy.list")!)], null, []);
+  expect(policy).toMatchObject({ actionId: "retail.partner.commission.policy.list", intentType: "workflow" });
+});
 describe("estimate versus budget routing", () => {
   const workflows = ["quotation.budget.create", "quotation.request.create", "quotation.estimate.create", "quotation.estimate.from-customer"].map(id => defaultWorkflow(operationById(id)!));
   it("keeps an order-value ranking when clarification says to ignore debt limits", async () => {
@@ -107,6 +180,47 @@ describe("estimate versus budget routing", () => {
   it("preserves cancellation", async () => {
     provider.mockResolvedValue({ text: JSON.stringify({ actionId: "quotation.budget.create", values: {}, cancel: true }) });
     expect(await interpretRequest("Không tạo dự toán nữa", workflows, null, [])).toMatchObject({ actionId: null, cancel: true });
+  });
+});
+
+describe("inventory receipt creation extraction", () => {
+  it("preserves the supplier, quantity and product when creating a receipt", async () => {
+    const workflow = defaultWorkflow(operationById("inventory.receipt.create")!);
+    const result = await interpretRequest(
+      "Tạo giúp tôi phiếu nhập 10 máy Huawei Honor 600 từ nhà cung cấp XOAMI vào kho Trụ sở chính",
+      [workflow], null, [], "", [], "", [], false,
+    );
+
+    expect(result).toMatchObject({
+      actionId: "inventory.receipt.create",
+      actionIntent: "create",
+      values: {
+        supplierId: "XOAMI",
+        warehouseId: "Trụ sở chính",
+      },
+    });
+    expect(JSON.parse(String(result.values.items))).toEqual([
+      { productId: "Huawei Honor 600", quantity: 10 },
+    ]);
+  });
+
+  it("converts an explicitly stated unit cost without inventing one", async () => {
+    const workflow = defaultWorkflow(operationById("inventory.receipt.create")!);
+    const withCost = await interpretRequest(
+      "Tạo phiếu nhập 5 máy iPhone 14 từ nhà cung cấp IHONE, giá nhập 30 triệu một máy",
+      [workflow], null, [], "", [], "", [], false,
+    );
+    const withoutCost = await interpretRequest(
+      "Tạo phiếu nhập 10 máy Huawei Honor 600 từ nhà cung cấp XOAMI",
+      [workflow], null, [], "", [], "", [], false,
+    );
+
+    expect(JSON.parse(String(withCost.values.items))).toEqual([
+      { productId: "iPhone 14", quantity: 5, unitCost: 30_000_000 },
+    ]);
+    expect(JSON.parse(String(withoutCost.values.items))).toEqual([
+      { productId: "Huawei Honor 600", quantity: 10 },
+    ]);
   });
 });
 describe("semantic interpretation", () => {
@@ -248,6 +362,27 @@ describe("semantic interpretation", () => {
       { productId: "Samsung Galaxy Ultra", quantity: 2 },
     ]);
     expect(validateRequestCoverage(text, result.requestCoverage, workflow, operationById(workflow.actionId)!, result.values)).toEqual({ ok: true });
+    expect(provider).not.toHaveBeenCalled();
+  });
+
+  it("routes an explicit internal stock issue to the confirmation workflow with supplied details", async () => {
+    const workflow = defaultWorkflow(operationById("inventory.stock-log.internal.issue.create")!);
+    const text = "Tạo giúp tôi phiếu xuất 1 máy Redmi Note 14 từ kho Trụ sở chính để bộ phận kế toán sử dụng nội bộ";
+    const result = await interpretRequest(text, [workflow], null, []);
+
+    expect(result).toMatchObject({
+      actionId: "inventory.stock-log.internal.issue.create",
+      intentType: "workflow",
+      actionIntent: "create",
+      values: {
+        warehouseId: "Trụ sở chính",
+        customerName: "bộ phận kế toán",
+        notes: "Sử dụng nội bộ",
+      },
+    });
+    expect(JSON.parse(String(result.values.items))).toEqual([
+      { productId: "Redmi Note 14", quantity: 1 },
+    ]);
     expect(provider).not.toHaveBeenCalled();
   });
 
@@ -1465,13 +1600,11 @@ describe("semantic interpretation", () => {
         "Tháng trước có bao nhiêu phiếu xuất bán hàng và bao nhiêu phiếu xuất dùng nội bộ",
         workflows, null, [],
       );
-      expect(result.actionId).toBe("inventory.stock-log.list");
+      expect(result.actionId).toBe("inventory.stock-log.analysis");
       expect(result.values).toMatchObject({
         createdFrom: "2026-10-01",
         createdTo: "2026-10-31",
-        page: 1,
-        limit: 1000,
-        reportType: "previous-month-issue-counts",
+        reportType: "issue-counts",
       });
     } finally {
       vi.useRealTimers();
@@ -1649,13 +1782,28 @@ describe("semantic interpretation", () => {
   });
   it("routes unsupported POS reports to allow-listed retail data", async () => {
     const workflows = [
-      "retail.report.summary", "retail.report.top-products", "retail.report.daily-extremes",
+      "retail.report.summary", "retail.report.cashier-ranking", "retail.order.cancelled.report", "retail.report.top-products", "retail.report.daily-extremes",
       "retail.report.category-brand-summary", "retail.report.export", "retail.order.top-value", "retail.order.top-customers", "retail.order.top-customers.completed", "retail.invoice.bulk-pdf",
       "retail.order.payment-qr", "customer.tier.counts", "customer.upcoming-birthdays",
       "retail.order.discount-anomalies",
     ].map(id => defaultWorkflow(operationById(id)!));
     const cashier = await interpretRequest("Tháng này nhân viên thu ngân nào bán được doanh số cao nhất?", workflows, null, []);
-    expect(cashier).toMatchObject({ actionId: "retail.report.summary", values: { from: expect.any(String), to: expect.any(String) } });
+    expect(cashier).toMatchObject({ actionId: "retail.report.cashier-ranking", values: { from: expect.any(String), to: expect.any(String) } });
+
+    const cancelledOrders = await interpretRequest("Hôm qua có mấy đơn bị hủy và cho tôi biết lí do bị hủy?", workflows, null, []);
+    expect(cancelledOrders).toMatchObject({
+      actionId: "retail.order.cancelled.report",
+      values: { cancelledFrom: expect.any(String), cancelledTo: expect.any(String) },
+    });
+
+    const cashierAndCancelledOrders = await interpretRequest(
+      "Thu ngân nào đang có doanh số tốt nhất tháng này? Hôm qua có mấy đơn bị hủy và cho tôi biết lí do bị hủy?",
+      workflows, null, [],
+    );
+    expect(cashierAndCancelledOrders.queryPlan).toHaveLength(2);
+    expect(cashierAndCancelledOrders.queryPlan?.map(query => query.actionId)).toEqual([
+      "retail.report.cashier-ranking", "retail.order.cancelled.report",
+    ]);
 
     const topProducts = await interpretRequest("Top 10 mặt hàng bán chạy nhất tháng này là những món nào?", workflows, null, []);
     expect(topProducts).toMatchObject({ actionId: "retail.report.top-products", values: { topN: 10, from: expect.any(String), to: expect.any(String) } });
@@ -1692,12 +1840,190 @@ describe("semantic interpretation", () => {
     const [year, month] = currentDate.split("-").map(Number);
     const lastDayOfMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
     expect(birthdays).toMatchObject({ actionId: "customer.upcoming-birthdays", values: { from: expect.any(String), to: `${year}-${String(month).padStart(2, "0")}-${String(lastDayOfMonth).padStart(2, "0")}` } });
+
+    const nextMonthBirthdays = await interpretRequest("Tháng sau khách nào có sinh nhật?", workflows, null, []);
+    const nextMonthDate = new Date(Date.UTC(year, month, 1));
+    const nextYear = nextMonthDate.getUTCFullYear();
+    const nextMonth = nextMonthDate.getUTCMonth() + 1;
+    const lastDayOfNextMonth = new Date(Date.UTC(nextYear, nextMonth, 0)).getUTCDate();
+    expect(nextMonthBirthdays).toMatchObject({ actionId: "customer.upcoming-birthdays", values: {
+      from: `${nextYear}-${String(nextMonth).padStart(2, "0")}-01`,
+      to: `${nextYear}-${String(nextMonth).padStart(2, "0")}-${String(lastDayOfNextMonth).padStart(2, "0")}`,
+    } });
   });
   it("routes IMEI stock rankings to the serial stock summary", async () => {
     const workflow = defaultWorkflow(operationById("inventory.serial.stock-ranking")!);
     const result = await interpretRequest("Dòng máy nào đang có số lượng IMEI tồn trong kho nhiều nhất", [workflow], null, []);
 
     expect(result).toMatchObject({ actionId: "inventory.serial.stock-ranking", values: {} });
+  });
+  it.each([
+    ["Dòng máy nào đang có số lượng tồn kho khả dụng nhiều nhất", "highest-stock", undefined],
+    ["Dòng máy nào đang ngốn nhiều tiền vốn tồn kho nhất", "capital-ranking", undefined],
+    ["Những dòng máy nào đang ở mức tồn kho ổn định", "stability-assessment", undefined],
+    ["Trong 30 ngày qua dòng nào bán ế mà kho vẫn tồn nhiều", "no-sales-with-stock", undefined],
+    ["Với tốc độ bán hiện tại thì dòng máy iPhone 14 còn đủ bán bao nhiêu ngày", "days-cover", "iPhone 14"],
+  ])("only filters inventory analysis by an explicit product name: %s", async (question, reportType, search) => {
+    const workflows = ASSISTANT_OPERATIONS.map(defaultWorkflow);
+    const result = await interpretRequest(question, workflows, null, []);
+    expect(result).toMatchObject({ actionId: "inventory.stock.analysis", values: { reportType } });
+    expect(result.values.search).toBe(search);
+  });
+  it("routes product recipient and current/previous month stock reports with explicit filters", async () => {
+    const workflows = ASSISTANT_OPERATIONS.map(defaultWorkflow);
+    const recipients = await interpretRequest("Dòng Redmi Note 14 gần đây đã xuất cho những ai hoặc bộ phận nào", workflows, null, []);
+    expect(recipients).toMatchObject({ actionId: "inventory.stock-log.analysis", values: { reportType: "recipient-history", search: "Redmi Note 14" } });
+
+    const comparison = await interpretRequest("Tháng này và tháng trước có bao nhiêu phiếu xuất kho", workflows, null, []);
+    expect(comparison).toMatchObject({ actionId: "inventory.stock-log.analysis", values: { reportType: "monthly-comparison", createdFrom: expect.stringMatching(/^\d{4}-\d{2}-01$/), previousFrom: expect.stringMatching(/^\d{4}-\d{2}-01$/) } });
+    expect(String(comparison.values.createdFrom)).not.toBe(comparison.values.previousFrom);
+  });
+  it("summarizes transfer counts and extracts named operators", async () => {
+    const workflows = ASSISTANT_OPERATIONS.map(defaultWorkflow);
+    const transfers = await interpretRequest("Tháng này có bao nhiêu phiếu điều chuyển kho", workflows, null, []);
+    expect(transfers).toMatchObject({ actionId: "inventory.transfer.analysis", values: { reportType: "period-summary" } });
+
+    const operator = await interpretRequest("Tổng hợp giao dịch kho do Nguyễn Hùng Tài thực hiện gần đây", workflows, null, []);
+    expect(operator).toMatchObject({ actionId: "inventory.stock-log.analysis", values: { reportType: "operator-history", search: "Nguyễn Hùng Tài" } });
+  });
+  it.each([
+    ["Hiện có phiếu nhập hàng nào nhân viên tạo nháp hoặc chưa hoàn thành cần tôi xử lý không", "pending-receipts", undefined],
+    ["Lần gần nhất mình nhập hàng từ nhà cung cấp IHONE là khi nào, nhập những máy gì", "latest-receipt", "IHONE"],
+  ])("treats receipt status and latest receipt questions as reads: %s", async (question, reportType, supplier) => {
+    const result = await interpretRequest(question, ASSISTANT_OPERATIONS.map(defaultWorkflow), null, []);
+    expect(result.actionId).toBe("inventory.receipt.analysis");
+    expect(result.values.reportType).toBe(reportType);
+    if (supplier) expect(result.values.search).toBe(supplier.toLocaleLowerCase());
+  });
+  it.each([
+    ["Trong kho mình hiện có bao nhiêu máy khả dụng để bán ngay và có máy nào đang bị giữ hàng không", "inventory.stock.analysis", "stock-summary"],
+    ["Khách muốn lấy gấp 5 máy iPhone 15 Pro Max, kiểm tra xem kho Trụ sở chính có đủ hàng giao ngay không", "inventory.stock.analysis", "product-summary"],
+    ["Tạo phiếu kiểm kê kho Trụ sở chính cho dòng Huawei Honor 600 với số lượng đếm thực tế là 8 máy", "inventory.count.create", undefined],
+    ["Xuất file excel bảng tồn kho hiện tại của kho Trụ sở chính", "inventory.warehouse.balances.list", undefined],
+    ["Hôm nay cửa hàng có nhập lô hàng nào mới không", "inventory.receipt.analysis", "period-summary"],
+    ["Kiểm tra ngay xem hiện có phiếu xuất kho nào đang chờ tôi duyệt hoặc đang xuất dở không", "inventory.stock-log.analysis", "pending-status"],
+    ["Trong tháng trước có mấy lần khách trả hàng nhập lại kho và lý do trả hàng là gì", "retail.after-sale.return-product-analysis", undefined],
+    ["Khách mang máy Huawei Honor 600 có số IMEI 44445555 tới hỏi, kiểm tra nhanh trạng thái và lịch sử máy này giúp tôi", "inventory.serial.analysis", "identifier-history"],
+    ["Dòng máy nào đang có số lượng IMEI tồn trong kho nhiều nhất", "inventory.serial.stock-ranking", undefined],
+    ["Báo cáo tổng quan dự báo tồn kho 30 ngày tới cho cửa hàng mình", "inventory.stock.analysis", "forecast-30d"],
+    ["Những dòng máy nào đang ở mức tồn kho ổn định", "inventory.stock.analysis", "stability-assessment"],
+    ["Trong 30 ngày qua có những dòng máy nào bán ế không xuất được cái nào mà trong kho vẫn tồn nhiều", "inventory.stock.analysis", "no-sales-with-stock"],
+    ["Với tốc độ bán hiện tại thì số máy iPhone 14 còn trong kho đủ bán trong khoảng bao nhiêu ngày nữa", "inventory.stock.analysis", "days-cover"],
+  ])("routes warehouse clarification gaps to a specific action: %s", async (question, actionId, reportType) => {
+    const workflows = ASSISTANT_OPERATIONS.map(defaultWorkflow);
+    const result = await interpretRequest(question, workflows, null, []);
+
+    expect(result.actionId).toBe(actionId);
+    if (reportType) expect(result.values.reportType).toBe(reportType);
+    if (question.startsWith("Trong kho mình")) expect(result.values).not.toHaveProperty("warehouseId");
+  });
+  it("marks count-sheet creation as a write and preserves the unrecorded count in its note", async () => {
+    const workflows = ASSISTANT_OPERATIONS.map(defaultWorkflow);
+    const result = await interpretRequest("Tạo phiếu kiểm kê kho Trụ sở chính cho dòng Huawei Honor 600 với số lượng đếm thực tế là 8 máy", workflows, null, []);
+
+    expect(result).toMatchObject({ actionId: "inventory.count.create", actionIntent: "create", values: { warehouseId: "Trụ sở chính" } });
+    expect(String(result.values.notes)).toContain("Số đếm chưa được ghi nhận");
+  });
+  it("lists return documents when the user asks who returned goods and their value", async () => {
+    const workflows = ASSISTANT_OPERATIONS.map(defaultWorkflow);
+    const result = await interpretRequest(
+      "Kiểm tra giúp tôi tháng trước có đơn nào khách trả hàng nhập lại kho không, ai trả và giá trị bao nhiêu",
+      workflows, null, [],
+    );
+
+    expect(result).toMatchObject({
+      actionId: "retail.after-sale.list",
+      values: {
+        query_type: "return",
+        from: expect.stringMatching(/^\d{4}-\d{2}-01$/),
+        to: expect.any(String),
+      },
+    });
+  });
+  it.each([
+    ["Cửa hàng mình hiện đang bán tổng cộng bao nhiêu dòng sản phẩm", "inventory.catalog.analysis", "product-count"],
+    ["Thống kê số lượng sản phẩm theo từng nhóm hàng", "inventory.catalog.analysis", "category-count"],
+    ["Dòng máy nào đang ngốn nhiều tiền vốn tồn kho nhất ở cửa hàng mình", "inventory.stock.analysis", "capital-ranking"],
+    ["Dòng máy nào trong kho hiện chỉ còn ít hàng nhất", "inventory.stock.analysis", "lowest-stock"],
+    ["Kiểm tra giá vốn bình quân và tổng tiền vốn đang tồn của dòng Samsung Galaxy Ultra", "inventory.stock.analysis", "product-capital"],
+    ["Liệt kê các dòng máy đang đọng vốn từ 100 triệu trở lên trong kho", "inventory.stock.analysis", "capital-over-threshold"],
+    ["Thống kê tổng tiền hàng đã nhập theo từng nhà cung cấp", "inventory.receipt.analysis", "supplier-spend"],
+    ["Từ trước đến nay mình nhập hàng của nhà cung cấp nào nhiều tiền nhất", "inventory.receipt.analysis", "top-supplier"],
+    ["Đợt nhập hàng lớn nhất từ trước đến nay của cửa hàng là đợt nào", "inventory.receipt.analysis", "largest-receipt"],
+    ["Nhân viên nào đang phụ trách xuất kho nhiều phiếu nhất", "inventory.stock-log.analysis", "operator-ranking"],
+    ["Đối soát nhanh tổng nhập xuất kho từ trước đến nay: nhập thực tế bao nhiêu máy, xuất bán và POS bao nhiêu máy", "inventory.stock-log.analysis", "flow-reconciliation"],
+    ["Tổng hợp toàn bộ giao dịch kho do Nguyễn Hùng Tài thực hiện gần đây", "inventory.stock-log.analysis", "operator-history"],
+    ["Báo cáo nhanh tình hình máy quản lý theo IMEI: tổng bao nhiêu máy, còn trong kho bao nhiêu, đã bán bao nhiêu và lỗi sửa bao nhiêu", "inventory.serial.analysis", "status-counts"],
+    ["Báo cáo tổng quan dự báo tồn kho 30 ngày tới cho cửa hàng mình", "inventory.stock.analysis", "forecast-30d"],
+    ["Những mặt hàng nào đang tồn kho quá nhiều, bán chậm gây đọng vốn cần xả hàng", "inventory.stock.analysis", "slow-moving"],
+    ["Dự kiến trong 30 ngày tới toàn cửa hàng sẽ bán ra khoảng bao nhiêu máy và dòng nào bán chạy nhất", "inventory.stock.analysis", "forecast-30d"],
+    ["Dòng Samsung Galaxy Ultra hiện có nên nhập thêm hàng không hay đang dư tồn", "inventory.stock.analysis", "reorder-status"],
+    ["Tóm tắt giúp tôi các đề xuất tối ưu hóa tồn kho nên giảm nhập hay xả dòng nào", "inventory.stock.analysis", "no-sales-with-stock"],
+  ])("routes warehouse analysis to the matching data action: %s", async (question, actionId, reportType) => {
+    const workflows = ASSISTANT_OPERATIONS.map(defaultWorkflow);
+    const result = await interpretRequest(question, workflows, null, []);
+    expect(result.actionId).toBe(actionId);
+    expect(result.values.reportType).toBe(reportType);
+  });
+  it("maps an explicit warehouse count to a read-only variance report", async () => {
+    const workflows = ASSISTANT_OPERATIONS.map(defaultWorkflow);
+    const result = await interpretRequest("Tôi vừa đếm thực tế ngoài kệ chỉ còn 3 máy iPhone 14, đối chiếu giúp tôi xem đang lệch bao nhiêu máy so với sổ sách trong kho", workflows, null, []);
+    expect(result).toMatchObject({ actionId: "inventory.stock.analysis", values: { reportType: "count-variance", physicalCount: 3 } });
+  });
+  it("keeps warehouse lookup filters specific and routes mixed stock requests", async () => {
+    const workflows = ASSISTANT_OPERATIONS.map(defaultWorkflow);
+    const categoryPrice = await interpretRequest("Nhóm Điện thoại hiện đang có những mẫu máy nào và giá bán từng mẫu bao nhiêu", workflows, null, []);
+    expect(categoryPrice).toMatchObject({ actionId: "inventory.price.analysis", values: { reportType: "product-prices", search: "Điện thoại" } });
+
+    const priceAndStock = await interpretRequest("Khách hỏi iPhone 15 Pro Max, báo giá và số lượng còn sẵn", workflows, null, []);
+    expect(priceAndStock).toMatchObject({ actionId: "inventory.price.analysis", values: { search: "iPhone 15 Pro Max", includeAvailability: true } });
+
+    const twoProducts = await interpretRequest("Giá bán hiện tại của iPhone 14 và Samsung Galaxy Ultra là bao nhiêu", workflows, null, []);
+    expect(twoProducts.values.search).toContain("iPhone 14");
+    expect(twoProducts.values.search).toContain("Samsung Galaxy Ultra");
+
+    const generalForecast = await interpretRequest("Dự kiến trong 30 ngày tới toàn cửa hàng sẽ bán ra khoảng bao nhiêu máy và dòng nào bán chạy nhất", workflows, null, []);
+    expect(generalForecast).toMatchObject({ actionId: "inventory.stock.analysis", values: { reportType: "forecast-30d" } });
+    expect(generalForecast.values).not.toHaveProperty("q");
+    const genericOptimization = await interpretRequest("T\u00f3m t\u1eaft gi\u00fap t\u00f4i c\u00e1c \u0111\u1ec1 xu\u1ea5t t\u1ed1i \u01b0u h\u00f3a t\u1ed3n kho (n\u00ean gi\u1ea3m nh\u1eadp hay x\u1ea3 d\u00f2ng n\u00e0o) m\u00e0 h\u1ec7 th\u1ed1ng \u0111ang g\u1ee3i \u00fd", workflows, null, []);
+    expect(genericOptimization).toMatchObject({ actionId: "inventory.stock.analysis", values: { reportType: "no-sales-with-stock" } });
+    expect(genericOptimization.values).not.toHaveProperty("search");
+    expect(genericOptimization.values).not.toHaveProperty("q");
+
+    const missingStock = await interpretRequest("Kiểm tra xem có dòng sản phẩm nào đang mở bán nhưng chưa có số liệu tồn khả dụng không", workflows, null, []);
+    expect(missingStock).toMatchObject({ actionId: "inventory.stock.analysis", values: { reportType: "no-available-stock" } });
+    expect(missingStock.values).not.toHaveProperty("q");
+
+    const serialReconciliation = await interpretRequest("Đối chiếu tổng số IMEI đang ở trạng thái Trong kho với số tồn thực tế của từng dòng máy không", workflows, null, []);
+    expect(serialReconciliation).toMatchObject({ actionId: "inventory.serial.analysis", values: { reportType: "reconciliation" } });
+    expect(serialReconciliation.values).not.toHaveProperty("search");
+  });
+  it("routes receipt summaries, recipient lookups, and transfer writes by their actual intent", async () => {
+    const workflows = ASSISTANT_OPERATIONS.map(defaultWorkflow);
+    const receipts = await interpretRequest("Tháng này cửa hàng đã nhập bao nhiêu đợt hàng và tổng cộng bao nhiêu tiền nhập", workflows, null, []);
+    expect(receipts).toMatchObject({ actionId: "inventory.receipt.analysis", values: { reportType: "period-summary", from: expect.any(String), to: expect.any(String) } });
+
+    const recipients = await interpretRequest("Kiểm tra toàn bộ các lần xuất máy cho nhân viên nội bộ sử dụng, xuất cho ai/bộ phận nào và bao nhiêu máy", workflows, null, []);
+    expect(recipients).toMatchObject({ actionId: "inventory.stock-log.analysis", values: { reportType: "recipient-history", purpose: "nội bộ" } });
+    expect(recipients.values).not.toHaveProperty("search");
+
+    const transfer = await interpretRequest("Tạo giúp tôi phiếu điều chuyển 2 máy Samsung Galaxy Ultra từ kho Trụ sở chính sang kho KHO2A", workflows, null, []);
+    expect(transfer).toMatchObject({ actionId: "inventory.transfer.create", actionIntent: "create", values: { fromWarehouseId: "Trụ sở chính", toWarehouseId: "KHO2A" } });
+
+    const transferSummary = await interpretRequest("Báo cáo tổng hợp tình hình điều chuyển kho: bao nhiêu phiếu đang chuyển, đã nhận và đã hủy", workflows, null, []);
+    expect(transferSummary).toMatchObject({ actionId: "inventory.transfer.analysis", values: { reportType: "period-summary" } });
+    expect(transferSummary.values).not.toHaveProperty("status");
+
+    const stockAndRepair = await interpretRequest("Huawei Honor 600 còn bao nhiêu hàng khả dụng, có máy nào đang sửa không", workflows, null, []);
+    expect(stockAndRepair).toMatchObject({ actionId: "inventory.serial.analysis", values: { reportType: "product-stock-and-serial", search: "Huawei Honor 600" } });
+
+    const transferBySerial = await interpretRequest("Chuyển giúp tôi 1 máy Samsung Galaxy Ultra đang còn trong kho Trụ sở chính sang kho KHO2A theo IMEI", workflows, null, []);
+    expect(transferBySerial).toMatchObject({ actionId: "inventory.transfer.create", actionIntent: "create", values: { fromWarehouseId: "Trụ sở chính", toWarehouseId: "KHO2A" } });
+  });
+  it("uses the transfer analysis action and filters both warehouse names", async () => {
+    const workflows = ASSISTANT_OPERATIONS.map(defaultWorkflow);
+    const result = await interpretRequest("Kiểm tra các đợt điều chuyển từ kho Trụ sở chính sang kho KHO2A xem có phiếu nào bị hủy không", workflows, null, []);
+    expect(result).toMatchObject({ actionId: "inventory.transfer.analysis", values: { status: "cancelled", fromWarehouseName: "Trụ sở chính", toWarehouseName: "KHO2A" } });
   });
   it.each([
     ["retail.shift.variance-report", "Gần đây có ca nào đóng ca bị hụt tiền hoặc lệch tiền không?", "Xem 30 ngày gần đây, chỉ các ca đã đóng ở chi nhánh hiện tại, kèm tiền dự kiến, tiền thực đếm và chênh lệch."],
@@ -1716,6 +2042,90 @@ describe("semantic interpretation", () => {
     expect(result.actionId).toBe(actionId);
     expect(result.intentType).toBe("workflow");
   });
+  it.each([
+    ["Hiện tại có lô hàng nào đang trên đường điều chuyển giữa các kho mà bên nhận chưa xác nhận không", "inventory.transfer.analysis", { reportType: "transfer-list", status: "in_transit" }],
+    ["Những mặt hàng nào đang tồn kho quá nhiều, bán chậm gây đọng vốn cần xả hàng hoặc điều chuyển bớt", "inventory.stock.analysis", { reportType: "slow-moving" }],
+  ])("routes warehouse questions with mixed everyday wording: %s", async (question, actionId, values) => {
+    const workflows = ASSISTANT_OPERATIONS.map(defaultWorkflow);
+    const result = await interpretRequest(question, workflows, null, []);
+    expect(result).toMatchObject({ actionId, values });
+    if (actionId === "inventory.transfer.analysis") {
+      expect(result.values).not.toHaveProperty("from");
+      expect(result.values).not.toHaveProperty("to");
+    }
+  });
+  it("routes everyday worker counts and month-specific contract expiry searches", async () => {
+    const labor = defaultWorkflow(operationById("worker.report")!);
+    const counts = await interpretRequest("O chi nhanh nay co bao nhieu lao dong chinh thuc va bao nhieu lao dong thoi vu?", [labor], null, []);
+    expect(counts).toMatchObject({ actionId: "worker.report", values: { mode: "labor-types" } });
+
+    const contracts = defaultWorkflow(operationById("worker.labor.contract.list")!);
+    const expiry = await interpretRequest("Hop dong lao dong nao se het han trong thang nay?", [contracts], null, []);
+    expect(expiry.actionId).toBe("worker.labor.contract.list");
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
+    expect(expiry.values.endDateFrom).toBe(today);
+    expect(expiry.values.endDateTo).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("routes natural retail debt and pending-confirmation questions with the requested filter", async () => {
+    const debt = defaultWorkflow(operationById("retail.order.debt-ranking")!);
+    const ranking = await interpretRequest("Khach nao dang no cua hang nhieu nhat?", [debt], null, []);
+    expect(ranking).toMatchObject({ actionId: "retail.order.debt-ranking", intentType: "workflow" });
+
+    const orders = defaultWorkflow(operationById("retail.order.list")!);
+    const pending = await interpretRequest("Có đơn bán nào đang chờ xác nhận không?", [orders], null, []);
+    expect(pending).toMatchObject({ actionId: "retail.order.list", values: { query_heldOnly: true } });
+    const awaitingApproval = await interpretRequest("Liệt kê các đơn bán đang chờ duyệt.", [orders], null, []);
+    expect(awaitingApproval).toMatchObject({ actionId: "retail.order.list", values: { query_heldOnly: true } });
+  });
+
+  it("routes a casual weekly best-seller question to a one-product ranking", async () => {
+    const workflows = ASSISTANT_OPERATIONS.map(defaultWorkflow);
+    const result = await interpretRequest("Sản phẩm nào bán chạy nhất tuần này?", workflows, null, []);
+    expect(result).toMatchObject({ actionId: "retail.report.top-products", values: { topN: 1 } });
+    expect(result.values.from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(result.values.to).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    const casualWording = await interpretRequest("Tuần này cửa hàng bán được mặt hàng nào nhiều nhất?", workflows, null, []);
+    expect(casualWording).toMatchObject({ actionId: "retail.report.top-products", values: { topN: 1 } });
+  });
+
+  it("filters running marketing campaigns by status without treating an ad type as the campaign name", async () => {
+    const campaignOperation = operationById("marketing.campaign.list")!;
+    expect(campaignOperation.adapter).toBe("contract");
+    const campaign = defaultWorkflow(campaignOperation);
+    const result = await interpretRequest("Chiến dịch quảng cáo nào đang chạy?", [campaign], null, []);
+    expect(result).toMatchObject({ actionId: "marketing.campaign.list", values: { status: "active", page: 1, limit: 100 } });
+    expect(result.values.search).toBeUndefined();
+  });
+
+  it("filters stock ranking and warehouse balance by named product and warehouse", async () => {
+    const stock = defaultWorkflow(operationById("inventory.stock.analysis")!);
+    const highest = await interpretRequest("Dong iPhone nao hien con ton nhieu nhat?", [stock], null, []);
+    expect(highest).toMatchObject({ actionId: "inventory.stock.analysis", values: { reportType: "highest-stock", search: "iPhone" } });
+
+    const byWarehouse = await interpretRequest("Kho KHO-1 con bao nhieu chiec Redmi Note 14?", [stock], null, []);
+    expect(byWarehouse).toMatchObject({ actionId: "inventory.stock.analysis", values: { reportType: "product-summary", warehouseId: "KHO-1", search: "Redmi Note 14" } });
+  });
+
+  it("uses the named class code and latest-assignment clarification instead of broad results", async () => {
+    const capacity = defaultWorkflow(operationById("batch.capacity.report")!);
+    provider.mockResolvedValue({ text: JSON.stringify({ actionId: capacity.actionId, values: {} }) });
+    const available = await interpretRequest("Lop IGENTEST-1 con bao nhieu cho trong?", [capacity], null, []);
+    expect(available).toMatchObject({ actionId: "batch.capacity.report", values: { search: "IGENTEST-1" } });
+
+    const missing = defaultWorkflow(operationById("student.assignment.missing-submissions")!);
+    const clarification = await interpretRequest("Ai chua nop bai tap gan nhat?", [missing], null, []);
+    expect(clarification).toMatchObject({ actionId: null, intentType: "ambiguous" });
+    expect(clarification.clarification).toContain("lop nao");
+  });
+
+  it("interprets a question about today's inbound receipts as a read", async () => {
+    const workflows = ASSISTANT_OPERATIONS.map(defaultWorkflow);
+    const result = await interpretRequest("Co phieu nhap hang nao duoc tao hom nay khong?", workflows, null, []);
+    expect(result).toMatchObject({ actionId: "inventory.receipt.analysis", values: { reportType: "period-summary" } });
+    expect(result.values.from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
   it("asks for an order code before generating a remaining-balance QR and resumes the same request", async () => {
     const workflow = defaultWorkflow(operationById("retail.order.payment-qr")!);
     const first = await interpretRequest("Lấy mã QR chuyển khoản để gửi khách thanh toán khoản nợ còn lại", [workflow], null, []);

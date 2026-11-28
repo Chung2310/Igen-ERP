@@ -8,6 +8,7 @@ sessionSchema.add({ activeRequestId: { type: String, default: "" } });
 sessionSchema.add({ readV2Context: { type: Schema.Types.Mixed, default: undefined }, goalContext: { type: Schema.Types.Mixed, default: undefined } });
 sessionSchema.index({ companyCode: 1, userId: 1, branchId: 1, conversationId: 1 }, { unique: true });
 sessionSchema.index({ companyCode: 1, userId: 1, branchId: 1, updatedAt: -1, _id: -1 });
+sessionSchema.index({ companyCode: 1, "messages.feedback.submittedAt": -1 });
 export const AssistantSessionModel = model("AssistantSession", sessionSchema);
 const projectCollectionSchema = new Schema({ ...scope, branchId: { type: String, default: "" }, projects: { type: [Schema.Types.Mixed], default: [] } }, { timestamps: true });
 projectCollectionSchema.index({ companyCode: 1, userId: 1, branchId: 1 }, { unique: true });

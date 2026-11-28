@@ -15,6 +15,7 @@ router.use(authMiddleware);
 
 router.get("/settings/progress-colors", BatchController.getProgressColors);
 router.patch("/settings/progress-colors", requireManage, validate(batchProgressColorsSchema), BatchController.updateProgressColors);
+router.get("/enrollment-suspensions", BatchController.getSuspensionReport);
 router.post("/", requireManage, validate(createBatchSchema), BatchController.create);
 router.get("/", BatchController.getList);
 router.get("/:id", validate(idParamSchema, "params"), BatchController.getDetail);

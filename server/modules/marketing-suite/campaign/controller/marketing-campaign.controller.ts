@@ -128,7 +128,10 @@ export const marketingCampaignController = {
       const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined;
       const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
       const search = typeof req.query.search === "string" ? req.query.search : undefined;
-      const result = await marketingCampaignService.listAssistantSummaries(companyCode, { page, limit, search });
+      const status = typeof req.query.status === "string"
+        ? req.query.status as "draft" | "active" | "paused" | "completed" | "cancelled" | "failed"
+        : undefined;
+      const result = await marketingCampaignService.listAssistantSummaries(companyCode, { page, limit, search, status });
       return res.status(200).json({ status: "success", data: result });
     } catch (error: unknown) {
       return res.status(400).json({ status: "error", message: error instanceof Error ? error.message : "Không thể tải danh sách tóm tắt chiến dịch." });

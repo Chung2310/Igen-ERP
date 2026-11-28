@@ -120,7 +120,7 @@ beforeEach(async()=>{
     const u=new URL(String(url));if(!['localhost','127.0.0.1','[::1]'].includes(u.hostname))throw new Error('External HTTP forbidden');
     const path=u.pathname.replace(/^\/api\/v1/,''),method=init?.method||'GET',body=init?.body?JSON.parse(String(init.body)):{};
     const activeScope={companyCode:'TEST',branchId:u.searchParams.get('branchId')||req.user.branchId};
-    const call:any={path,method,body,scope:activeScope,query:Object.fromEntries(u.searchParams)};calls.push(call);
+    const call:any={path,method,body,scope:activeScope};calls.push(call);
     try{
       let data:unknown;
       if(path.endsWith('/branches'))data=await BranchModel.find({companyCode:'TEST'}).lean();
@@ -166,7 +166,6 @@ async function prepare(kind:'retail'|'inventory',quantity=1,extra:Record<string,
     const groups=reply.referenceSelections;
     reply=await turn({referenceSelections:Object.fromEntries(groups.filter((g:any)=>g.required&&g.options.length).map((g:any)=>[g.key,[g.options[0].value]])),skipReferenceKeys:groups.filter((g:any)=>!g.required).map((g:any)=>g.key)});
   }
-  if(kind==='inventory') console.log('warehouse lookup debug',JSON.stringify(calls.filter(call=>call.path==='/inventory/warehouses').map(call=>({scope:call.scope,query:call.query,method:call.method}))));
   expect(reply.status,JSON.stringify(reply)).toBe('confirmation');
   expect(await RetailOrderModel.countDocuments()).toBe(0);expect(await InventoryTransferModel.countDocuments()).toBe(0);
   return reply;

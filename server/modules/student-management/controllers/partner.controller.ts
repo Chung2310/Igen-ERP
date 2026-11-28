@@ -90,6 +90,16 @@ export class PartnerController {
     }
   }
 
+  static async getPayoutReport(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const ownerId = await getAllowedOwnerIds(req.user!);
+      const data = await PartnerService.getPayoutReport(ownerId, req.user!.branchId, String(req.query.from || ""), String(req.query.to || ""));
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async getDetail(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);

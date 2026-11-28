@@ -141,7 +141,7 @@ export function withAlertLevel<T extends { endDate: string; status: WorkerLaborC
 
 export const WorkerLaborContractService = {
   async list(scope: WorkerScope, queryFilters: any = {}, today = new Date()) {
-    const { alert, status, page, limit, search, clientName, ...filters } = queryFilters || {};
+    const { alert, status, page, limit, search, clientName, endDateFrom, endDateTo, ...filters } = queryFilters || {};
     const query: any = {
       ...buildWorkerLaborContractQuery(scope),
       ...filters,
@@ -178,6 +178,14 @@ export const WorkerLaborContractService = {
         query.status = { $nin: ["renewed", "terminated"] };
         query.endDate = { $lte: warningDateStr };
       }
+    }
+
+    if (endDateFrom || endDateTo) {
+      query.endDate = {
+        ...(endDateFrom ? { $gte: String(endDateFrom) } : {}),
+        ...(endDateTo ? { $lte: String(endDateTo) } : {}),
+      };
+      if (!status) query.status = { $nin: ["renewed", "terminated"] };
     }
 
     // Search query

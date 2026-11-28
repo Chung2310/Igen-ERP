@@ -493,6 +493,9 @@ function formatValueRaw(operation: ResultOperation, key: string, value: unknown,
     return moneyKey.test(key) && !countOrMeasure && operation.id !== "leave.balance.me" ? `${formatted} ₫` : formatted;
   }
   if (typeof value === "string") {
+    if (operation.id === "worker.report" && key === "laborType") {
+      return ({ official: "Chính thức", seasonal: "Thời vụ", foreign: "Người nước ngoài" } as Record<string, string>)[value] || value;
+    }
     if (operation.id === "student.learning-roadmap.progression.list" && key === "intent") {
       return ({ continue: "Học tiếp", pending: "Chờ quyết định", stop: "Dừng học", preserve: "Bảo lưu", repeat: "Học lại" } as Record<string, string>)[value] || value;
     }
@@ -1049,10 +1052,200 @@ function remainingTuition(record: ResultRecord): number | null {
   return fee !== null && fee > 0 && paid !== null ? Math.max(0, fee - paid) : null;
 }
 
+function formatInventoryAnalysisResult(operation: ResultOperation, input: unknown): string | null {
+  const ids = new Set([
+    "inventory.catalog.analysis", "inventory.price.analysis", "inventory.stock.analysis",
+    "inventory.receipt.analysis", "inventory.stock-log.analysis", "inventory.transfer.analysis",
+    "inventory.serial.analysis", "inventory.export.capability",
+  ]);
+  if (!ids.has(operation.id)) return null;
+  const wrapper = recordOf(input);
+  const report = recordOf(wrapper?.data) || wrapper || {};
+  const reportType = typeof report.reportType === "string" ? report.reportType : "";
+  const count = (value: unknown) => Number.isFinite(Number(value)) ? new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(Number(value)) : "0";
+  const money = (value: unknown) => `${count(value)} ₫`;
+  const date = (value: unknown) => typeof value === "string" ? formatAssistantTemporalValue(value) || value : "";
+  const range = recordOf(report.range);
+  const period = range && (range.from || range.to)
+    ? `Kỳ báo cáo: ${[range.from, range.to].filter(Boolean).map(date).join(" – ")}` : "";
+  const finding = typeof report.finding === "string" && report.finding.trim() ? report.finding.trim() : "";
+  const rowsOf = (key: string) => Array.isArray(report[key]) ? (report[key] as unknown[]).map(recordOf).filter((row): row is ResultRecord => Boolean(row)) : [];
+  const asRows = (rows: ResultRecord[], fields: Array<[string, string, ((value: unknown) => string | undefined)?]>) => rows.flatMap(record => {
+    const output: Record<string, string> = {};
+    for (const [key, label, formatter] of fields) {
+      const value = record[key];
+      if (value === undefined || value === null || value === "") continue;
+      const rendered = formatter ? formatter(value) : String(value);
+      if (rendered !== undefined && rendered !== "") output[label] = rendered;
+    }
+    return Object.keys(output).length ? [output] : [];
+  });
+  const tableOrMessage = (summary: string, rows: Record<string, string>[], empty: string, after: string[] = []) =>
+    rows.length ? formatAssistantResultTable(summary, rows.slice(0, 50), after) : [summary, empty].filter(Boolean).join("\n");
+
+  if (operation.id === "inventory.export.capability") return finding || "Chưa có kết nối xuất Excel cho báo cáo kho. Có thể xem và sao chép bảng kết quả ngay trong trợ lý.";
+
+  if (operation.id === "inventory.catalog.analysis") {
+    const summary = recordOf(report.summary) || {};
+    if (reportType === "product-count") {
+      const total = Number.isFinite(Number(summary.productCount)) ? Number(summary.productCount) : null;
+      return total === null ? finding || "Chưa xác định được số dòng sản phẩm từ danh mục." : `Danh mục hiện có ${count(total)} dòng sản phẩm đang hoạt động.`;
+    }
+    const categories = rowsOf("categories");
+    const products = rowsOf("products");
+    const records = reportType === "category-list" ? products : categories;
+    const table = asRows(records, reportType === "category-list"
+      ? [["name", "Sản phẩm"], ["productCode", "Mã sản phẩm"], ["categoryCode", "Nhóm hàng"], ["productType", "Loại sản phẩm"], ["status", "Trạng thái"]]
+      : [["categoryCode", "Nhóm hàng"], ["productCount", "Số sản phẩm", count]]);
+    const title = reportType === "category-list" ? "Sản phẩm đang hoạt động theo nhóm hàng" : "Số lượng sản phẩm đang hoạt động theo nhóm hàng";
+    return tableOrMessage(title, table, finding || "Danh mục chưa có sản phẩm phù hợp theo nhóm hàng.", [period].filter(Boolean));
+  }
+
+  if (operation.id === "inventory.price.analysis") {
+    const products = rowsOf("products");
+    const table = asRows(products, [
+      ["productName", "Sản phẩm"], ["variantName", "Phiên bản"], ["sku", "SKU"],
+      ["sellingPrice", "Giá bán", money], ["availableQuantity", "Còn khả dụng", count], ["status", "Trạng thái"],
+    ]);
+    const title = reportType === "highest-price" ? "Sản phẩm có giá bán cao nhất" : "Giá bán hiện tại theo sản phẩm và SKU";
+    return tableOrMessage(title, table, finding || "Không có SKU phù hợp trong danh sách giá bán của chi nhánh.", [period].filter(Boolean));
+  }
+
+  if (operation.id === "inventory.stock.analysis") {
+    const summary = recordOf(report.summary) || {};
+    const products = rowsOf("products");
+    const fields: Array<[string, string, ((value: unknown) => string | undefined)?]> = [
+      ["productName", "Dòng máy"], ["sku", "SKU"], ["warehouseName", "Kho"],
+      ["quantity", "Tồn kho", count], ["availableQuantity", "Có thể bán", count], ["reservedQuantity", "Đã giữ", count],
+      ["inventoryValue", "Giá trị tồn", money], ["averageCost", "Giá vốn bình quân", money], ["minStock", "Tồn tối thiểu", count],
+      ["soldQuantity", "Đã bán trong kỳ", count], ["averageDailySales", "Bán trung bình/ngày", value => count(Number(value).toFixed(1))],
+      ["estimatedDaysRemaining", "Số ngày tồn ước tính", value => Number.isFinite(Number(value)) ? count(value) : "Chưa đủ dữ liệu bán"],
+      ["forecastSales30d", "Dự kiến bán 30 ngày", value => count(Number(value).toFixed(1))],
+      ["projectedRemainingQuantity", "Tồn dự kiến sau 30 ngày", value => count(Number(value).toFixed(1))],
+      ["reorderStatus", "Khuyến nghị nhập"], ["physicalCount", "Số đếm thực tế", count], ["variance", "Chênh lệch", count],
+    ];
+    const table = asRows(products, fields);
+    const totals = [
+      summary.productCount !== undefined ? `${count(summary.productCount)} dòng hàng` : "",
+      summary.stockQuantity !== undefined ? `${count(summary.stockQuantity)} máy tồn` : "",
+      summary.availableQuantity !== undefined ? `${count(summary.availableQuantity)} máy có thể bán` : "",
+      summary.inventoryValue !== undefined ? `${money(summary.inventoryValue)} giá trị tồn` : "",
+      summary.forecastSales30d !== undefined ? `${count(Number(summary.forecastSales30d).toFixed(1))} máy dự kiến bán 30 ngày` : "",
+    ].filter(Boolean).join(" · ");
+    const title = reportType === "count-variance" && summary.physicalCount !== undefined
+      ? `Đối chiếu kiểm đếm: thực tế ${count(summary.physicalCount)} máy, theo sổ ${summary.stockQuantity === undefined ? "chưa xác định" : `${count(summary.stockQuantity)} máy`}${summary.variance === undefined ? "" : `, chênh ${count(summary.variance)} máy`}.`
+      : reportType === "highest-stock" ? "Dòng máy có số lượng tồn khả dụng nhiều nhất"
+        : reportType === "no-available-stock" ? "Dòng sản phẩm thiếu dữ liệu tồn khả dụng"
+        : reportType === "capital-ranking" ? "Dòng máy có giá trị vốn tồn cao nhất"
+          : reportType === "lowest-stock" ? "Dòng máy còn ít hàng nhất"
+            : reportType === "days-cover" && !products.length ? "Chưa đủ dữ liệu bán trong kỳ để ước tính số ngày tồn của sản phẩm được hỏi."
+              : reportType === "stability-assessment" ? "Tồn kho hiện tại theo dòng máy" : operation.title;
+    const notes = [period, totals, finding].filter(Boolean);
+    if (reportType === "count-variance" && !products.length && summary.stockQuantity === undefined) {
+      return [title, "Không tìm thấy dòng sản phẩm trong sổ tồn nên chưa thể tính chênh lệch."].join("\n");
+    }
+    return table.length ? formatAssistantResultTable(title, table, notes)
+      : [title, totals, finding || "Không có mặt hàng phù hợp trong phạm vi đã chọn."].filter(Boolean).join("\n");
+  }
+
+  if (operation.id === "inventory.receipt.analysis") {
+    const summary = recordOf(report.summary) || {};
+    const receipts = rowsOf("receipts");
+    const suppliers = rowsOf("suppliers");
+    const list = ["supplier-spend", "top-supplier"].includes(reportType) ? suppliers : receipts;
+    const table = asRows(list, [
+      ["supplierName", "Nhà cung cấp"], ["receiptCode", "Mã phiếu nhập"], ["status", "Trạng thái"],
+      ["receiptCount", "Số phiếu", count], ["totalAmount", "Tổng tiền hàng", money], ["subtotal", "Tiền hàng", money],
+      ["paidAmount", "Đã thanh toán", money], ["createdAt", "Ngày tạo", date], ["receivedAt", "Ngày xác nhận nhập", date],
+      ["productsSummary", "Mặt hàng"],
+    ]);
+    const total = Number.isFinite(Number(summary.receiptCount)) ? Number(summary.receiptCount) : null;
+    const totalText = total === null ? "" : `Phiếu nhập đã xác nhận: ${count(total)} · Tổng tiền hàng ${money(summary.totalAmount)} · Đã thanh toán ${money(summary.paidAmount)}`;
+    const paymentNote = Number(summary.unrecordedPaymentCount) > 0 ? `${count(summary.unrecordedPaymentCount)} phiếu chưa có số tiền thanh toán được ghi nhận.` : "";
+    const title = reportType === "pending-receipts" ? "Phiếu nhập đang chờ xử lý"
+      : reportType === "paid-total" ? "Tổng tiền đã thanh toán để nhập hàng"
+        : reportType === "supplier-spend" || reportType === "top-supplier" ? "Tiền hàng đã nhập theo nhà cung cấp"
+          : reportType === "largest-receipt" ? "Đợt nhập hàng có giá trị lớn nhất"
+            : reportType === "latest-receipt" ? "Lần nhập hàng gần nhất" : "Tổng hợp phiếu nhập hàng";
+    if (reportType === "paid-total" && total === 0) return `${title} trong kỳ ${period ? period.replace("Kỳ báo cáo: ", "") : "được hỏi"}: 0 ₫. Không có phiếu nhập đã xác nhận trong kỳ.`;
+    return table.length ? formatAssistantResultTable(title, table, [period, totalText, paymentNote, finding].filter(Boolean))
+      : [title, totalText || "Không có phiếu nhập phù hợp trong kỳ.", paymentNote, finding].filter(Boolean).join("\n");
+  }
+
+  if (operation.id === "inventory.stock-log.analysis") {
+    const summaryValues = Array.isArray(report.summary) ? report.summary.map(recordOf).filter((row): row is ResultRecord => Boolean(row)) : [];
+    const transactions = rowsOf("transactions");
+    const operators = rowsOf("operators");
+    const table = reportType === "operator-ranking" || reportType === "operator-history"
+      ? asRows(operators, [["operatorName", "Người lập phiếu"], ["documentCount", "Số phiếu", count], ["totalQuantity", "Tổng số lượng", count]])
+      : asRows(transactions, [["title", "Phiếu"], ["type", "Loại giao dịch"], ["purpose", "Mục đích"], ["status", "Trạng thái"], ["operatorName", "Người lập"], ["customerName", "Khách hàng / bộ phận nhận"], ["productName", "Mặt hàng"], ["sku", "SKU"], ["quantity", "Số lượng", count], ["createdAt", "Ngày tạo", date], ["notes", "Ghi chú"]]);
+    const summaryRows = asRows(summaryValues, [["period", "Kỳ"], ["documentType", "Chỉ tiêu"], ["documentCount", "Số phiếu", count], ["totalQuantity", "Tổng số lượng", count], ["inboundQuantity", "Nhập thực tế", count], ["posQuantity", "Bán qua POS", count], ["internalQuantity", "Xuất nội bộ", count]]);
+    if (summaryRows.length) return formatAssistantResultTable("Tổng hợp giao dịch kho", summaryRows, [period, finding].filter(Boolean));
+    if (table.length) return formatAssistantResultTable(reportType === "recipient-history" ? "Phiếu xuất và người nhận" : "Giao dịch kho phù hợp", table, [period, finding].filter(Boolean));
+    const empty = reportType === "pending-status" ? "Không có phiếu xuất đang chờ duyệt hoặc xuất dở trong phạm vi đã chọn."
+      : reportType.startsWith("operator") ? finding || "Không tìm thấy phiếu kho phù hợp để thống kê người lập."
+        : finding || "Không có giao dịch kho phù hợp trong khoảng thời gian đã chọn.";
+    return ["Tổng hợp giao dịch kho", period, empty].filter(Boolean).join("\n");
+  }
+
+  if (operation.id === "inventory.transfer.analysis") {
+    const summary = recordOf(report.summary) || {};
+    const transfers = rowsOf("transfers");
+    const table = asRows(transfers, [
+      ["transferCode", "Mã phiếu"], ["status", "Trạng thái"], ["fromWarehouseName", "Kho gửi"], ["toWarehouseName", "Kho nhận"],
+      ["reason", "Lý do"], ["createdAt", "Ngày tạo", date],
+      ["items", "Mặt hàng", value => Array.isArray(value) ? value.map((item: unknown) => { const line = recordOf(item) || {}; return `${count(line.quantity)} × ${String(line.productName || line.sku || "mặt hàng")}`; }).join("; ") : undefined],
+    ]);
+    const total = Number.isFinite(Number(summary.transferCount)) ? Number(summary.transferCount) : null;
+    const counts = total === null ? "" : `Tổng ${count(total)} phiếu · Đang chuyển ${count(summary.inTransitCount)} · Đã nhận ${count(summary.receivedCount)} · Đã hủy ${count(summary.cancelledCount)}`;
+    if (table.length) return formatAssistantResultTable("Phiếu điều chuyển kho", table, [period, counts, finding].filter(Boolean));
+    return ["Phiếu điều chuyển kho", period, counts || "Không có phiếu phù hợp trong phạm vi đã chọn.", finding].filter(Boolean).join("\n");
+  }
+
+  if (operation.id === "inventory.serial.analysis") {
+    const summary = recordOf(report.summary) || {};
+    const products = rowsOf("products");
+    const devices = rowsOf("devices");
+    if (reportType === "reconciliation") {
+      const reconciliationRows = asRows(products, [
+        ["productName", "D\u00f2ng m\u00e1y"], ["sku", "SKU"], ["total", "T\u1ed5ng IMEI", count],
+        ["inStock", "IMEI trong kho", count], ["physicalQuantity", "T\u1ed3n th\u1ef1c t\u1ebf", count],
+        ["variance", "Ch\u00eanh l\u1ec7ch", count], ["matches", "\u0110\u1ed1i chi\u1ebfu", value => value ? "Kh\u1edbp" : "L\u1ec7ch"],
+      ]);
+      const matched = Number(summary.matches) || 0;
+      const mismatched = Number.isFinite(Number(summary.mismatches)) ? Number(summary.mismatches) : Math.max(0, products.length - matched);
+      const reconciliationSummary = `SKU kh\u1edbp: ${count(matched)} · SKU l\u1ec7ch: ${count(mismatched)} · Ch\u00eanh l\u1ec7ch t\u1ed5ng: ${count(summary.variance)}`;
+      if (reconciliationRows.length) return formatAssistantResultTable("\u0110\u1ed1i chi\u1ebfu IMEI v\u1edbi t\u1ed3n th\u1ef1c t\u1ebf", reconciliationRows, [reconciliationSummary, finding].filter(Boolean));
+      return [`\u0110\u1ed1i chi\u1ebfu IMEI v\u1edbi t\u1ed3n th\u1ef1c t\u1ebf: ${reconciliationSummary}.`, finding].filter(Boolean).join("\\n");
+    }
+    const productRows = asRows(products, [["productName", "Dòng máy"], ["skuAvailableQuantity", "SKU còn khả dụng", count], ["total", "Tổng IMEI", count], ["inStock", "Trong kho", count], ["sold", "Đã bán", count], ["repairing", "Đang sửa", count], ["defective", "Bị lỗi", count], ["inTransit", "Đang chuyển", count], ["internalUse", "Dùng nội bộ", count]]);
+    const deviceRows = asRows(devices, [["productName", "Dòng máy"], ["serialNumber", "IMEI / serial"], ["sku", "SKU"], ["status", "Trạng thái"], ["warehouseName", "Kho"], ["createdAt", "Ngày ghi nhận", date]]);
+    const summaryCounts = Object.entries({ skuAvailableQuantity: "Số lượng SKU còn khả dụng", total: "Tổng IMEI", inStock: "Trong kho", sold: "Đã bán", repairing: "Đang sửa", defective: "Bị lỗi", inTransit: "Đang chuyển", internalUse: "Dùng nội bộ" })
+      .filter(([key]) => summary[key] !== undefined).map(([key, label]) => `${label}: ${count(summary[key])}`).join(" · ");
+    if (reportType === "identifier-detail" || reportType === "identifier-history") {
+      const identity = { serialNumber: report.serialNumber, productName: report.productName, sku: report.sku, status: report.status, warehouseName: report.warehouseName, soldAt: report.soldAt };
+      const identityRows = asRows([identity], [["serialNumber", "IMEI / serial"], ["productName", "Dòng máy"], ["sku", "SKU"], ["status", "Trạng thái"], ["warehouseName", "Kho"], ["soldAt", "Ngày bán", date]]);
+      const events = rowsOf("events");
+      const eventRows = asRows(events, [["eventType", "Sự kiện"], ["fromStatus", "Trạng thái trước"], ["toStatus", "Trạng thái sau"], ["reason", "Lý do"], ["occurredAt", "Thời gian", date], ["actorName", "Người thực hiện"]]);
+      if (!identityRows.length) return finding || "Không tìm thấy IMEI/serial trong chi nhánh hiện tại.";
+      return [formatAssistantResultTable("Thông tin máy theo IMEI/serial", identityRows), ...(eventRows.length ? [formatAssistantResultTable("Lịch sử máy", eventRows)] : [finding || "Chưa có sự kiện lịch sử được ghi nhận."])].join("\n\n");
+    }
+    if (productRows.length) return formatAssistantResultTable("Tình trạng IMEI theo dòng máy", productRows, [summaryCounts, finding].filter(Boolean));
+    if (deviceRows.length) return formatAssistantResultTable(reportType === "repair-list" ? "Máy đang sửa" : "Máy còn trong kho", deviceRows, [summaryCounts, finding].filter(Boolean));
+    if (reportType === "reconciliation" && Number.isFinite(Number(summary.matches))) {
+      return `Đối chiếu IMEI và tồn SKU: ${count(summary.matches)} khớp · ${count(summary.variance)} chênh lệch.${finding ? `\n${finding}` : ""}`;
+    }
+    return ["Tổng hợp IMEI/serial", summaryCounts, finding || (summaryCounts ? "" : "Không có IMEI/serial phù hợp trong chi nhánh được chọn.")].filter(Boolean).join("\n");
+  }
+  return null;
+}
+
 /** Format only catalog-approved fields into a short, readable result for the conversation. */
 export function formatAssistantResult(operation: ResultOperation, input: unknown): string {
   if (operation.id === "dashboard.business-overview") return formatBusinessOverview(input);
   const redacted = redactAssistantResult(input);
+  const inventoryAnalysis = formatInventoryAnalysisResult(operation, redacted);
+  if (inventoryAnalysis !== null) return inventoryAnalysis;
   if (["finance.asset.inventory.variance", "finance.asset.inventory.finalize"].includes(operation.id)) {
     const wrapper = recordOf(redacted);
     const result = recordOf(wrapper?.data) || wrapper || {};
@@ -1159,6 +1352,174 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
   const countValue = (value: unknown) => Number.isSafeInteger(Number(value)) && Number(value) >= 0
     ? new Intl.NumberFormat("vi-VN").format(Number(value))
     : "0";
+  const formatReportMoneyValue = (value: unknown) => `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(Number(value) || 0)} ₫`;
+  const dateValue = (value: unknown) => {
+    const raw = value instanceof Date ? value.toISOString() : typeof value === "string" ? value : "";
+    return raw ? formatAssistantTemporalValue(raw) || raw : "";
+  };
+  if (operation.id === "marketing.campaign.list") {
+    const campaigns = Array.isArray(dataResult.campaigns) ? dataResult.campaigns : [];
+    const rows = campaigns.slice(0, 50).flatMap((value: unknown) => {
+      const campaign = recordOf(value);
+      if (!campaign || typeof campaign.title !== "string") return [];
+      const status = typeof campaign.status === "string" ? campaign.status : "";
+      const statusLabels: Record<string, string> = {
+        active: "Đang hoạt động", paused: "Tạm dừng", draft: "Bản nháp",
+        completed: "Đã hoàn tất", cancelled: "Đã hủy", failed: "Thất bại",
+      };
+      const startDate = dateValue(campaign.startDate);
+      const endDate = dateValue(campaign.endDate);
+      return [{
+        "Chiến dịch": campaign.title,
+        ...(status ? { "Trạng thái": statusLabels[status] || status } : {}),
+        ...(startDate ? { "Bắt đầu": startDate } : {}),
+        ...(endDate ? { "Kết thúc": endDate } : {}),
+        ...(typeof campaign.campaignType === "string" ? { "Loại": campaign.campaignType === "single" ? "Bài đơn" : "Chiến dịch" } : {}),
+      }];
+    });
+    if (!rows.length) return "Không có chiến dịch marketing phù hợp trong phạm vi hiện tại.";
+    const pagination = recordOf(dataResult.pagination) || {};
+    return formatAssistantResultTable(`Có ${countValue(rows.length)} chiến dịch marketing phù hợp.`, rows,
+      pagination.hasMore === true ? ["Còn chiến dịch khác chưa hiển thị."] : []);
+  }
+  if (operation.id === "retail.partner.commission.policy.list") {
+    const policies = collection(safeResult) || [];
+    const rows = policies.slice(0, 30).flatMap((value: unknown) => {
+      const policy = recordOf(value);
+      if (!policy) return [];
+      return [Object.fromEntries(["partnerName", "effectiveAt", "config"]
+        .filter(key => policy[key] !== undefined && policy[key] !== null && policy[key] !== "")
+        .map(key => [labelFor(operation, key), formatValue(operation, key, policy[key])]))];
+    });
+    const note = "Dữ liệu hiện chỉ lưu ngày bắt đầu hiệu lực, không có ngày hết hạn; chưa thể xác định chính sách nào sắp hết hiệu lực.";
+    return rows.length ? formatAssistantResultTable("Các chính sách hoa hồng bán lẻ đang lưu", rows, [note]) : `${note}\nChưa có chính sách hoa hồng nào được lưu.`;
+  }
+  if (operation.id === "student.debt.report") {
+    const students = Array.isArray(dataResult.students) ? dataResult.students : [];
+    const studentCount = Number(dataResult.studentCount) || 0;
+    const total = Number(dataResult.totalOutstandingAmount) || 0;
+    if (!studentCount) return "Không có học viên còn nợ học phí trong phạm vi hiện tại.";
+    const rows = students.slice(0, 50).flatMap((value: unknown) => {
+      const student = recordOf(value);
+      if (!student || typeof student.fullName !== "string") return [];
+      return [{
+        "Học viên": student.fullName,
+        ...(typeof student.courseName === "string" && student.courseName ? { "Khóa học": student.courseName } : {}),
+        "Còn nợ": formatReportMoneyValue(student.outstandingAmount),
+      }];
+    });
+    return formatAssistantResultTable(`Có ${countValue(studentCount)} học viên còn nợ, tổng số tiền ${formatReportMoneyValue(total)}.`, rows,
+      studentCount > rows.length ? [`Còn ${countValue(studentCount - rows.length)} học viên chưa hiển thị.`] : []);
+  }
+  if (operation.id === "partner.payout.report") {
+    const methodTotals = Array.isArray(dataResult.methodTotals) ? dataResult.methodTotals : [];
+    const rows = methodTotals.flatMap((value: unknown) => {
+      const total = recordOf(value);
+      if (!total || typeof total.method !== "string") return [];
+      return [{
+        "Phương thức chi trả": total.method,
+        "Số lượt": countValue(total.payoutCount),
+        "Tổng tiền": formatReportMoneyValue(total.totalAmount),
+      }];
+    });
+    const from = dateValue(dataResult.from);
+    const to = dateValue(dataResult.to);
+    const range = from && to ? `từ ${from} đến ${to}` : "trong kỳ được chọn";
+    return formatAssistantResultTable(
+      `Hoa hồng đã chi trả ${range}: ${countValue(dataResult.payoutCount)} lượt, tổng ${formatReportMoneyValue(dataResult.totalAmount)}.`,
+      rows,
+    );
+  }
+  if (operation.id === "student.batch.roadmap.lookup") {
+    const batches = collection(dataResult) || [];
+    if (!batches.length) return "Mình chưa tìm thấy lớp học phù hợp với tên hoặc mã đã cung cấp.";
+    const rows = batches.slice(0, 20).flatMap((value: unknown) => {
+      const batch = recordOf(value);
+      if (!batch || typeof batch.name !== "string") return [];
+      return [{
+        "Mã lớp": typeof batch.code === "string" ? batch.code : "",
+        "Lớp học": batch.name,
+        "Lộ trình": typeof batch.roadmapName === "string" && batch.roadmapName ? batch.roadmapName : "Chưa gán lộ trình",
+        "Chặng": batch.roadmapStepNumber === null || batch.roadmapStepNumber === undefined ? "Chưa xác định" : String(batch.roadmapStepNumber),
+        ...(typeof batch.courseTitle === "string" && batch.courseTitle ? { "Khóa học": batch.courseTitle } : {}),
+      }];
+    });
+    return formatAssistantResultTable(`Thông tin lộ trình của ${countValue(rows.length)} lớp phù hợp`, rows,
+      batches.length > rows.length ? [`Còn ${countValue(batches.length - rows.length)} lớp chưa hiển thị.`] : []);
+  }
+  if (operation.id === "worker.report.overview") {
+    const attendanceRate = dataResult.attendanceRate === null || dataResult.attendanceRate === undefined
+      ? "Chưa có ngày làm theo lịch trong kỳ"
+      : `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(Number(dataResult.attendanceRate) || 0)}% (${countValue(dataResult.attendedWorkCount)}/${countValue(dataResult.scheduledWorkCount)} lượt công)`;
+    const rows = [
+      { "Chỉ số": "Số dự án", "Kết quả": countValue(dataResult.projectCount) },
+      { "Chỉ số": "Tổng lao động", "Kết quả": countValue(dataResult.workerCount) },
+      { "Chỉ số": "Tỉ lệ chuyên cần", "Kết quả": attendanceRate },
+      { "Chỉ số": "Hợp đồng hết hạn trong kỳ", "Kết quả": countValue(dataResult.expiringContractCount) },
+      { "Chỉ số": "Công nợ hoa hồng đối tác", "Kết quả": formatReportMoneyValue(dataResult.unpaidCommissionAmount) },
+    ];
+    const contracts = Array.isArray(dataResult.expiringContracts) ? dataResult.expiringContracts : [];
+    const settlements = Array.isArray(dataResult.unpaidCommissionSettlements) ? dataResult.unpaidCommissionSettlements : [];
+    const notes = [
+      ...(contracts.length ? [`Hợp đồng hết hạn trong kỳ: ${contracts.slice(0, 10).map((value: unknown) => {
+        const contract = recordOf(value);
+        return contract ? `${contract.workerName || "Lao động"} (${contract.code || "không mã"}) · ${dateValue(contract.endDate)}` : "";
+      }).filter(Boolean).join("; ")}${contracts.length > 10 ? `; còn ${countValue(contracts.length - 10)} hợp đồng khác` : ""}.`] : []),
+      ...(settlements.length ? [`Các kỳ còn nợ hoa hồng: ${settlements.slice(0, 10).map((value: unknown) => {
+        const settlement = recordOf(value);
+        return settlement ? `${settlement.partnerName || "Đối tác"} · ${formatReportMoneyValue(settlement.balanceAmount)}` : "";
+      }).filter(Boolean).join("; ")}${settlements.length > 10 ? `; còn ${countValue(settlements.length - 10)} kỳ khác` : ""}.`] : []),
+      `Tỉ lệ chuyên cần tính trên các lượt làm theo lịch trong ngày đã qua của kỳ báo cáo.`,
+    ];
+    return formatAssistantResultTable(`Tổng quan Lao động từ ${dateValue(dataResult.from)} đến ${dateValue(dataResult.to)}`, rows, notes);
+  }
+  if (operation.id === "student.notification.audience.counts") {
+    const rows = [
+      { "Nhóm học viên": "Sắp thi hoặc đang thi", "Số lượng": countValue(dataResult.upcomingExamCount) },
+      { "Nhóm học viên": "Còn nợ học phí", "Số lượng": countValue(dataResult.unpaidTuitionCount) },
+      { "Nhóm học viên": "Cần học lại hoặc thi lại", "Số lượng": countValue(dataResult.retakeCount) },
+    ];
+    return formatAssistantResultTable("Số học viên theo nhóm nhận thông báo", rows);
+  }
+  if (operation.id === "student.suspension.report") {
+    const requests = Array.isArray(dataResult.requests) ? dataResult.requests : [];
+    const studentCount = Number(dataResult.studentCount) || 0;
+    const requestCount = Number(dataResult.requestCount) || 0;
+    const upcoming = dataResult.mode === "upcoming";
+    if (!requestCount) return upcoming ? "Không có học viên đang bảo lưu dự kiến quay lại trong khoảng thời gian được hỏi." : "Không ghi nhận học viên xin bảo lưu trong khoảng thời gian được hỏi.";
+    const rows = requests.slice(0, 50).flatMap((value: unknown) => {
+      const request = recordOf(value);
+      if (!request || typeof request.studentName !== "string") return [];
+      return [{
+        "Học viên": request.studentName,
+        ...(typeof request.batchName === "string" && request.batchName ? { "Lớp": request.batchName } : {}),
+        ...(upcoming && request.expectedReturnAt ? { "Ngày dự kiến quay lại": dateValue(request.expectedReturnAt) } : {}),
+        ...(!upcoming && request.requestedAt ? { "Ngày xin bảo lưu": dateValue(request.requestedAt) } : {}),
+      }];
+    });
+    const summary = upcoming
+      ? `${countValue(studentCount)} học viên đang bảo lưu dự kiến quay lại trong khoảng thời gian được hỏi.`
+      : `${countValue(studentCount)} học viên có ${countValue(requestCount)} lượt xin bảo lưu trong khoảng thời gian được hỏi.`;
+    return formatAssistantResultTable(summary, rows,
+      requestCount > rows.length ? [`Còn ${countValue(requestCount - rows.length)} lượt chưa hiển thị.`] : []);
+  }
+  if (operation.id === "student.assignment.missing-submissions") {
+    const students = Array.isArray(dataResult.students) ? dataResult.students : [];
+    const missingCount = Number(dataResult.missingCount) || 0;
+    if (!missingCount) return "Không tìm thấy học viên nào còn thiếu bài nộp cho bài tập đã chọn.";
+    const rows = students.slice(0, 50).flatMap((value: unknown) => {
+      const student = recordOf(value);
+      if (!student || typeof student.studentName !== "string") return [];
+      return [{
+        "Học viên": student.studentName,
+        ...(typeof student.batchName === "string" && student.batchName ? { "Lớp": student.batchName } : {}),
+        ...(typeof student.assignmentTitle === "string" && student.assignmentTitle ? { "Bài tập": student.assignmentTitle } : {}),
+        ...(student.dueDate ? { "Hạn nộp": dateValue(student.dueDate) } : {}),
+      }];
+    });
+    return formatAssistantResultTable(`Có ${countValue(missingCount)} lượt học viên chưa nộp bài.`, rows,
+      missingCount > rows.length ? [`Còn ${countValue(missingCount - rows.length)} lượt chưa hiển thị.`] : []);
+  }
   if (operation.id === "hr.contract.missing.list") {
     const employees = Array.isArray(dataResult.withoutContractEmployees) ? dataResult.withoutContractEmployees : [];
     const total = Number.isSafeInteger(Number(dataResult.withoutContractCount)) && Number(dataResult.withoutContractCount) >= 0
@@ -1649,6 +2010,48 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
     const summary = range ? `Mặt hàng bán chạy nhất trong kỳ ${range}` : "Mặt hàng bán chạy nhất trong kỳ";
     return formatAssistantResultTable(summary, rows,
       products.length > rows.length ? [`Còn ${countValue(products.length - rows.length)} mặt hàng chưa hiển thị.`] : []);
+  }
+  if (operation.id === "retail.report.cashier-ranking") {
+    const cashiers = (Array.isArray(dataResult.cashiers) ? dataResult.cashiers : [])
+      .map(recordOf)
+      .filter((row): row is Record<string, any> => Boolean(row)
+        && typeof row.cashierName === "string"
+        && Number.isFinite(Number(row.netSales)));
+    const highestNetSales = cashiers.reduce((highest, cashier) => Math.max(highest, Number(cashier.netSales)), Number.NEGATIVE_INFINITY);
+    const leaders = cashiers.filter(cashier => Number(cashier.netSales) === highestNetSales)
+      .sort((left, right) => left.cashierName.localeCompare(right.cashierName, "vi"));
+    if (!leaders.length) return `Không ghi nhận doanh số thu ngân trong ${reportDateRange(dataResult.range) || "khoảng thời gian được chọn"}.`;
+    const rows = leaders.map(cashier => ({
+      "Thu ngân": cashier.cashierName,
+      "Doanh số sau hoàn": moneyValue(cashier.netSales),
+      "Số đơn": countValue(cashier.orderCount),
+      "Doanh số trước hoàn": moneyValue(cashier.grossSales),
+    }));
+    const range = reportDateRange(dataResult.range);
+    return formatAssistantResultTable(
+      range ? `Thu ngân có doanh số sau hoàn cao nhất trong ${range}` : "Thu ngân có doanh số sau hoàn cao nhất trong kỳ",
+      rows,
+    );
+  }
+  if (operation.id === "retail.order.cancelled.report") {
+    const orders = Array.isArray(dataResult.items) ? dataResult.items : collection(safeResult) || [];
+    const total = Number.isSafeInteger(Number(dataResult.total)) && Number(dataResult.total) >= 0 ? Number(dataResult.total) : orders.length;
+    const from = typeof dataResult.cancelledFrom === "string" ? formatIsoDate(dataResult.cancelledFrom) : "";
+    const to = typeof dataResult.cancelledTo === "string" ? formatIsoDate(dataResult.cancelledTo) : "";
+    const selectedRange = from && to ? from === to ? from : `${from} đến ${to}` : from || to;
+    const rows = orders.slice(0, 50).flatMap((value: unknown) => {
+      const order = recordOf(value);
+      if (!order || typeof order.orderCode !== "string") return [];
+      return [{
+        "Mã đơn": order.orderCode,
+        "Lý do hủy": typeof order.cancelReason === "string" && order.cancelReason.trim() ? order.cancelReason.trim() : "Không ghi nhận lý do",
+        ...(typeof order.cancelledByName === "string" && order.cancelledByName.trim() ? { "Người hủy": order.cancelledByName.trim() } : {}),
+        ...(dateValue(order.cancelledAt) ? { "Thời điểm hủy": dateValue(order.cancelledAt) } : {}),
+      }];
+    });
+    const heading = `Đơn bị hủy${selectedRange ? ` trong ${selectedRange}` : " trong khoảng ngày được hỏi"} · ${countValue(total)} kết quả`;
+    return formatAssistantResultTable(heading, rows,
+      total > rows.length ? [`Đang hiển thị ${countValue(rows.length)} trong ${countValue(total)} đơn bị hủy.`] : []);
   }
   if (operation.id === "inventory.serial.stock-ranking") {
     const products = Array.isArray(dataResult.products) ? dataResult.products : [];
@@ -2494,7 +2897,14 @@ export function formatFriendlyAssistantResult(operation: ResultOperation & { met
   if (workerTable) return workerTable;
   const formatted = formatAssistantResult(operation, input);
   if (["student.bulk.preview", "student.bulk.create"].includes(operation.id)) return formatted;
-  if (parseAssistantResultTable(formatted)) return formatted;
+  const structuredTable = parseAssistantResultTable(formatted);
+  if (structuredTable) {
+    const hasReturnRecord = operation.id === "retail.after-sale.list"
+      && structuredTable.rows.some(row => /(?:tr\u1ea3 h\u00e0ng|return)/iu.test(row.values["Lo\u1ea1i ch\u1ee9ng t\u1eeb"] || row.values.type || ""));
+    return hasReturnRecord
+      ? `${formatted}\nGhi ch\u00fa: Phi\u1ebfu tr\u1ea3 h\u00e0ng kh\u00f4ng x\u00e1c nh\u1eadn t\u00ecnh tr\u1ea1ng h\u00e0ng \u0111\u00e3 nh\u1eadp l\u1ea1i kho.`
+      : formatted;
+  }
   const lines = formatted.split("\n");
   const firstLine = lines[0] || "";
   const listMatch = firstLine.match(/·\s*(\d+)\s+kết quả/i);

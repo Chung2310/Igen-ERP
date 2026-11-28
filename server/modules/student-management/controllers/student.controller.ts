@@ -143,6 +143,16 @@ export class StudentController {
     }
   }
 
+  static async getDebtSummary(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const ownerId = await getAllowedOwnerIds(req.user!);
+      const data = await StudentService.getOutstandingTuitionReport(ownerId, req.user!.branchId);
+      res.json({ success: true, data });
+    } catch (error: unknown) {
+      next(error);
+    }
+  }
+
   static async getUnassignedList(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds({ ...req.user!, branchId: undefined });
@@ -387,7 +397,9 @@ export class StudentController {
         ...(branchId ? { branchId } : {}),
         ...(req.body.entityPreset ? { entityPreset: req.body.entityPreset } : {}),
       });
-      res.status(201).json({ success: true, data: { registrationToken } });
+      const appUrl = String(process.env.PUBLIC_APP_URL || process.env.FRONTEND_URL || process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:5173").trim().replace(/\/+$/, "");
+      const registrationUrl = `${appUrl}/public/dang-ky?${new URLSearchParams({ registrationToken }).toString()}`;
+      res.status(201).json({ success: true, data: { registrationToken, registrationUrl } });
     } catch (error: unknown) {
       next(error);
     }
