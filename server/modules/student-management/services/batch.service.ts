@@ -62,6 +62,8 @@ export interface EnrichedBatch {
   courseCode: string;
   courseTitle: string;
   maxLearners: number;
+  enrolledCount: number;
+  remainingSlots: number | null;
   instructorName: string;
   instructorQualification: string;
   /** Cảnh báo tiến độ + nhãn tuổi lớp, tính sẵn để client không phải suy ra */
@@ -136,6 +138,16 @@ async function assertRoadmapAssignment(input: { ownerScope: string | string[]; b
 export function resolveQuota(batchQuota?: number, courseMaxLearners?: number): number {
   if (typeof batchQuota === "number" && batchQuota > 0) return batchQuota;
   return courseMaxLearners ?? 0;
+}
+
+/** A zero quota means unlimited capacity, matching the checks used when enrolling. */
+export function getBatchCapacity(maxLearners: number, learnerCount: number) {
+  const enrolledCount = Math.max(0, Math.floor(Number(learnerCount) || 0));
+  const quota = Math.max(0, Math.floor(Number(maxLearners) || 0));
+  return {
+    enrolledCount,
+    remainingSlots: quota > 0 ? Math.max(0, quota - enrolledCount) : null,
+  };
 }
 
 function hasLockedStudentFee(fee: string | undefined): boolean {
@@ -249,14 +261,18 @@ async function assertRoomAvailable(
 async function enrichBatches(batches: IBatch[]): Promise<EnrichedBatch[]> {
   const courseIds = [...new Set(batches.map(b => b.courseId).filter(Boolean))];
   const instructorIds = [...new Set(batches.map(b => b.instructorId).filter(Boolean))];
+  const roadmapIds = [...new Set(batches.map(b => b.roadmapId).filter(Boolean))];
+  const roadmapOwnerIds = [...new Set(batches.map(b => String(b.ownerId)).filter(Boolean))];
 
-  const [courses, instructors] = await Promise.all([
+  const [courses, instructors, roadmaps] = await Promise.all([
     Course.find({ _id: { $in: courseIds } }).select("code title maxLearners"),
     User.find({ _id: { $in: instructorIds } }).select("displayName qualification"),
+    LearningRoadmap.find({ _id: { $in: roadmapIds }, ownerId: { $in: roadmapOwnerIds } }).select("_id name steps"),
   ]);
 
   const courseMap = new Map(courses.map(c => [String(c._id), c]));
   const instructorMap = new Map(instructors.map(i => [String(i._id), i]));
+  const roadmapMap = new Map(roadmaps.map(roadmap => [String(roadmap._id), roadmap]));
 
   // Cảnh báo tiến độ cần biết ngày nghỉ lễ của công ty; gom một lần cho cả
   // trang thay vì query theo từng lớp.
@@ -266,12 +282,19 @@ async function enrichBatches(batches: IBatch[]): Promise<EnrichedBatch[]> {
   return batches.map(b => {
     const course = courseMap.get(b.courseId);
     const instructor = b.instructorId ? instructorMap.get(b.instructorId) : undefined;
+    const roadmap = b.roadmapId ? roadmapMap.get(String(b.roadmapId)) : undefined;
+    const roadmapStepNumber = roadmap?.steps.find(step => step.id === b.roadmapStepId)?.order;
+    const maxLearners = resolveQuota(b.quota, course?.maxLearners);
+    const capacity = getBatchCapacity(maxLearners, b.learnerIds?.length || 0);
     return {
       ...b.toObject(),
       courseCode: course?.code || "",
       courseTitle: course?.title || "(Khóa học đã xóa)",
+      roadmapName: roadmap?.name || "",
+      roadmapStepNumber: roadmapStepNumber || null,
       // Chỉ tiêu riêng của dự án (nếu có) thắng chỉ tiêu của khóa học/danh mục
-      maxLearners: resolveQuota(b.quota, course?.maxLearners),
+      maxLearners,
+      ...capacity,
       // Ưu tiên tên tài khoản được gán; nếu không có thì dùng tên nhập tay
       instructorName: instructor?.displayName || b.instructorText || "",
       instructorQualification: instructor?.qualification || "",

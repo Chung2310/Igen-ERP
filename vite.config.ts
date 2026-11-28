@@ -8,6 +8,7 @@ import { resolvePublicWebsiteUrl } from './src/config/publicWebsiteUrl';
 export default defineConfig(({ mode }) => {
   const publicEnv = loadEnv(mode, process.cwd(), ['APP_URL', 'VITE_APP_URL']);
   const configuredUrl = publicEnv.VITE_APP_URL?.trim() || publicEnv.APP_URL?.trim() || '';
+  const apiProxyTarget = process.env.ERP_DEV_API_TARGET?.trim() || 'http://localhost:3000';
   const htmlUrl = resolvePublicWebsiteUrl(configuredUrl).replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
   return {
     // Only expose the public website URL; server credentials remain server-only.
@@ -31,6 +32,7 @@ export default defineConfig(({ mode }) => {
         ...configDefaults.exclude,
         '**/.worktrees/**',
         '**/.claude/worktrees/**',
+        '**/tmp/**',
       ],
     },
     resolve: {
@@ -42,16 +44,16 @@ export default defineConfig(({ mode }) => {
       allowedHosts: true as const,
       proxy: {
         '/api': {
-          target: 'http://localhost:3000',
+          target: apiProxyTarget,
           changeOrigin: true,
         },
         '/socket.io': {
-          target: 'http://localhost:3000',
+          target: apiProxyTarget,
           changeOrigin: true,
           ws: true,
         },
         '/uploads': {
-          target: 'http://localhost:3000',
+          target: apiProxyTarget,
           changeOrigin: true,
         },
       },

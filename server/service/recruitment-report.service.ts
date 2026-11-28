@@ -5,6 +5,7 @@ import { RecruitmentPipelineModel } from "../model/recruitment-pipeline.model";
 import { RecruitmentStageHistoryModel } from "../model/recruitment-stage-history.model";
 import { UserModel } from "../model/user.model";
 import type { RecruitmentScope } from "../utils/recruitment-scope";
+import { Types } from "mongoose";
 
 type RecruitmentReportType = "overview" | "interviews" | "interview-count" | "interviewers" | "interview-results" | "hires" | "onboarded" | "job-applications" | "staffing-gaps" | "job-deadlines" | "applicants-by-department";
 type ReportInput = { reportType: RecruitmentReportType; from?: string; to?: string; search?: string; rank?: "most" | "least" };
@@ -18,6 +19,9 @@ function dateBounds(from?: string, to?: string) {
 function escapeRegex(value: string) { return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 function idOf(value: any) { return String(value?._id || value?.id || value || ""); }
 function normalize(value: unknown) { return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLocaleLowerCase("vi"); }
+function normalizeStageName(value: unknown) {
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\u0111\u0110]/g, "d").toLocaleLowerCase("vi");
+}
 function localToday() {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
   const value = (type: string) => parts.find(part => part.type === type)?.value || "00";
@@ -80,29 +84,37 @@ async function namedInterviews(scope: RecruitmentScope, rows: any[]) {
 
 async function stageEvents(scope: RecruitmentScope, input: ReportInput, type: "hires" | "onboarded") {
   const pipeline: any = await RecruitmentPipelineModel.findOne({ ...scope, isDeleted: false }).lean();
-  const stages = (pipeline?.stages || []).filter((stage: any) => type === "hires"
-    ? stage.terminalOutcome === "hired"
-    : /(?:onboard|nhan viec|tiep nhan nhan su)/.test(normalize(stage.name)));
+  const pipelineStages = pipeline?.stages || [];
+  const hiredStages = pipelineStages.filter((stage: any) => stage.terminalOutcome === "hired");
+  const namedOnboardingStages = pipelineStages.filter((stage: any) => {
+    const name = normalizeStageName(stage.name);
+    return !/(?:de nghi|offer)/.test(name) && /(?:onboard|nhan viec|bat dau lam)/.test(name);
+  });
+  const stages = type === "hires" ? hiredStages : namedOnboardingStages.length ? namedOnboardingStages : hiredStages;
   if (!stages.length) return { configured: false, items: [], total: null as number | null, summary: type === "hires" ? "Quy trình chưa có bước kết thúc được đánh dấu là đã tuyển." : "Quy trình chưa có bước nhận việc hoặc onboarding để thống kê." };
   const createdAt = dateBounds(input.from, input.to);
-  const historyQuery: Record<string, any> = { ...within(scope), toStageId: { $in: stages.map((stage: any) => stage.id) } };
+  const branchId = Types.ObjectId.isValid(scope.branchId) ? new Types.ObjectId(scope.branchId) : scope.branchId;
+  const historyQuery: Record<string, any> = { ...within(scope), branchId, toStageId: { $in: stages.map((stage: any) => stage.id) } };
   if (createdAt) historyQuery.createdAt = createdAt;
-  const histories = await RecruitmentStageHistoryModel.find(historyQuery).sort({ createdAt: -1 }).limit(1000).lean();
-  const latestByApplicant = new Map<string, any>();
-  for (const event of histories) if (!latestByApplicant.has(idOf(event.applicantId))) latestByApplicant.set(idOf(event.applicantId), event);
-  const events = [...latestByApplicant.values()];
+  const events = await RecruitmentStageHistoryModel.aggregate([
+    { $match: historyQuery },
+    { $sort: { createdAt: -1, _id: -1 } },
+    { $group: { _id: "$applicantId", event: { $first: "$$ROOT" } } },
+    { $replaceRoot: { newRoot: "$event" } },
+    { $sort: { createdAt: -1, _id: -1 } },
+  ]);
   const applicantIds = events.map(event => idOf(event.applicantId));
   const applicants = applicantIds.length ? await RecruitmentApplicantModel.find({ ...within(scope), _id: { $in: applicantIds } }).select("_id fullName jobId outcome").lean() : [];
-  const jobs = applicants.length ? await RecruitmentJobModel.find({ ...within(scope), _id: { $in: applicants.map((row: any) => row.jobId) } }).select("_id title code").lean() : [];
+  const jobs = applicants.length ? await RecruitmentJobModel.find({ ...within(scope), _id: { $in: applicants.map((row: any) => row.jobId) } }).select("_id title code department").lean() : [];
   const applicantById = new Map(applicants.map((value: any) => [idOf(value), value]));
   const jobById = new Map(jobs.map((value: any) => [idOf(value), value]));
   const items = events.flatMap(event => {
     const applicant: any = applicantById.get(idOf(event.applicantId));
     if (!applicant) return [];
     const job: any = jobById.get(idOf(applicant.jobId));
-    return [{ name: applicant.fullName, jobTitle: job?.title || job?.code || "", outcome: applicant.outcome, occurredAt: event.createdAt }];
+    return [{ name: applicant.fullName, jobTitle: job?.title || job?.code || "", department: job?.department || "", outcome: applicant.outcome, occurredAt: event.createdAt }];
   });
-  return { configured: true, items, total: items.length, summary: `${items.length} hồ sơ trong khoảng thời gian đã chọn.` };
+  return { configured: true, items, total: items.length, summary: `${items.length} ứng viên ${type === "onboarded" ? "đã onboard" : "đã tuyển"} trong khoảng thời gian đã chọn.` };
 }
 
 async function aggregateApplicationRows(scope: RecruitmentScope) {

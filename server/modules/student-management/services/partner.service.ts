@@ -16,7 +16,7 @@ import {
 } from "./custom-field-write.service";
 import { customFieldResourceService } from "./custom-field-resource.service";
 import { partnerReadPeriod, referredStudentInPeriod } from './partner-read-period';
-import { collectPartnerPayoutHistory, type PartnerPayoutReadFilters } from './partner-payout-read';
+import { collectPartnerPayoutHistory, partnerPayoutDay, type PartnerPayoutReadFilters } from './partner-payout-read';
 
 interface PartnerFilters {
   page?: number | string;
@@ -213,6 +213,38 @@ export class PartnerService {
     }
     const cursor=Partner.find(query).select('name payoutHistory').lean().cursor();
     try{return await collectPartnerPayoutHistory(cursor,filters);}finally{await cursor.close();}
+  }
+
+  static async getPayoutReport(ownerId: string | string[], branchId: string | undefined, from: string, to: string) {
+    const period = partnerReadPeriod(from, to);
+    if (!period) throw new ValidationError("PARTNER_PERIOD_INVALID", "Cần khoảng ngày chi trả hợp lệ.");
+    const partners = await Partner.find({ ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) })
+      .select("name payoutHistory").lean();
+    const payouts = partners.flatMap((partner: any) => (partner.payoutHistory || []).flatMap((payout: any) => {
+      const date = partnerPayoutDay(String(payout.date || ""));
+      if (date < period.from || date > period.to) return [];
+      if (!Number.isSafeInteger(payout.amount) || payout.amount <= 0) {
+        throw new ValidationError("PARTNER_PAYOUT_HISTORY_INVALID", "Lịch sử chi trả có số tiền không hợp lệ.");
+      }
+      return [{
+        partnerName: String(partner.name || ""),
+        date,
+        method: payout.method === "Chuyển khoản" ? "Chuyển khoản" as const : "Tiền mặt" as const,
+        amount: payout.amount as number,
+      }];
+    }));
+    const methodTotals = (["Chuyển khoản", "Tiền mặt"] as const).map(method => {
+      const matching = payouts.filter(payout => payout.method === method);
+      return { method, payoutCount: matching.length, totalAmount: matching.reduce((sum, payout) => sum + payout.amount, 0) };
+    });
+    return {
+      from: period.from,
+      to: period.to,
+      payoutCount: payouts.length,
+      totalAmount: payouts.reduce((sum, payout) => sum + payout.amount, 0),
+      methodTotals,
+      payouts: payouts.sort((left, right) => left.date.localeCompare(right.date) || left.partnerName.localeCompare(right.partnerName, "vi")),
+    };
   }
 
   static async createPartner(

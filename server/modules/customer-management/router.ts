@@ -19,6 +19,8 @@ customerRouter.get("/settings", read, customerSettingsController.get as any);
 customerRouter.patch("/settings", manage, validateRequest(updateCustomerSettingsSchema), customerSettingsController.update as any);
 
 customerRouter.get("/", read, customerController.list as any);
+customerRouter.get("/assistant/reports/tier-counts", read, customerController.assistantTierCounts as any);
+customerRouter.get("/assistant/reports/upcoming-birthdays", read, customerController.assistantUpcomingBirthdays as any);
 customerRouter.get("/search", posCustomerSearch, customerController.search as any);
 customerRouter.post("/", posCustomerCreate, customerController.create as any);
 customerRouter.post("/quick", manage, customerController.quickCreate as any);

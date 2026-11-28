@@ -27,3 +27,11 @@ it.each([
 
   expect(result.actionId).toBe(actionId);
 });
+
+it("routes a 30-day foreign work-permit expiry request with its supported filter", async () => {
+  const result = await interpretRequest("Lao động nước ngoài nào có giấy phép sắp hết hạn trong 30 ngày?", workflows, null, []);
+
+  expect(result.actionId).toBe("worker.list");
+  expect(result.values.query_permitExpiryWithinDays).toBe(30);
+  expect(provider).not.toHaveBeenCalled();
+});

@@ -28,6 +28,16 @@ export const interviewBodySchema = Joi.object({
 export const versionBodySchema = Joi.object({ version }).unknown(false);
 export const statusBodySchema = Joi.object({ version, status: Joi.string().valid("draft", "open", "paused", "closed").required() }).unknown(false);
 export const transitionBodySchema = Joi.object({ version, stageId: id, note: Joi.string().allow("").default("") }).unknown(false);
+const historyDate = Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/);
+export const applicantHistoryQuerySchema = Joi.object({ from: historyDate, to: historyDate }).unknown(false).custom((value, helpers) => {
+  const isCalendarDate = (day: string) => {
+    const parsed = new Date(`${day}T00:00:00.000Z`);
+    return Number.isFinite(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === day;
+  };
+  if ([value.from, value.to].some((day: string | undefined) => day !== undefined && !isCalendarDate(day))) return helpers.error("any.invalid");
+  if (value.from && value.to && value.from > value.to) return helpers.error("any.invalid");
+  return value;
+});
 const optionalFields = (schema: Joi.ObjectSchema) => schema.fork(
   Object.keys(schema.describe().keys || {}),
   (field) => field.optional(),
@@ -41,6 +51,14 @@ export function validateBody(schema: Joi.ObjectSchema) {
     const result = schema.validate(req.body, { abortEarly: false, stripUnknown: false });
     if (result.error) return res.status(400).json({ status: "error", message: result.error.message });
     req.body = result.value;
+    return next();
+  };
+}
+
+export function validateQuery(schema: Joi.ObjectSchema) {
+  return function validateQueryMiddleware(req: Request, res: Response, next: NextFunction) {
+    const result = schema.validate(req.query, { abortEarly: false, stripUnknown: false });
+    if (result.error) return res.status(400).json({ status: "error", message: result.error.message });
     return next();
   };
 }

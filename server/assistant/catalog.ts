@@ -6,44 +6,23 @@ import { HEALTHCARE_OPERATIONS, healthcareWorkflowInstructions } from "./healthc
 import { QUOTATION_OPERATIONS, quotationWorkflowInstructions } from "./quotation-catalog";
 import type { AnalysisContract } from "./list-analysis";
 import { buildAssistantOperationMetadata, type AssistantOperationMetadata } from "./operation-metadata";
-import { publicReadAnalysis } from './public-read-query';
-import {normalizeAssistantFieldContract} from './field-contract';
-import {registerAssistantBusinessReadViews} from './business-read-views';
 
 export interface AssistantOperation {
-  /** Reviewed measures already computed by a summary API, including nested paths. */
-  precomputedMeasures?:Record<string,{operation:'count'|'sum'|'avg';label:string;category?:string}>;
-  /** A report breakdown made of independently computed public measures. */
-  precomputedBreakdowns?:string[][];
-  /** Reviewed grouped report rows, not an invitation to aggregate the envelope. */
-  precomputedGroups?:Record<string,{dimension:string;measures:Record<string,'count'|'sum'|'avg'>}>;
-  unboundedTimeRead?:true;
-  /** Truthful, server-owned phrasings of behavior already enforced by the operation. */
   coverageAliases?: string[];
   clearableFields?: string[];
   currentDateDefaults?: string[];
-  /** Additional business function views for a cross-cutting read capability. */
   functionAreas?: Array<{ key: string; label: string }>;
   assistantMetadata?: AssistantOperationMetadata;
   unavailableReason?: string;
   analysis?: AnalysisContract;
-  /** Reviewed semantics of native numeric query bounds, independent of wording. */
-  queryPredicates?: Record<string,{operator:'gte'|'lte';integer?:boolean}>;
   partialUpdate?: boolean;
   partialUpdateArrayKeys?: Record<string, string>;
-  partialUpdateArrayBounds?: Record<string, { itemField: string; upperBound: string }>;
-  inputArrayLengths?: Record<string,string>;
   id: string; title: string; description: string; module: ModuleKey;
   modules?: ModuleKey[];
   permissions: string[]; method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   adapter?: "contract" | "healthcare" | "quotation";
   rawResponse?: boolean;
-  resultSingleton?: boolean;
-  /** Fixed predicates enforced by a reviewed command's server implementation. */
-  builtinConditions?:string[];
-  builtinConditionLogic?:'union';
-  /** Reference inputs whose equality is enforced as a native write predicate. */
-  predicateInputFields?:string[];
+  assistantFileFormat?: "pdf" | "xlsx";
   readOnly?: boolean;
   completionUpdateId?: string;
   contextBody?: string[];
@@ -52,11 +31,6 @@ export interface AssistantOperation {
   assistantOnlyFields?: string[];
   fixedPathValues?: Record<string, string>;
   fixedBodyValues?: Record<string, unknown>;
-  /** Server-owned source predicates for reviewed read views; never model inputs. */
-  fixedQueryValues?:Record<string,string>;
-  /** Scoped read performed through dispatch after required form data and before
-   * confirmation. Its opaque token stays only in server pending state. */
-  confirmationRead?:{actionId:string;inputFields:string[];contentFields:string[];tokenField:string;details:Array<{key:string;label:string}>};
   /** Explicit command endpoints whose mutation is fully specified by the route. */
   allowEmptyUpdate?: boolean;
   optionalPathFields?: string[];
@@ -70,10 +44,6 @@ export interface AssistantOperation {
   confirmation?: boolean;
   // Only these fields from existing APIs may be used for reference resolution or shown to AI.
   resultFields: string[];
-  /** Explicit collection inside an envelope which also contains totals/meta. */
-  resultRowsField?:string;
-  resultRowsTotalField?:string;
-  resultRowsComplete?:true;
   // Field allow-lists for nested objects shown in a result field. Nested API documents
   // must be projected before display so unrelated personal or internal fields stay hidden.
   resultChildFields?: Record<string, AssistantResultFieldTree>;
@@ -83,7 +53,7 @@ export type AssistantResultFieldTree = string[] | AssistantResultFieldChildren;
 const text = (key: string, label: string, required = false): AssistantField => ({ key, label, type: "text", systemRequired: required, required });
 const date = (key: string, label: string, required = false): AssistantField => ({ ...text(key, label, required), type: "date" });
 const number = (key: string, label: string, defaultValue?: number): AssistantField => ({ key, label, type: "number", min: 0, ...(defaultValue === undefined ? {} : { defaultValue }) });
-const structured = (key: string, label: string, structure: NonNullable<AssistantField["structure"]>, required = false): AssistantField => ({ key, label, type: "json", structure, required });
+const structured = (key: string, label: string, structure: NonNullable<AssistantField["structure"]>, required = false): AssistantField => ({ key, label, type: "json", source: "body", structure, required });
 const ref = (key: string, label: string, reference: string, required = true): AssistantField => ({ ...text(key, label, required), type: "reference", reference });
 const queryField = (field: AssistantField, apiKey = field.key): AssistantField => ({ ...field, source: "query", apiKey });
 const queryRef = (key: string, label: string, reference: string, required = true): AssistantField => queryField(ref(key, label, reference, required));
@@ -96,10 +66,10 @@ const operations: AssistantOperation[] = [];
 function entity(config: { id: string; title: string; module: ModuleKey; permissions: string[]; readPermissions?: string[]; path: string; createPath?: string; link: string; fields: AssistantField[]; resultFields?: string[]; update?: boolean; remove?: boolean; create?: boolean }) {
   const resultFields = config.resultFields || config.fields.map(f => f.key);
   const base = { module: config.module, permissions: config.permissions, link: config.link, resultFields };
-  operations.push({ ...base, id: `${config.id}.list`, title: `Tra cứu ${config.title}`, description: `Tìm ${config.title} trong phạm vi được cấp quyền.`, permissions: config.readPermissions || config.permissions, method: "GET", path: config.path, fields: [text("search", "Từ khóa tìm kiếm")] });
-  if (config.create !== false) operations.push({ ...base, id: `${config.id}.create`, title: `Tạo ${config.title}`, description: `Tạo ${config.title} bằng API nghiệp vụ hiện có; luôn yêu cầu xác nhận trước khi ghi.`, method: "POST", path: config.createPath || config.path, confirmation: true, fields: config.fields });
-  if (config.update) operations.push({ ...base, id: `${config.id}.update`, title: `Cập nhật ${config.title}`, description: `Sửa ${config.title} đã xác định; phải xác nhận trước khi ghi.`, method: "PATCH", path: `${config.path}/:id`, confirmation: true, fields: [ref("id", `Tên hoặc mã ${config.title}`, `${config.id}.list`), ...config.fields.map(f => ({ ...f, systemRequired: false, required: false, defaultValue: undefined }))] });
-  if (config.remove) operations.push({ ...base, id: `${config.id}.delete`, title: `Xóa ${config.title}`, description: `Xóa ${config.title} đã xác định; luôn cần xác nhận.`, method: "DELETE", path: `${config.path}/:id`, confirmation: true, fields: [ref("id", `Tên hoặc mã ${config.title}`, `${config.id}.list`)] });
+  operations.push({ ...base, id: `${config.id}.list`, title: `Tra cứu ${config.title}`, description: `Tra cứu ${config.title} theo tên, mã hoặc từ khóa trong phạm vi được cấp quyền. Dùng để tìm và xem các hồ sơ phù hợp; chỉ lọc theo những điều kiện mà thao tác này hỗ trợ.`, permissions: config.readPermissions || config.permissions, method: "GET", path: config.path, fields: [text("search", "Từ khóa tìm kiếm")] });
+  if (config.create !== false) operations.push({ ...base, id: `${config.id}.create`, title: `Tạo ${config.title}`, description: `Tạo hồ sơ ${config.title} mới từ thông tin người dùng cung cấp, theo các trường đầu vào được khai báo cho thao tác. Không tự suy đoán dữ liệu còn thiếu; luôn yêu cầu xác nhận trước khi ghi.`, method: "POST", path: config.createPath || config.path, confirmation: true, fields: config.fields });
+  if (config.update) operations.push({ ...base, id: `${config.id}.update`, title: `Cập nhật ${config.title}`, description: `Cập nhật ${config.title} đã chọn theo tên hoặc mã. Chỉ thay đổi những trường người dùng yêu cầu rõ, giữ nguyên các trường khác và xác nhận trước khi ghi.`, method: "PATCH", path: `${config.path}/:id`, confirmation: true, fields: [ref("id", `Tên hoặc mã ${config.title}`, `${config.id}.list`), ...config.fields.map(f => ({ ...f, systemRequired: false, required: false, defaultValue: undefined }))] });
+  if (config.remove) operations.push({ ...base, id: `${config.id}.delete`, title: `Xóa ${config.title}`, description: `Xóa ${config.title} đã được chọn theo tên hoặc mã. Nếu chưa xác định duy nhất hồ sơ cần xóa thì phải hỏi lại; luôn yêu cầu xác nhận trước khi xóa.`, method: "DELETE", path: `${config.path}/:id`, confirmation: true, fields: [ref("id", `Tên hoặc mã ${config.title}`, `${config.id}.list`)] });
 }
 entity({ id: "employee", title: "nhân sự", module: "hr", permissions: ["access:manage"], readPermissions: ["access:read", "hr:read"], path: "/auth/users", createPath: "/auth/register-user", link: "/nhan-su", update: true, remove: true,
   fields: [text("displayName", "Họ và tên", true), { ...date("birthDate", "Ngày sinh"), required: true }, { ...email, systemRequired: true, required: true }, phone, { ...ref("department", "Phòng ban", "department.list", false), referenceValueKey: "name" }, text("division", "Bộ phận"), text("jobTitle", "Chức danh"), number("monthlySalary", "Lương tháng", 0), text("qualification", "Trình độ chuyên môn")],
@@ -238,6 +208,34 @@ if (customerList) {
     { ...number("query_limit", "Số kết quả", 100), min: 1, max: 100, source: "query", apiKey: "limit" },
   ];
 }
+operations.push({
+  id: "customer.tier.counts",
+  title: "Thống kê khách hàng theo hạng",
+  description: "Đếm hồ sơ khách hàng theo các hạng đang cấu hình cho doanh nghiệp, kể cả hạng chưa có khách và hồ sơ chưa được xếp hạng. Kết quả áp dụng trên danh bạ khách hàng của doanh nghiệp vì hồ sơ khách hàng được dùng chung giữa các chi nhánh.",
+  module: "customer",
+  permissions: ["customer:read"],
+  method: "GET",
+  path: "/customers/assistant/reports/tier-counts",
+  rawResponse: true,
+  link: "/quan-ly-khach-hang",
+  fields: [],
+  resultFields: ["total", "tiers", "unranked"],
+  resultChildFields: { tiers: ["code", "name", "count"] },
+});
+operations.push({
+  id: "customer.upcoming-birthdays",
+  title: "Khách hàng sắp đến sinh nhật",
+  description: "Liệt kê khách hàng đang hoạt động có sinh nhật trong khoảng ngày được hỏi, không trả số điện thoại hoặc năm sinh. Mặc định dùng 30 ngày tới nếu không nêu khoảng thời gian.",
+  module: "customer",
+  permissions: ["customer:read"],
+  method: "GET",
+  path: "/customers/assistant/reports/upcoming-birthdays",
+  rawResponse: true,
+  link: "/quan-ly-khach-hang",
+  fields: [queryField(date("from", "Từ ngày")), queryField(date("to", "Đến ngày"))],
+  resultFields: ["from", "to", "total", "truncated", "items"],
+  resultChildFields: { items: ["name", "customerCode", "birthdayDate"] },
+});
 operations.push({ id: "customer.transactions", title: "Tra cứu lịch sử giao dịch khách hàng", description: "Tra cứu đơn bán, sửa chữa, hoàn tiền, thu mua và số liệu tổng hợp của khách hàng tại chi nhánh đã chọn.", module: "customer", permissions: ["customer:read"], method: "GET", path: "/customers/:id/transactions", link: "/quan-ly-khach-hang", rawResponse: true,
   fields: [queryRef("branchId", "Chi nhánh", "branch.list"), ref("id", "Tên hoặc mã khách hàng", "customer.list"), queryField(choice("type", "Loại giao dịch", ["all", "sale", "repair", "refund", "buyback"], "all")), queryField(date("from", "Từ ngày")), queryField(date("to", "Đến ngày")), queryField({ ...number("page", "Trang", 1), min: 1, max: 10000 }), queryField({ ...number("limit", "Số giao dịch mỗi trang", 50), min: 1, max: 50 })],
   resultFields: ["kind", "sourceId", "eventId", "code", "parentCode", "occurredAt", "status", "amount", "paidAmount", "dueAmount", "description"] });
@@ -412,6 +410,27 @@ operations.push({
     queryField({ ...number("limit", "Số kết quả", 50), min: 1, max: 100, integer: true }),
   ],
   resultFields: ["title", "channel", "contentType", "status", "bodyText", "scheduledDate", "scheduledTime", "generatedAt", "publishedAt"],
+});
+operations.push({
+  id: "marketing.campaign.list",
+  title: "Tra cứu chiến dịch marketing",
+  description: "Liệt kê chiến dịch marketing trong doanh nghiệp, có thể lọc theo trạng thái hoặc tên. Chỉ trả tên, loại, trạng thái và thời gian; không trả nội dung brief, cấu hình tài khoản hay thông tin xác thực.",
+  module: "social-marketing",
+  permissions: ["marketing:read"],
+  permissionGroups: [["marketing:read"]],
+  adapter: "contract",
+  method: "GET",
+  path: "/marketing-campaigns/assistant/summaries",
+  link: "/chien-dich-noi-dung",
+  confirmation: false,
+  fields: [
+    queryField({ ...text("search", "Tên chiến dịch") }),
+    queryField(choice("status", "Trạng thái chiến dịch", ["draft", "active", "paused", "completed", "cancelled", "failed"])),
+    queryField({ ...number("page", "Trang", 1), min: 1, integer: true }),
+    queryField({ ...number("limit", "Số kết quả", 100), min: 1, max: 100, integer: true }),
+  ],
+  resultFields: ["campaigns"],
+  resultChildFields: { campaigns: ["title", "campaignType", "status", "startDate", "endDate", "postsPerDay"] },
 });
 const leadResultFields = ["customerName", "company", "phone", "email", "value", "productOfChoice", "status", "lastInteraction"];
 const leadCreateFields: AssistantField[] = [
@@ -654,6 +673,7 @@ operations.push(...expandedOperations.map(op => {
   const retailPartnerUserList = op.method === "GET" && op.path === "/retail/partners/users";
   const retailPartnerCustomerList = op.method === "GET" && op.path === "/retail/partners/customers";
   const retailPartnerPolicyList = op.method === "GET" && op.path === "/retail/partners/commission-policies";
+  const retailCommissionBalancesList = op.method === "GET" && op.path === "/retail/finance/commission/balances";
   const retailProductCommissionProducts = op.method === "GET" && op.path === "/retail/partners/policy-products";
   const retailProductCommissionUpdate = op.method === "PUT" && op.path === "/retail/partners/product-commissions";
   const retailPointsPolicyList = op.method === "GET" && op.path === "/retail/points/policy";
@@ -726,7 +746,7 @@ operations.push(...expandedOperations.map(op => {
     : partnerList
     ? [queryField(text("search", "Tên, số điện thoại hoặc mã đối tác"), "search")]
     : retailPartnerList
-      ? [queryField(choice("role", "Vai trò đối tác", ["collaborator", "dealer", "supplier"]))]
+      ? [queryField({ ...text("search", "Tên, mã, số điện thoại hoặc email đối tác"), max: 100 }, "search"), queryField(choice("role", "Vai trò đối tác", ["collaborator", "dealer", "supplier"])), queryField(choice("status", "Trạng thái đối tác", ["active", "inactive"])), queryField({ key: "missingContact", label: "Thiếu số điện thoại, email hoặc địa chỉ", type: "boolean" }, "missingContact"), queryField(choice("supplierLink", "Trạng thái liên kết nhà cung cấp", ["linked", "missing"]))]
     : studentList
       ? [queryField({ ...text("search", "Tên hoặc số điện thoại học viên"), max: 100 }, "search"), queryField(text("status", "Trạng thái"), "status"), queryField(text("rank", "Hạng"), "rank"), queryField({ ...number("page", "Trang", 1), min: 1, max: 10000 }, "page"), queryField({ ...number("limit", "Số kết quả", 100), min: 1, max: 100 }, "limit")]
       : unassignedStudentList
@@ -841,7 +861,9 @@ operations.push(...expandedOperations.map(op => {
         const label = field.key === "path_id" ? "Tên hoặc mã đối tác" : partnerFieldLabels[field.apiKey || field.key];
         if (label) return { ...field, label };
       }
-      if (inventorySerialPath && field.key === "path_id") return { ...field, label: "IMEI, serial hoặc mã vạch", reference: "inventory.serial.list" };
+      if (inventorySerialPath && field.key === "path_id") return inventorySerialDetail || inventorySerialHistory
+        ? { ...field, label: "IMEI, serial hoặc mã vạch" }
+        : { ...field, label: "IMEI, serial hoặc mã vạch", reference: "inventory.serial.list" };
       if (workerPartnerPath && field.source === "path" && field.apiKey === "partnerId") return { ...field, label: "Tên hoặc mã đối tác lao động", reference: "worker.partner.list" };
       if (workerPartnerPolicyPath && field.source === "path" && field.apiKey === "policyId") return { ...field, label: "Tên hoặc mã chính sách hoa hồng", reference: "worker.partner.policy.list" };
       if (workerLaborContractPath && field.key === "path_id") {
@@ -873,7 +895,7 @@ operations.push(...expandedOperations.map(op => {
     });
   return {
     ...op,
-    ...(batchDetail ? { id: "student.batch.detail", title: "Xem th\u00F4ng tin l\u1EDBp h\u1ECDc", description: "Tra c\u1EE9u th\u00F4ng tin l\u1EDBp theo t\u00EAn ho\u1EB7c m\u00E3 l\u1EDBp trong chi nh\u00E1nh \u0111ang ch\u1ECDn.", resultFields: ["code", "name", "courseCode", "courseTitle", "location", "instructorName", "startDate", "endDate", "status"] } : {}),
+    ...(batchDetail ? { id: "student.batch.detail", title: "Xem th\u00F4ng tin l\u1EDBp h\u1ECDc", description: "Tra c\u1EE9u th\u00F4ng tin l\u1EDBp theo t\u00EAn ho\u1EB7c m\u00E3 l\u1EDBp trong chi nh\u00E1nh \u0111ang ch\u1ECDn.", resultFields: ["code", "name", "courseCode", "courseTitle", "location", "instructorName", "roadmapName", "roadmapStepNumber", "daysOfWeek", "startTime", "endTime", "startDate", "endDate", "status"] } : {}),
     ...(batchUpdate ? { description: "Cập nhật lịch, giảng viên, địa điểm, khóa học hoặc lộ trình của lớp. Tên và mã lớp không thể đổi sau khi tạo. Tiêu đề hiển thị lấy từ khóa học; có thể đổi khóa học gắn với lớp này mà không đổi tên các khóa học khác. Cần xác nhận trước khi lưu." } : {}),
     ...(financeTaxFromInvoice ? { id: "finance.tax.from-invoice" } : {}),
     ...(op.method === "POST" && op.path === "/assignments" ? { id: "student.assignment.create", title: "Tạo bài tập cho lớp", description: "Tạo bài tập cho lớp đã chọn theo tên hoặc mã. API gửi email tới học viên trong lớp ở chế độ nền; cần xác nhận trước khi tạo." } : {}),
@@ -906,7 +928,7 @@ operations.push(...expandedOperations.map(op => {
     ...(op.method === "POST" && op.path === "/inventory/transfers/:id/cancel" ? { id: "inventory.transfer.cancel", title: "Hủy phiếu điều chuyển kho" } : {}),
     ...(studentList ? { id: "student.list", title: "Tra cứu học viên", resultFields: ["fullName", "phone", "email", "registrationDate", "fee", "paidAmount", "status"] } : {}),
     ...(unassignedStudentList ? { id: "student.unassigned.list", title: "Tra cứu học viên chưa có chi nhánh", resultFields: ["fullName", "phone", "email", "registrationDate", "status"] } : {}),
-    ...(batchList ? { id: "batch.list", title: "Tra cứu lớp học", resultFields: ["code", "name", "courseCode", "courseTitle", "location", "instructorName", "startDate", "endDate", "status"] } : {}),
+    ...(batchList ? { id: "batch.list", title: "Tra cứu lớp học", resultFields: ["code", "name", "courseCode", "courseTitle", "location", "instructorName", "roadmapName", "roadmapStepNumber", "startDate", "endDate", "status"] } : {}),
     ...(courseList ? { id: "course.list", title: "Tra cứu khóa học", resultFields: ["title", "code", "category", "duration", "fee", "status"] } : {}),
     ...(partnerList ? { id: "partner.list", title: "Tra cứu đối tác", resultFields: ["name", "code", "phone", "email", "isActive"] } : {}),
     ...(financeAssetList ? { id: "finance.asset.list", title: "Tra cứu tài sản cố định", resultFields: ["assetCode", "barcode", "name", "group", "originalCost", "accumulatedDepreciation", "netBookValue", "status", "location", "custodianName"] } : {}),
@@ -919,8 +941,8 @@ operations.push(...expandedOperations.map(op => {
     ...(op.method === "POST" && op.path === "/finance/asset-inventories" ? { id: "finance.asset.inventory.open", title: "Mở phiên kiểm kê tài sản tại chi nhánh" } : {}),
     ...(op.method === "POST" && op.path === "/finance/asset-inventories/:id/counts" ? { id: "finance.asset.inventory.count", title: "Ghi nhận kết quả kiểm kê tài sản" } : {}),
     ...(op.method === "POST" && op.path === "/finance/asset-inventories/:id/finalize" ? { id: "finance.asset.inventory.finalize", title: "Chốt phiên kiểm kê tài sản", resultFields: ["session", "variance"] } : {}),
-    ...(op.method === "GET" && op.path === "/inventory/receiving/receipts" ? { resultFields: ["receiptCode", "status", "supplierName", "subtotal", "notes"] } : {}),
-    ...(retailPartnerList ? { id: "retail.partner.list", title: "Tra cứu đối tác bán lẻ", adapter: undefined, resultFields: ["code", "name", "role", "phone", "email", "address", "status"] } : {}),
+    ...(op.method === "GET" && op.path === "/inventory/receiving/receipts" ? { resultFields: ["receiptCode", "status", "supplierName", "orderCode", "subtotal", "notes", "createdAt", "receivedAt", "items"], resultChildFields: { items: ["productName", "sku", "quantity", "unitCost", "lineTotal"] } } : {}),
+    ...(retailPartnerList ? { id: "retail.partner.list", title: "Tra cứu đối tác bán lẻ", adapter: undefined, resultFields: ["code", "name", "role", "phone", "email", "address", "status", "supplierLinked"] } : {}),
     ...(retailInvoiceList ? { id: "retail.invoice.list", title: "Tra cứu hóa đơn bán lẻ", description: "Tìm hóa đơn đã phát hành theo số hóa đơn, mã đơn hoặc tên khách hàng trong chi nhánh được cấp quyền.", permissionGroups: [["retail:read", "retail:manage"]], resultFields: ["invoiceNo", "orderCode", "customerName", "status"] } : {}),
     ...(retailPartnerSupplierList ? { id: "retail.partner.supplier.list", title: "Tra cứu nhà cung cấp liên kết", resultFields: ["code", "name"] } : {}),
     ...(retailPartnerUserList ? { id: "retail.partner.user.list", title: "Tra cứu tài khoản cộng tác viên", resultFields: ["displayName", "email"] } : {}),
@@ -932,7 +954,7 @@ operations.push(...expandedOperations.map(op => {
     ...(retailPartnerPolicyList ? { id: "retail.partner.commission.policy.list", title: "Tra cứu cấu hình hoa hồng bán lẻ", resultFields: ["effectiveAt", "config", "partnerId"] } : {}),
     ...(retailProductCommissionProducts ? { id: "retail.partner.product.commission.products", title: "Tra cứu sản phẩm và SKU để cấu hình hoa hồng", resultFields: ["sku", "name", "variantName"] } : {}),
     ...(retailProductCommissionUpdate ? { id: "retail.partner.product.commissions.update", title: "Cấu hình hoa hồng theo sản phẩm", resultFields: ["updated"] } : {}),
-    ...(retailShiftList ? { id: "retail.shift.list", title: "Tra cứu ca thu ngân POS", description: "Tìm ca theo mã phiên, nhân viên, ngày hoặc trạng thái trong chi nhánh hiện tại.", resultFields: ["shiftCode", "cashierName", "status", "businessDate", "openedAt", "closedAt", "openingFloat", "grossSales", "expectedCash", "countedCash", "varianceAmount"] } : {}),
+    ...(retailShiftList ? { id: "retail.shift.list", title: "Tra cứu ca thu ngân POS", description: "Tìm ca theo mã phiên, nhân viên, ngày hoặc trạng thái trong chi nhánh hiện tại.", resultFields: ["shiftCode", "cashierName", "status", "businessDate", "expectedCash", "countedCash", "varianceAmount", "varianceReason"] } : {}),
     ...(retailShiftCurrent ? { id: "retail.shift.current", title: "Xem ca POS hiện tại", contextQuery: ["terminalId"], resultFields: ["shiftCode", "cashierName", "status", "businessDate", "openedAt", "openingFloat", "grossSales", "expectedCash"] } : {}),
     ...(retailOrderProducts ? { id: "retail.order.products.list", title: "Tra cứu sản phẩm bán lẻ", resultFields: ["name", "sku", "barcode", "variantName", "category", "unit", "stock", "price", "trackingMode"] } : {}),
     ...(retailOrderList ? { id: "retail.order.list", title: "Tra cứu đơn bán lẻ" } : {}),
@@ -959,6 +981,7 @@ operations.push(...expandedOperations.map(op => {
     ...(financeVatList ? { id: "finance.vat.list", title: "Tra cứu hóa đơn VAT", resultFields: ["invoiceNumber", "series", "direction", "partyName", "taxId", "issuedOn", "taxableAmount", "vatAmount", "deductibleVat"] } : {}),
     ...(inventoryCatalogTitles[`${op.method} ${op.path}`] ? { title: inventoryCatalogTitles[`${op.method} ${op.path}`] } : {}),
     ...(inventoryCountTitles[`${op.method} ${op.path}`] ? { title: inventoryCountTitles[`${op.method} ${op.path}`] } : {}),
+    ...(op.method === "POST" && op.path === "/inventory/counts" ? { id: "inventory.count.create", title: "Tạo phiếu kiểm kê kho", description: "Tạo phiếu kiểm kê nháp cho kho đã chọn. Tạo phiếu không bắt đầu đếm và không cập nhật tồn; kết quả đếm được ghi sau ở phiếu này. Cần xác nhận trước khi tạo." } : {}),
     ...(op.method === "PATCH" && op.path === "/inventory/counts/:id/items/:itemId" ? { id: "inventory.count.item.update", systemBodyFields: ["expectedVersion"] } : {}),
     ...(inventoryCountApproval ? { id: "inventory.count.approve", title: "Phê duyệt kiểm kê và cập nhật tồn kho", systemBodyFields: ["expectedVersion"], description: "Chỉ phê duyệt phiếu đang chờ duyệt. Tồn kho sẽ thay đổi theo kết quả đếm. Nếu có chênh lệch, cần xác nhận đã kiểm tra và nêu lý do. Mỗi mã ngoài dự kiến cần có kết quả đối chiếu riêng. Cần xác nhận trước khi cập nhật tồn kho." } : {}),
     ...(markInstallmentPaid ? { title: "Đánh dấu đợt học phí đã thu", description: "Đánh dấu một đợt học phí đã thu cho học viên đã xác định. Thao tác cần xác nhận.", allowEmptyUpdate: true } : {}),
@@ -1011,7 +1034,7 @@ operations.push(...expandedOperations.map(op => {
     ...(workerLaborContractRenew ? { id: "worker.labor.contract.renew", title: "Gia hạn hợp đồng lao động", description: "Tạo kỳ hợp đồng mới nối tiếp hợp đồng đã chọn và giữ kỳ cũ trong lịch sử. Cần xác nhận trước khi gia hạn.", resultFields: ["code", "clientName", "workerName", "startDate", "endDate", "status", "note"] } : {}),
     ...(workerLaborContractDelete ? { id: "worker.labor.contract.delete", title: "Xóa hợp đồng lao động", description: "Xóa hợp đồng đã chọn. Cần xác nhận trước khi xóa." } : {}),
     ...(workerAttendanceMark ? { id: "worker.attendance.mark", title: "Ghi nhận chấm công lao động", description: "Ghi nhận giờ vào hoặc giờ ra của người lao động đã chọn tại dự án. Cần xác nhận trước khi ghi.", resultFields: ["workerName", "projectName", "date", "status", "workedMinutes"] } : {}),
-    ...(workerAttendanceList ? { id: "worker.attendance.list", title: "Tra cứu bảng chấm công dự án", description: "Xem bảng chấm công của dự án theo một ngày hoặc khoảng ngày.", resultFields: ["workerName", "projectName", "date", "checkInAt", "checkOutAt", "status", "workedMinutes", "note"] } : {}),
+    ...(workerAttendanceList ? { id: "worker.attendance.list", title: "Tra cứu bảng chấm công dự án", description: "Xem các bản ghi chấm công chi tiết của một dự án theo ngày hoặc khoảng ngày, gồm người lao động, giờ vào/ra và trạng thái. Dùng khi người dùng cần bảng chi tiết của dự án; nếu hỏi báo cáo/tình hình chấm công lao động tổng quan hoặc không nêu dự án thì dùng worker.report.", resultFields: ["workerName", "projectName", "date", "checkInAt", "checkOutAt", "status", "workedMinutes", "note"] } : {}),
     ...(workerAttendanceAdjust ? { id: "worker.attendance.update", title: "Điều chỉnh giờ chấm công", description: "Sửa giờ vào, giờ ra hoặc ghi chú của bản ghi chấm công đã chọn. Cần xác nhận trước khi lưu.", resultFields: ["workerName", "projectName", "date", "checkInAt", "checkOutAt", "status", "workedMinutes", "note"] } : {}),
     ...(workerDashboard ? { id: "worker.dashboard", title: "Xem tổng quan lao động" } : {}),
     ...(workerNotificationList ? { id: "worker.notification.list", title: "Tra cứu thông báo lao động", resultFields: ["title", "content", "recipients", "recipientCount", "channels", "status", "createdAt"] } : {}),
@@ -1033,11 +1056,20 @@ operations.push(...expandedOperations.map(op => {
     ...(op.method === "POST" && op.path === "/recruitment/interviews/:id/delete" ? { title: "Xóa lịch phỏng vấn", description: "Đưa lịch phỏng vấn đã chọn ra khỏi danh sách đang hoạt động. Lịch có thể được khôi phục sau đó; cần xác nhận trước khi xóa." } : {}),
     fields: (() => {
       const mapped = fields.filter(field => !(field.apiKey === "centerId" && (op.path === "/partners" || op.path.startsWith("/partners/commission-levels"))));
-      if (workerList) return [queryField(text("query_search", "Tên, mã hoặc số điện thoại lao động"), "search"), ...mapped.filter(field => field.apiKey !== "search")];
+      if (workerList) return [
+        queryField(text("query_search", "Tên, mã hoặc số điện thoại lao động"), "search"),
+        queryField(choice("query_referralStatus", "Trạng thái đối tác giới thiệu", ["linked", "missing"]), "referralStatus"),
+        ...mapped.filter(field => field.apiKey !== "search" && field.apiKey !== "referralStatus"),
+      ];
+      if (workerLaborContractList) return [
+        ...mapped,
+        queryField(date("endDateFrom", "Han hop dong tu ngay")),
+        queryField(date("endDateTo", "Han hop dong den ngay")),
+      ];
       if (assignmentList || (op.method === "GET" && op.path === "/assignments/:id/submissions")) {
         return [queryField(ref("query_batchId", "Tên hoặc mã lớp", "batch.list"), "batchId"), ...mapped.filter(field => field.apiKey !== "batchId")];
       }
-      if (!inventorySerialOperation && !inventoryCount && !financeReceivableOperation && !financeDebtList && !commissionLevel && !retailSettingsOperation && !retailPosOperation && !retailCashbookOperation && !retailFinanceCommissionOperation && !retailReceivableOperation && !retailAfterSaleOperation) return mapped;
+      if (retailCommissionBalancesList || (!inventorySerialOperation && !inventoryCount && !financeReceivableOperation && !financeDebtList && !commissionLevel && !retailSettingsOperation && !retailPosOperation && !retailCashbookOperation && !retailFinanceCommissionOperation && !retailReceivableOperation && !retailAfterSaleOperation)) return mapped;
       const label = inventorySerialOperation ? "Chi nhánh" : inventoryCount ? "Chi nhánh kiểm kê" : financeReceivableOperation ? "Chi nhánh hạch toán" : retailSettingsOperation || retailPosOperation || retailCashbookOperation || retailFinanceCommissionOperation || retailReceivableOperation || retailAfterSaleOperation ? "Chi nhánh bán lẻ" : "Chi nhánh áp dụng";
       return [queryField(ref("targetBranch", label, "branch.list", false), "branchId"), ...mapped.filter(field => field.apiKey !== "branchId"), ...(inventoryCountApproval ? [
         { key: "discrepancyConfirmed", apiKey: "discrepancyConfirmed", source: "body" as const, type: "boolean" as const, label: "Xác nhận đã kiểm tra và chấp nhận chênh lệch", required: false },
@@ -1046,7 +1078,7 @@ operations.push(...expandedOperations.map(op => {
       ] : [])];
     })(),
     resultFields: inventoryResource ? (op.method === "DELETE" ? ["deletedId"] : ["code", "name", "status", "parentCode", "description", "website", "symbol", "category", "decimalPlaces", "baseUnitCode", "conversionFactor", "type", "options", "unitCode"])
-      : batchDetail ? ["code", "name", "courseCode", "courseTitle", "location", "instructorName", "startDate", "endDate", "status"]
+      : batchDetail ? ["code", "name", "courseCode", "courseTitle", "location", "instructorName", "daysOfWeek", "startTime", "endTime", "startDate", "endDate", "status"]
       : inventoryVariantBulkUpdate ? ["sku", "displayName", "status", "trackingMode", "unitCode"]
       : inventoryVariantBulkDelete ? []
       : workerProjectDetail ? ["code", "name", "quota", "daysOfWeek", "startTime", "endTime", "location", "startDate", "endDate", "status"]
@@ -1074,7 +1106,7 @@ operations.push(...expandedOperations.map(op => {
       : courseList ? ["title", "code", "category", "duration", "fee", "maxLearners", "activeBatches", "status"]
       : partnerList ? ["name", "code", "phone", "email", "isActive"]
       : retailInvoiceList ? ["invoiceNo", "orderCode", "customerName", "status"]
-      : retailPartnerList ? ["code", "name", "role", "phone", "email", "address", "status"]
+      : retailPartnerList ? ["code", "name", "role", "phone", "email", "address", "status", "supplierLinked"]
       : retailPartnerSupplierList ? ["code", "name"]
       : retailPartnerUserList ? ["displayName", "email"]
       : retailPartnerCustomerList ? ["customerCode", "name", "phone"]
@@ -1082,7 +1114,7 @@ operations.push(...expandedOperations.map(op => {
       : retailPartnerPolicyList ? ["effectiveAt", "config", "partnerId"]
       : retailProductCommissionProducts ? ["sku", "name", "variantName"]
       : retailProductCommissionUpdate ? ["updated"]
-      : retailShiftList ? ["shiftCode", "cashierName", "status", "businessDate", "openedAt", "closedAt", "openingFloat", "grossSales", "expectedCash", "countedCash", "varianceAmount"]
+      : retailShiftList ? ["shiftCode", "cashierName", "status", "businessDate", "expectedCash", "countedCash", "varianceAmount", "varianceReason"]
       : retailCashierList ? ["id", "name"]
       : retailDrawerList ? ["code", "name", "isActive"]
       : retailSettlementList ? ["orderCode", "paymentIndex", "paymentMethod", "paymentAmount"]
@@ -1101,7 +1133,7 @@ operations.push(...expandedOperations.map(op => {
       : financeReceivableAging ? ["0-30", "31-60", "61-90", "over90"]
       : financeReceivableByCustomer ? ["customerName", "balance", "originalAmount", "count"]
       : financeVatList ? ["invoiceNumber", "series", "direction", "partyName", "taxId", "issuedOn", "taxableAmount", "vatAmount", "deductibleVat"]
-      : op.method === "GET" && op.path === "/inventory/receiving/receipts" ? ["receiptCode", "status", "supplierName", "subtotal", "notes"]
+      : op.method === "GET" && op.path === "/inventory/receiving/receipts" ? ["receiptCode", "status", "supplierName", "orderCode", "subtotal", "notes", "createdAt", "receivedAt", "items"]
       : op.method === "GET" && op.path === "/worker-management/workers"
       ? ["fullName", "status", "laborType", "registrationDate"]
       : financeAssetList ? ["assetCode", "barcode", "name", "group", "originalCost", "accumulatedDepreciation", "netBookValue", "status", "location", "custodianName"]
@@ -1129,6 +1161,44 @@ operations.push(...expandedOperations.map(op => {
           : partnerCreate || partnerDetail ? partnerResultFields : op.resultFields,
   };
 }));
+const inventorySerialListOperation = operations.find(op => op.id === "inventory.serial.list");
+const inventoryBalanceListOperation = operations.find(op => op.id === "inventory.warehouse.balances.list");
+const inventoryPricesListOperation = operations.find(op => op.method === "GET" && op.path === "/inventory/catalog/prices");
+if (inventoryPricesListOperation) {
+  inventoryPricesListOperation.fields = [queryField(queryRef("targetBranch", "Chi nhánh kho", "branch.list", true), "branchId")];
+  inventoryPricesListOperation.resultFields = ["productName", "categoryCode", "variantName", "sku", "sellingPrice", "costPrice", "status"];
+}
+if (inventoryBalanceListOperation) {
+  inventoryBalanceListOperation.resultFields = [...new Set([...inventoryBalanceListOperation.resultFields, "minStock", "averageCost", "trackingMode", "hasMovementHistory"])];
+  if (!inventoryBalanceListOperation.fields.some(field => field.apiKey === "includeCatalogZeroBalances")) {
+    inventoryBalanceListOperation.fields.push(queryField({ key: "includeCatalogZeroBalances", label: "Bao gồm SKU đang hoạt động chưa có tồn", type: "boolean" }, "includeCatalogZeroBalances"));
+  }
+}
+if (inventorySerialListOperation) {
+  const serialBranchField = queryField(ref("targetBranch", "Chi nhánh kho", "branch.list", false), "branchId");
+  inventorySerialListOperation.fields.push(serialBranchField,
+    queryField(choice("trackingMode", "Loại mã máy", ["serial", "unit_barcode"]), "trackingMode"),
+    queryField({ ...ref("warehouseId", "Kho", "inventory.warehouse.locations.list", false), referenceParentKey: "targetBranch", referenceValueKey: "id" }, "warehouseId"));
+  if (!inventorySerialListOperation.fields.some(field => field.apiKey === "serial")) {
+    inventorySerialListOperation.fields.push(queryField({ ...text("serial", "IMEI, serial hoặc mã máy chính xác"), max: 120 }, "serial"));
+  }
+  inventorySerialListOperation.resultFields = [...new Set([...inventorySerialListOperation.resultFields, "productId", "status", "serialNumber", "sku", "createdAt", "warehouseName"])];
+  inventorySerialListOperation.description = "Tra cứu IMEI, serial và mã đơn vị theo tên/mã máy, SKU, trạng thái và chi nhánh được chọn. Có thể xem trạng thái đang tồn trong kho hoặc đang vận chuyển.";
+  operations.push({
+    ...inventorySerialListOperation,
+    id: "inventory.serial.stock-ranking",
+    title: "Xếp hạng dòng máy theo số IMEI còn trong kho",
+    description: "Đếm số máy theo dõi IMEI/serial đang có trạng thái còn trong kho tại chi nhánh được chọn, gộp các SKU/biến thể theo cùng dòng sản phẩm và trả dòng có số lượng cao nhất. Nếu nhiều dòng đồng hạng thì trả tất cả dòng đồng hạng. Không tính máy đã bán, đang vận chuyển, dùng nội bộ hoặc lỗi.",
+    fields: [serialBranchField],
+    resultFields: ["products"],
+    resultChildFields: { products: ["productName", "imeiCount"] },
+  });
+}
+const retailAfterSaleList = operations.find(op => op.method === "GET" && op.path === "/retail/after-sales");
+if (retailAfterSaleList) {
+  retailAfterSaleList.description = "Tra cứu chứng từ đổi trả và thu mua theo loại, đơn gốc hoặc khoảng ngày trong chi nhánh đã chọn.";
+  retailAfterSaleList.fields.push(queryField(date("from", "Từ ngày")), queryField(date("to", "Đến ngày")));
+}
 const taskListOperation = operations.find(op => op.id === "task.list");
 if (taskListOperation) {
   taskListOperation.description = "Xem công việc trong phạm vi được cấp quyền. Có thể chọn chi nhánh theo tên; quản trị viên không gắn chi nhánh có thể xem danh sách toàn công ty nếu không lọc chi nhánh.";
@@ -1159,7 +1229,7 @@ if (taskActivityUpdateOperation) {
 operations.push({
   id: "inventory.stock-log.list",
   title: "Tra cứu phiếu nhập xuất kho",
-  description: "Tìm phiếu kho theo tiêu đề hoặc SKU trong phạm vi chi nhánh được cấp quyền.",
+  description: "Tra phiếu nhập/xuất kho trong chi nhánh được cấp quyền; có thể lọc theo tiêu đề/SKU và ngày tạo. Kết quả gồm mục đích xuất, người nhận hoặc phòng ban, ghi chú và danh sách mặt hàng để tra cứu hàng đã xuất và thống kê phiếu theo kỳ.",
   module: "inventory",
   permissions: ["inventory:read"],
   permissionGroups: [["inventory:read"]],
@@ -1168,12 +1238,290 @@ operations.push({
   fields: [
     { key: "search", label: "Tiêu đề phiếu hoặc SKU", type: "text", source: "query", apiKey: "search" },
     { key: "page", label: "Trang", type: "number", source: "query", apiKey: "page", defaultValue: 1, min: 1 },
-    { key: "limit", label: "Số kết quả", type: "number", source: "query", apiKey: "limit", defaultValue: 100, min: 1, max: 100 },
+    { key: "limit", label: "Số kết quả", type: "number", source: "query", apiKey: "limit", defaultValue: 100, min: 1, max: 1000 },
+    { key: "createdFrom", label: "Tạo từ ngày", type: "date", source: "query", apiKey: "createdFrom" },
+    { key: "createdTo", label: "Tạo đến ngày", type: "date", source: "query", apiKey: "createdTo" },
     { key: "targetBranch", label: "Chi nhánh kho", type: "reference", source: "query", apiKey: "branchId", reference: "branch.list", required: false, systemRequired: false },
+    { key: "reportType", label: "Dạng thống kê phiếu xuất", type: "text", source: "query", apiKey: "reportType" },
   ],
   link: "/kho-san-pham",
   confirmation: false,
-  resultFields: ["title", "type", "status", "purpose", "productName", "sku", "quantity", "createdAt"],
+  assistantOnlyFields: ["reportType"],
+  resultFields: ["title", "type", "status", "purpose", "productName", "sku", "quantity", "createdAt", "customerName", "operatorName", "notes", "items", "documentType", "count", "from", "to", "finding"],
+  resultChildFields: { items: ["productName", "sku", "quantity"] },
+});
+const inventoryReportBranchField = queryField(queryRef("targetBranch", "Chi nhánh kho", "branch.list", false), "branchId");
+operations.push({
+  id: "inventory.catalog.analysis",
+  title: "Thống kê danh mục sản phẩm",
+  description: "Đếm và phân nhóm sản phẩm đang hoạt động trong danh mục công ty; đọc đủ các trang thay vì đếm số dòng đang hiển thị. Dùng khi hỏi tổng số dòng sản phẩm hoặc số sản phẩm theo nhóm hàng.",
+  module: "inventory",
+  permissions: ["inventory:read"],
+  permissionGroups: [["inventory:read"]],
+  method: "GET",
+  path: "/inventory/catalog/products",
+  rawResponse: true,
+  fields: [
+    queryField(choice("reportType", "Loại thống kê danh mục", ["product-count", "category-count", "category-list"]), "reportType"),
+    queryField({ ...text("search", "Nhóm hàng hoặc tên sản phẩm"), max: 120 }, "q"),
+  ],
+  assistantOnlyFields: ["reportType"],
+  link: "/kho-san-pham",
+  confirmation: false,
+  resultFields: ["reportType", "summary", "categories", "products", "finding"],
+  resultChildFields: {
+    summary: ["productCount"],
+    categories: ["categoryCode", "productCount"],
+    products: ["name", "productCode", "categoryCode", "productType", "status"],
+  },
+});
+operations.push({
+  id: "inventory.price.analysis",
+  title: "Tra cứu giá bán sản phẩm",
+  description: "Đọc giá bán theo chi nhánh và SKU để tìm giá chưa nhập hoặc bằng 0, tra giá sản phẩm, hoặc xếp hạng giá cao nhất. Không suy ra giá từ giá vốn.",
+  module: "inventory",
+  permissions: ["inventory:read"],
+  permissionGroups: [["inventory:read"]],
+  method: "GET",
+  path: "/inventory/catalog/prices",
+  rawResponse: true,
+  fields: [
+    inventoryReportBranchField,
+    queryField(choice("reportType", "Loại tra cứu giá", ["zero-price", "highest-price", "product-prices"]), "reportType"),
+    queryField({ ...text("search", "Tên sản phẩm hoặc SKU"), max: 120 }, "search"),
+    queryField({ key: "includeAvailability", label: "Kèm số lượng còn khả dụng", type: "boolean" }, "includeAvailability"),
+  ],
+  assistantOnlyFields: ["reportType"],
+  link: "/kho-san-pham",
+  confirmation: false,
+  resultFields: ["reportType", "products", "finding"],
+  resultChildFields: { products: ["productName", "categoryCode", "variantName", "sku", "sellingPrice", "costPrice", "availableQuantity", "status"] },
+});
+operations.push({
+  id: "inventory.stock.analysis",
+  title: "Phân tích tồn kho và tốc độ bán",
+  description: "Tổng hợp tồn thực tế, đã giữ, có thể bán, giá vốn bình quân và ngưỡng tồn tối thiểu trong chi nhánh được chọn. Có thể xếp hạng vốn tồn, tìm hàng dưới ngưỡng, tính số ngày tồn theo tốc độ bán 30 ngày gần đây và ước tính bán/tồn 30 ngày tới. Ước tính là phép chiếu theo tốc độ gần đây, không phải dự báo mùa vụ. Dùng reportType đúng yêu cầu; không tự gán nhãn ‘tồn ổn định’ nếu không có lịch sử tồn theo ngày.",
+  module: "inventory",
+  permissions: ["inventory:read"],
+  permissionGroups: [["inventory:read"]],
+  method: "GET",
+  path: "/inventory/warehouses/balances",
+  rawResponse: true,
+  fields: [
+    inventoryReportBranchField,
+    queryField({ ...ref("warehouseId", "Tên hoặc mã kho", "inventory.warehouse.locations.list", false), referenceValueKey: "id" }, "warehouseId"),
+    queryField(choice("reportType", "Loại phân tích tồn kho", ["stock-summary", "product-summary", "no-available-stock", "stability-assessment", "count-variance", "capital-ranking", "product-capital", "capital-over-threshold", "highest-stock", "lowest-stock", "below-minimum", "no-sales-with-stock", "days-cover", "slow-moving", "forecast-30d", "reorder-status", "reorder-within-14"]), "reportType"),
+    queryField({ ...text("search", "Dòng máy, sản phẩm hoặc SKU"), max: 120 }, "q"),
+    queryField(number("thresholdAmount", "Ngưỡng vốn tồn (VND)"), "thresholdAmount"),
+    queryField(number("physicalCount", "Số lượng kiểm đếm thực tế"), "physicalCount"),
+    queryField(date("from", "Tốc độ bán từ ngày")),
+    queryField(date("to", "Tốc độ bán đến ngày")),
+  ],
+  assistantOnlyFields: ["reportType", "thresholdAmount"],
+  link: "/kho-san-pham",
+  confirmation: false,
+  resultFields: ["reportType", "range", "summary", "products", "finding"],
+  resultChildFields: {
+    range: ["from", "to"],
+    summary: ["productCount", "stockQuantity", "availableQuantity", "inventoryValue", "forecastSales30d", "physicalCount", "variance", "varianceStatus"],
+    products: ["productName", "sku", "warehouseName", "quantity", "reservedQuantity", "availableQuantity", "minStock", "averageCost", "inventoryValue", "soldQuantity", "averageDailySales", "estimatedDaysRemaining", "forecastSales30d", "projectedRemainingQuantity", "reorderStatus", "physicalCount", "variance"],
+  },
+});
+operations.push({
+  id: "inventory.receipt.analysis",
+  title: "Thống kê phiếu nhập kho",
+  description: "Đọc đủ các trang phiếu nhập trong chi nhánh để thống kê tiền hàng theo nhà cung cấp, nhà cung cấp nhập nhiều nhất, phiếu nhập giá trị lớn nhất, lần nhập gần nhất hoặc phiếu còn nháp/chờ xử lý. Chỉ tính phiếu đã xác nhận là hàng đã nhập; không coi phiếu nháp, đang nhận hoặc đã hủy là nhập kho thực tế.",
+  module: "inventory",
+  permissions: ["inventory:read"],
+  permissionGroups: [["inventory:read"]],
+  method: "GET",
+  path: "/inventory/receiving/receipts",
+  rawResponse: true,
+  fields: [
+    inventoryReportBranchField,
+    queryField(choice("reportType", "Loại thống kê nhập kho", ["period-summary", "supplier-spend", "paid-total", "top-supplier", "largest-receipt", "latest-receipt", "pending-receipts"]), "reportType"),
+    queryField({ ...text("search", "Nhà cung cấp, mã phiếu hoặc mã đơn hàng"), max: 120 }, "q"),
+    queryField(date("from", "Từ ngày")),
+    queryField(date("to", "Đến ngày")),
+  ],
+  assistantOnlyFields: ["reportType"],
+  link: "/kho-san-pham",
+  confirmation: false,
+  resultFields: ["reportType", "range", "summary", "receipts", "suppliers", "finding"],
+  resultChildFields: {
+    range: ["from", "to"],
+    summary: ["receiptCount", "totalAmount", "paidAmount", "paidRecordCount", "unrecordedPaymentCount"],
+    receipts: ["receiptCode", "supplierName", "status", "subtotal", "createdAt", "receivedAt", "productsSummary"],
+    suppliers: ["supplierName", "receiptCount", "totalAmount"],
+  },
+});
+operations.push({
+  id: "inventory.stock-log.analysis",
+  title: "Phân tích lịch sử nhập xuất kho",
+  description: "Đọc lịch sử phiếu nhập/xuất kho trong chi nhánh để đếm phiếu, tổng số lượng, thống kê theo người lập/người nhận, mặt hàng, mục đích và khoảng ngày. Dùng dữ liệu phiếu kho thực tế; số bán POS được thống kê riêng từ báo cáo bán lẻ khi reportType yêu cầu đối chiếu.",
+  module: "inventory",
+  permissions: ["inventory:read"],
+  permissionGroups: [["inventory:read"]],
+  method: "GET",
+  path: "/crud/stock-logs",
+  rawResponse: true,
+  fields: [
+    inventoryReportBranchField,
+    queryField(choice("reportType", "Loại thống kê giao dịch kho", ["issue-counts", "outbound-total", "product-outbound", "operator-ranking", "operator-history", "recipient-history", "flow-reconciliation", "daily-flow", "monthly-comparison", "pending-status"]), "reportType"),
+    queryField({ ...text("search", "Tên sản phẩm, SKU hoặc người lập phiếu"), max: 120 }, "search"),
+    queryField(choice("purpose", "Mục đích phiếu xuất", ["bán", "nội bộ"]), "purpose"),
+    queryField(date("createdFrom", "Từ ngày")),
+    queryField(date("createdTo", "Đến ngày")),
+    queryField(date("previousFrom", "Kỳ trước từ ngày")),
+    queryField(date("previousTo", "Kỳ trước đến ngày")),
+  ],
+  assistantOnlyFields: ["reportType"],
+  link: "/kho-san-pham",
+  confirmation: false,
+  resultFields: ["reportType", "range", "summary", "transactions", "operators", "finding"],
+  resultChildFields: {
+    range: ["from", "to"],
+    summary: ["documentType", "documentCount", "totalQuantity", "posQuantity", "internalQuantity", "inboundQuantity", "period", "from", "to"],
+    transactions: ["title", "type", "purpose", "status", "operatorName", "customerName", "productName", "sku", "quantity", "createdAt", "notes"],
+    operators: ["operatorName", "documentCount", "totalQuantity"],
+  },
+});
+operations.push({
+  id: "inventory.transfer.analysis",
+  title: "Tra cứu và thống kê điều chuyển kho",
+  description: "Đọc đủ các trang phiếu điều chuyển thuộc chi nhánh hiện tại, bao gồm phiếu gửi và nhận. Có thể lọc theo kho gửi/nhận, mặt hàng, trạng thái và kỳ ngày; không tự tạo kho hoặc thay đổi phiếu.",
+  module: "inventory",
+  permissions: ["inventory:read"],
+  permissionGroups: [["inventory:read"]],
+  method: "GET",
+  path: "/inventory/transfers",
+  rawResponse: true,
+  fields: [
+    inventoryReportBranchField,
+    queryField(choice("reportType", "Loại thống kê điều chuyển", ["transfer-list", "period-summary", "latest-to-warehouse"]), "reportType"),
+    queryField({ ...text("fromWarehouseName", "Tên kho gửi"), max: 120 }, "fromWarehouseName"),
+    queryField({ ...text("toWarehouseName", "Tên kho nhận"), max: 120 }, "toWarehouseName"),
+    queryField({ ...text("search", "Tên mặt hàng hoặc SKU"), max: 120 }, "q"),
+    queryField(choice("status", "Trạng thái phiếu", ["in_transit", "received", "cancelled", "reversed"]), "status"),
+    queryField(date("from", "Từ ngày")),
+    queryField(date("to", "Đến ngày")),
+  ],
+  assistantOnlyFields: ["reportType"],
+  link: "/kho-san-pham",
+  confirmation: false,
+  resultFields: ["reportType", "range", "summary", "transfers", "finding"],
+  resultChildFields: {
+    summary: ["transferCount", "inTransitCount", "receivedCount", "cancelledCount"],
+    transfers: ["transferCode", "status", "reason", "fromWarehouseName", "toWarehouseName", "createdAt", "items"],
+    items: ["productName", "sku", "quantity"],
+  },
+});
+operations.push({
+  id: "inventory.serial.analysis",
+  title: "Thống kê trạng thái IMEI và serial",
+  description: "Đọc đủ các trang IMEI/serial theo chi nhánh và thống kê từng trạng thái theo dòng máy. Có thể tổng hợp máy đang trong kho, đã bán, đang sửa, lỗi, đang chuyển, dùng nội bộ, trả lại, thanh lý hoặc thất lạc. Không suy ra số IMEI từ số lượng tồn dạng SKU.",
+  module: "inventory",
+  permissions: ["inventory:read"],
+  permissionGroups: [["inventory:read"]],
+  method: "GET",
+  path: "/inventory/serials",
+  rawResponse: true,
+  fields: [
+    inventoryReportBranchField,
+    queryField(choice("reportType", "Loại thống kê IMEI", ["status-counts", "product-status-counts", "product-stock-and-serial", "repair-list", "available-list", "reconciliation", "identifier-detail", "identifier-history"]), "reportType"),
+    queryField({ ...text("search", "Dòng máy, SKU hoặc IMEI/serial"), max: 120 }, "search"),
+    queryField({ ...ref("warehouseId", "Kho", "inventory.warehouse.locations.list", false), referenceValueKey: "id" }, "warehouseId"),
+  ],
+  assistantOnlyFields: ["reportType"],
+  link: "/kho-san-pham",
+  confirmation: false,
+  resultFields: ["reportType", "summary", "products", "devices", "serialNumber", "productName", "sku", "status", "warehouseName", "soldAt", "events", "finding"],
+  resultChildFields: {
+    summary: ["total", "inStock", "sold", "repairing", "defective", "inTransit", "internalUse", "returned", "scrapped", "lost", "physicalQuantity", "variance", "matches", "skuAvailableQuantity"],
+    products: ["productName", "sku", "total", "inStock", "sold", "repairing", "defective", "inTransit", "internalUse", "returned", "scrapped", "lost", "physicalQuantity", "variance", "matches", "skuAvailableQuantity"],
+    devices: ["productName", "serialNumber", "sku", "status", "createdAt", "warehouseName"],
+    events: ["eventType", "fromStatus", "toStatus", "reason", "occurredAt", "actorName"],
+  },
+});
+operations.push({
+  id: "inventory.export.capability",
+  title: "Kiểm tra khả năng xuất báo cáo kho",
+  description: "Trả lời rõ liệu trợ lý có thể tạo tệp Excel cho báo cáo tồn kho hoặc lịch sử giao dịch kho hay không; nếu chưa có API xuất, nêu phương án xem dữ liệu trong chat.",
+  module: "inventory",
+  permissions: ["inventory:read"],
+  permissionGroups: [["inventory:read"]],
+  method: "GET",
+  path: "/inventory/warehouses/balances",
+  rawResponse: true,
+  fields: [
+    inventoryReportBranchField,
+    queryField(choice("reportType", "Báo cáo cần xuất", ["stock-balance", "stock-log"]), "reportType"),
+  ],
+  assistantOnlyFields: ["reportType"],
+  link: "/kho-san-pham",
+  confirmation: false,
+  resultFields: ["finding"],
+});
+operations.push({
+  id: "inventory.stock-log.internal.issue.create",
+  title: "Tạo phiếu xuất kho nội bộ",
+  description: "Lập phiếu xuất kho dùng nội bộ ở trạng thái đang chờ; phiếu chưa ghi sổ và chưa trừ tồn kho. Cần chọn chi nhánh, kho, người/phòng ban nhận, lý do, người lập phiếu, sản phẩm/SKU và số lượng. Với SKU theo dõi từng máy, cần cung cấp đủ số sê-ri hoặc mã máy cho số lượng xuất. Luôn xác nhận trước khi tạo.",
+  module: "inventory",
+  permissions: ["inventory:manage"],
+  permissionGroups: [["inventory:manage"]],
+  method: "POST",
+  path: "/crud/stock-logs",
+  link: "/kho-san-pham",
+  adapter: "contract",
+  confirmation: true,
+  fixedBodyValues: { type: "xuất", purpose: "nội bộ", status: "Đang chờ" },
+  contextBody: ["idempotencyKey"],
+  fields: [
+    queryRef("targetBranch", "Chi nhánh kho", "branch.list"),
+    {
+      ...ref("warehouseId", "Kho xuất", "inventory.warehouse.locations.list"),
+      referenceParentKey: "targetBranch",
+      referenceValueKey: "id",
+    },
+    { ...text("customerName", "Người hoặc phòng ban nhận", true), max: 200 },
+    { ...text("notes", "Lý do cấp phát nội bộ", true), max: 2000 },
+    { ...text("operatorName", "Người lập phiếu", true), max: 200 },
+    text("title", "Tiêu đề phiếu"),
+    structured("items", "Danh sách sản phẩm xuất", {
+      type: "array",
+      minItems: 1,
+      maxItems: 50,
+      items: {
+        type: "object",
+        keys: {
+          productId: {
+            type: "string",
+            required: true,
+            reference: "product.list",
+            referenceValueKey: "id",
+            label: "Sản phẩm",
+          },
+          sku: {
+            type: "string",
+            required: true,
+            reference: "inventory.product.detail",
+            referenceParentKey: "productId",
+            referenceValueKey: "sku",
+            label: "SKU",
+          },
+          quantity: { type: "number", required: true, min: 0.0000001, label: "Số lượng" },
+          unitIdentifiers: {
+            type: "array",
+            required: false,
+            maxItems: 100,
+            items: { type: "string", max: 160 },
+            label: "Số sê-ri hoặc mã máy (để trống nếu SKU không theo dõi từng máy)",
+          },
+        },
+      },
+    }, true),
+  ],
+  resultFields: ["title", "status", "purpose", "customerName", "notes", "productName", "sku", "quantity", "createdAt"],
 });
 const partnerUpdateOperation = operations.find(op => op.method === "PATCH" && op.path === "/partners/:id");
 const partnerDetailOperation = operations.find(op => op.method === "GET" && op.path === "/partners/:id");
@@ -1431,7 +1779,7 @@ if (retailInvoiceListOperation) Object.assign(retailInvoiceListOperation, {
   permissionGroups: [["retail:read"], ["retail:manage"]],
   rawResponse: true,
   fields: [
-    queryField(ref("targetBranch", "Chi nhánh bán lẻ", "branch.list", false), "branchId"),
+    queryField(ref("targetBranch", "Chi nhánh bán lẻ", "branch.list"), "branchId"),
     queryField({ ...text("search", "Số hóa đơn, mã đơn hoặc tên khách hàng"), max: 100 }, "q"),
     queryField(choice("status", "Trạng thái hóa đơn", ["issued", "void"])),
     queryField(date("from", "Từ ngày phát hành")),
@@ -1441,19 +1789,136 @@ if (retailInvoiceListOperation) Object.assign(retailInvoiceListOperation, {
   ],
   resultFields: ["invoiceNo", "orderCode", "customerName", "status", "issuedAt", "grandTotal", "paymentStatus", "paidAmount", "dueAmount"],
 });
+operations.push({
+  id: "retail.invoice.bulk-pdf",
+  title: "Xuất hóa đơn bán lẻ thành PDF",
+  description: "Tạo một tệp PDF gồm hóa đơn bán lẻ đã phát hành trong chi nhánh và khoảng ngày được chọn. Giới hạn tối đa 500 hóa đơn mỗi tệp; chỉ dùng khi người dùng yêu cầu xuất hóa đơn PDF.",
+  module: "retail",
+  permissions: ["retail:manage"],
+  permissionGroups: [["retail:manage"]],
+  method: "GET",
+  path: "/retail/invoices/bulk-pdf",
+  rawResponse: true,
+  assistantFileFormat: "pdf",
+  link: "/ban-le",
+  fields: [
+    queryField(ref("targetBranch", "Chi nhánh bán lẻ", "branch.list"), "branchId"),
+    queryField(choice("status", "Trạng thái hóa đơn", ["issued", "void"], "issued")),
+    queryField(date("from", "Từ ngày phát hành")),
+    queryField(date("to", "Đến ngày phát hành")),
+    queryField({ ...number("limit", "Số hóa đơn tối đa", 200), min: 1, max: 500 }),
+  ],
+  resultFields: ["fileName", "format"],
+});
 const retailReportSummaryOperation = operations.find(op => op.method === "GET" && op.path === "/retail/reports/summary");
 if (retailReportSummaryOperation) Object.assign(retailReportSummaryOperation, {
   id: "retail.report.summary",
   title: "Tổng hợp doanh số bán lẻ",
   fields: [
-    queryField(ref("targetBranch", "Chi nhánh bán lẻ", "branch.list", false), "branchId"),
+    queryField(ref("targetBranch", "Chi nhánh bán lẻ", "branch.list"), "branchId"),
     queryField(date("from", "Từ ngày")),
     queryField(date("to", "Đến ngày")),
     queryField(choice("preset", "Khoảng thời gian", ["7d", "30d"])),
   ],
-  resultFields: ["range", "summary", "paymentMix", "timeSeries", "products"],
-  resultChildFields:{summary:['grossSales','refunds','netSales','orderCount','averageOrderValue','collectedAmount','dueAmount','totalCost','grossProfit','grossMarginPercent']},
-  precomputedMeasures:{'summary.orderCount':{operation:'count',label:'Số đơn hàng'},'summary.netSales':{operation:'sum',label:'Doanh thu sau hoàn'},'summary.grossSales':{operation:'sum',label:'Doanh số trước hoàn'}},
+  resultFields: ["range", "summary", "paymentMix", "timeSeries", "products", "cashiers", "debt", "shifts"],
+  resultChildFields: {
+    range: ["from", "to"],
+    summary: ["grossSales", "refunds", "netSales", "orderCount", "averageOrderValue", "collectedAmount", "dueAmount", "totalCost", "grossProfit", "grossMarginPercent"],
+    paymentMix: ["method", "amount"],
+    timeSeries: ["businessDate", "grossSales", "refunds", "netSales", "collectedAmount", "orderCount"],
+    products: ["sku", "productName", "category", "brand", "netQuantity", "netSales", "profit"],
+    cashiers: ["cashierName", "orderCount", "grossSales", "refunds", "netSales", "averageOrderValue"],
+    debt: ["totalDebt", "overdueDebt", "dueTodayDebt", "upcomingDebt", "orderCount"],
+    shifts: ["shiftCode", "businessDate", "cashierName", "status", "grossSales", "collectedAmount", "refundedAmount", "varianceAmount"],
+  },
+});
+if (retailReportSummaryOperation) operations.push({
+  ...retailReportSummaryOperation,
+  id: "retail.report.cashier-ranking",
+  title: "Xếp hạng thu ngân theo doanh số bán lẻ",
+  description: "Xếp thu ngân theo doanh số ròng (doanh số sau khi trừ tiền hoàn) trong khoảng ngày được chọn; trả tất cả thu ngân đồng hạng cao nhất cùng số đơn và doanh số trước hoàn. Mặc định lấy tháng được hỏi. Nếu tài khoản quản trị chưa gắn chi nhánh thì hỏi và chọn chi nhánh trước.",
+  fields: structuredClone(retailReportSummaryOperation.fields),
+  resultFields: ["range", "cashiers"],
+  resultChildFields: {
+    range: ["from", "to"],
+    cashiers: ["cashierName", "orderCount", "grossSales", "refunds", "netSales", "averageOrderValue"],
+  },
+});
+if (retailReportSummaryOperation) operations.push({
+  ...retailReportSummaryOperation,
+  id: "retail.report.top-products",
+  title: "Xếp hạng mặt hàng bán chạy",
+  description: "Xếp hạng mặt hàng bán lẻ theo số lượng bán ròng trong khoảng ngày được chọn; không xếp theo doanh thu. Mặc định trả tối đa 10 mặt hàng.",
+  fields: [
+    ...retailReportSummaryOperation.fields,
+    queryField({ ...number("topN", "Số mặt hàng cần xếp hạng", 10), min: 1, max: 50 }),
+  ],
+  assistantOnlyFields: ["topN"],
+  resultFields: ["range", "products"],
+  resultChildFields: {
+    range: ["from", "to"],
+    products: ["sku", "productName", "category", "brand", "netQuantity", "netSales", "profit"],
+  },
+});
+if (retailReportSummaryOperation) operations.push({
+  ...retailReportSummaryOperation,
+  id: "retail.report.daily-extremes",
+  title: "Ngày bán cao nhất và thấp nhất",
+  description: "Tìm ngày có doanh thu ròng cao nhất, ngày có doanh thu ròng thấp nhất và ngày có ít đơn nhất trong khoảng được hỏi; nếu cùng ngày thì nêu kết quả trùng nhau.",
+  resultFields: ["range", "highestRevenueDay", "lowestRevenueDay", "fewestOrdersDay"],
+  resultChildFields: {
+    range: ["from", "to"],
+    highestRevenueDay: ["businessDate", "netSales", "orderCount"],
+    lowestRevenueDay: ["businessDate", "netSales", "orderCount"],
+    fewestOrdersDay: ["businessDate", "netSales", "orderCount"],
+  },
+});
+if (retailReportSummaryOperation) operations.push({
+  ...retailReportSummaryOperation,
+  id: "retail.report.export",
+  title: "Xuất báo cáo doanh thu và lợi nhuận bán lẻ thành Excel",
+  description: "Tạo tệp Excel báo cáo bán lẻ cho chi nhánh và khoảng ngày được chọn, gồm doanh thu, lợi nhuận gộp khi tài khoản có quyền quản lý, mặt hàng, thu ngân và công nợ. Chỉ dùng khi người dùng yêu cầu tệp Excel.",
+  method: "GET",
+  path: "/retail/reports/export",
+  permissions: ["retail:manage"],
+  permissionGroups: [["retail:manage"]],
+  assistantFileFormat: "xlsx",
+  fields: [
+    queryField(ref("targetBranch", "Chi nhánh bán lẻ", "branch.list"), "branchId"),
+    queryField(date("from", "Từ ngày")),
+    queryField(date("to", "Đến ngày")),
+  ],
+  resultFields: ["fileName", "format"],
+});
+if (retailReportSummaryOperation) operations.push({
+  ...retailReportSummaryOperation,
+  id: "retail.report.category-brand-summary",
+  title: "Nhóm hàng và thương hiệu đóng góp doanh thu",
+  description: "Cộng doanh thu ròng và số lượng bán theo nhóm hàng và theo thương hiệu trong khoảng ngày; trả nhóm dẫn đầu cho cả hai cách phân nhóm.",
+  resultFields: ["range", "categoryLeader", "brandLeader"],
+  resultChildFields: {
+    range: ["from", "to"],
+    categoryLeader: ["name", "netSales", "netQuantity", "productCount"],
+    brandLeader: ["name", "netSales", "netQuantity", "productCount"],
+  },
+});
+if (retailReportSummaryOperation) operations.push({
+  ...retailReportSummaryOperation,
+  id: "retail.report.compare",
+  title: "So sánh báo cáo doanh thu bán lẻ giữa hai kỳ",
+  description: "So sánh báo cáo bán lẻ của hai khoảng ngày trên cùng một chi nhánh. Cần ngày bắt đầu và kết thúc cho cả hai kỳ; trả doanh thu gộp, doanh thu ròng, số đơn và lợi nhuận gộp nếu tài khoản có quyền xem. Không tự cộng hoặc so sánh hai kỳ khác chi nhánh; nếu tài khoản quản trị chưa gắn chi nhánh thì phải hỏi và chọn chi nhánh trước.",
+  fields: [
+    queryField(ref("targetBranch", "Chi nhánh bán lẻ", "branch.list"), "branchId"),
+    queryField(date("currentFrom", "Từ ngày kỳ hiện tại", true), "currentFrom"),
+    queryField(date("currentTo", "Đến ngày kỳ hiện tại", true), "currentTo"),
+    queryField(date("previousFrom", "Từ ngày kỳ so sánh", true), "previousFrom"),
+    queryField(date("previousTo", "Đến ngày kỳ so sánh", true), "previousTo"),
+  ],
+  resultFields: ["current", "previous"],
+  resultChildFields: {
+    current: ["from", "to", "grossSales", "netSales", "grossProfit", "grossMarginPercent", "orderCount"],
+    previous: ["from", "to", "grossSales", "netSales", "grossProfit", "grossMarginPercent", "orderCount"],
+  },
 });
 const retailInvoiceDetailOperation = operations.find(op => op.method === "GET" && op.path === "/retail/invoices/:id");
 if (retailInvoiceDetailOperation) Object.assign(retailInvoiceDetailOperation, {
@@ -1470,7 +1935,117 @@ const retailOrderListOperation = operations.find(op => op.method === "GET" && op
 if (retailOrderListOperation) Object.assign(retailOrderListOperation, {
   title: "Tra cứu đơn bán lẻ",
   description: "Tìm đơn hàng theo mã, tên hoặc số điện thoại khách hàng, trạng thái đơn, trạng thái thanh toán hoặc khoảng ngày trong chi nhánh đã chọn.",
-  resultFields: ["orderCode", "customerName", "status", "paymentStatus", "grandTotal", "paidAmount", "refundedAmount", "dueAmount", "businessDate", "createdAt"],
+  resultFields: ["orderCode", "customerName", "status", "paymentStatus", "grandTotal", "paidAmount", "refundedAmount", "dueAmount", "businessDate", "createdAt", "cancelledAt", "cancelReason", "cancelledByName"],
+});
+if (retailOrderListOperation) {
+  retailOrderListOperation.fields.push(
+    queryField(date("cancelledFrom", "Từ ngày hủy"), "cancelledFrom"),
+    queryField(date("cancelledTo", "Đến ngày hủy"), "cancelledTo"),
+  );
+  operations.push({
+    ...retailOrderListOperation,
+    id: "retail.order.cancelled.report",
+    title: "Báo cáo đơn bán lẻ bị hủy",
+    description: "Đếm và liệt kê đơn bán lẻ có trạng thái đã hủy theo thời điểm hủy trong khoảng ngày được chọn, gồm mã đơn, lý do và người hủy nếu có ghi nhận. Đọc đủ các trang để thống kê chính xác. Nếu tài khoản quản trị chưa gắn chi nhánh thì hỏi và chọn chi nhánh trước.",
+    fields: [
+      ...retailOrderListOperation.fields.filter(field => ["targetBranch", "query_page", "query_limit", "cancelledFrom", "cancelledTo"].includes(field.key)),
+    ],
+    resultFields: ["orderCode", "customerName", "status", "cancelledAt", "cancelReason", "cancelledByName"],
+    resultChildFields: {},
+  });
+}
+if (retailOrderListOperation) {
+  const branchField = retailOrderListOperation.fields.find(field => field.source === "query" && field.apiKey === "branchId");
+  if (branchField) Object.assign(branchField, { required: true, systemRequired: true });
+}
+if (retailOrderListOperation) operations.push({
+  ...retailOrderListOperation,
+  id: "retail.order.completed-unpaid.report",
+  title: "Báo cáo đơn đã giao nhưng còn công nợ",
+  description: "Tìm đơn bán lẻ đã hoàn tất/bàn giao nhưng chưa thanh toán đủ trong một chi nhánh. Đơn cần có status=completed và dueAmount>0; paymentStatus=partial hoặc unpaid cho biết đã thu một phần hoặc chưa thu. Đọc đủ các trang trước khi lọc để xác định đầy đủ các đơn. Nếu tài khoản quản trị chưa gắn chi nhánh thì phải hỏi và chọn chi nhánh trước.",
+  fields: [
+    ...retailOrderListOperation.fields.filter(field => ["targetBranch", "query_search", "query_status", "query_from", "query_to", "query_page", "query_limit"].includes(field.key)),
+    { key: "analysis", label: "Điều kiện lọc công nợ", type: "json" },
+  ],
+  analysis: {
+    scopeLabel: "đơn bán lẻ trong chi nhánh đã chọn",
+    pagination: { pageField: "query_page", sizeField: "query_limit" },
+    fields: {
+      orderCode: { label: "Mã đơn", type: "text" },
+      customerName: { label: "Khách hàng", type: "text" },
+      status: { label: "Trạng thái đơn", type: "text", values: { completed: "Đã hoàn tất" } },
+      paymentStatus: { label: "Trạng thái thanh toán", type: "text", values: { partial: "Đã thanh toán một phần", unpaid: "Chưa thanh toán" } },
+      grandTotal: { label: "Tổng tiền đơn", type: "number" },
+      paidAmount: { label: "Đã thanh toán", type: "number" },
+      dueAmount: { label: "Còn phải thanh toán", type: "number" },
+      businessDate: { label: "Ngày bán", type: "text" },
+    },
+  },
+  resultFields: ["orderCode", "customerName", "status", "paymentStatus", "grandTotal", "paidAmount", "dueAmount", "businessDate"],
+  assistantOnlyFields: [...(retailOrderListOperation.assistantOnlyFields || []), "analysis"],
+});
+if (retailOrderListOperation) {
+  const pagingFields = retailOrderListOperation.fields.filter(field => ["targetBranch", "query_from", "query_to", "query_page", "query_limit"].includes(field.key));
+  operations.push({
+    ...retailOrderListOperation,
+    id: "retail.order.top-value",
+    title: "Đơn bán có giá trị cao nhất",
+    description: "Tìm đơn bán không bị hủy có tổng tiền lớn nhất trong khoảng ngày; đọc đủ các trang trong chi nhánh đã chọn rồi mới xếp hạng. Không giới hạn trạng thái thanh toán.",
+    fields: structuredClone(pagingFields),
+    resultFields: ["orderCode", "customerName", "grandTotal", "businessDate", "status", "paymentStatus"],
+  });
+  operations.push({
+    ...retailOrderListOperation,
+    id: "retail.order.top-customers",
+    title: "Xếp hạng khách hàng theo tiền mua",
+    description: "Xếp hạng khách hàng theo giá trị ròng của các đơn bán không bị hủy trong khoảng ngày; trừ tiền đã hoàn và đọc đủ các trang trong chi nhánh đã chọn. Mặc định trả tối đa 10 khách.",
+    fields: [
+      ...structuredClone(pagingFields),
+      queryField({ ...number("topN", "Số khách cần xếp hạng", 10), min: 1, max: 50 }),
+    ],
+    assistantOnlyFields: ["topN"],
+    resultFields: ["customerName", "totalSpent", "orderCount"],
+  });
+  const completedCustomerRanking = operations.find(operation => operation.id === "retail.order.top-customers");
+  if (completedCustomerRanking) operations.push({
+    ...completedCustomerRanking,
+    id: "retail.order.top-customers.completed",
+    title: "Xếp hạng khách hàng theo đơn đã hoàn tất",
+    description: "Xếp hạng khách theo tổng tiền của đơn đã hoàn tất sau khi trừ tiền hoàn; bỏ đơn chưa hoàn tất và đơn hủy.",
+  });
+  operations.push({
+    ...retailOrderListOperation,
+    id: "retail.order.discount-anomalies",
+    title: "Đơn bán có mức giảm giá cao",
+    description: "Đọc đủ các đơn bán trong kỳ và liệt kê các đơn có tổng giảm giá theo ngưỡng phần trăm yêu cầu; cộng giảm giá từng dòng hàng và giảm giá toàn đơn, bỏ đơn nháp và đơn đã hủy. Mặc định ngưỡng 20%.",
+    fields: [
+      ...structuredClone(pagingFields),
+      queryField({ ...number("thresholdPercent", "Ngưỡng giảm giá bất thường (%)", 20), min: 1, max: 100 }),
+    ],
+    assistantOnlyFields: ["thresholdPercent"],
+    resultFields: ["range", "thresholdPercent", "orders"],
+    resultChildFields: {
+      range: ["from", "to"],
+      orders: ["orderCode", "customerName", "businessDate", "grandTotal", "discountAmount", "discountPercent"],
+    },
+  });
+}
+operations.push({
+  id: "retail.order.payment-qr",
+  title: "Lấy mã QR thanh toán đơn bán lẻ",
+  description: "Tạo mã QR cho khoản phải thu còn lại của một đơn bán lẻ đã xác nhận trong chi nhánh đã chọn. Cần xác định duy nhất đơn hàng trước khi lấy QR; không dùng cho đơn nháp, đã hủy hoặc đã thanh toán đủ.",
+  module: "retail",
+  permissions: ["retail:read", "pos:manage", "retail:manage"],
+  permissionGroups: [["retail:read", "pos:manage", "retail:manage"]],
+  method: "GET",
+  path: "/retail/orders/:id/payment-qr",
+  rawResponse: true,
+  link: "/ban-le",
+  fields: [
+    queryField(ref("targetBranch", "Chi nhánh bán lẻ", "branch.list"), "branchId"),
+    { ...ref("path_id", "Mã đơn hàng còn nợ", "retail.order.list"), source: "path", apiKey: "id" },
+  ],
+  resultFields: ["orderCode", "paymentCode", "transferContent", "amount", "paymentStatus", "accountNumber", "accountName", "bankId", "qrUrl"],
 });
 const retailOrderDetailOperation = operations.find(op => op.method === "GET" && op.path === "/retail/orders/:id");
 if (retailOrderDetailOperation) Object.assign(retailOrderDetailOperation, {
@@ -1526,7 +2101,17 @@ if (hrContractLookup) operations.push({
 const attendanceRecordsLookup = operations.find(op => op.id === "timekeeping.records.list");
 if (attendanceRecordsLookup) {
   operations.push(
-    { ...attendanceRecordsLookup, id: "timekeeping.records.overview", title: "Báo cáo tổng quan chấm công hôm nay" },
+    {
+      ...attendanceRecordsLookup,
+      id: "timekeeping.records.overview",
+      title: "Tỷ lệ chấm công hôm nay",
+      description: "Tính tỷ lệ nhân sự đã có giờ vào ca trên toàn bộ nhân sự trong phạm vi đã chọn. Có thể chọn chi nhánh hoặc toàn công ty nếu tài khoản có quyền quản lý chấm công cấp công ty.",
+      fields: [
+        ...attendanceRecordsLookup.fields.filter(field => field.apiKey !== "scope"),
+        queryField(choice("scope", "Phạm vi", ["branch", "company"], "branch")),
+      ],
+      resultFields: ["date", "totalEmployees", "checkedIn", "notCheckedIn", "checkInRatePercent"],
+    },
     { ...attendanceRecordsLookup, id: "timekeeping.records.late", title: "Báo cáo nhân sự đi muộn hôm nay" },
     { ...attendanceRecordsLookup, id: "timekeeping.records.absent", title: "Báo cáo nhân sự vắng hôm nay" },
     { ...attendanceRecordsLookup, id: "timekeeping.records.unrecorded", title: "Báo cáo nhân sự chưa chấm công hôm nay" },
@@ -1582,7 +2167,7 @@ if (monthlyKpiLookup) operations.push({
 operations.push({
   id: "hr.leave.applications.list",
   title: "Tra cứu đơn nghỉ phép và làm việc từ xa",
-  description: "Tra cứu đơn nghỉ phép/làm online giao với khoảng ngày nghỉ (rangeStart/rangeEnd). Đơn mới gửi/nộp trong ngày: dùng createdFrom/createdTo theo ngày Việt Nam, không thay bằng ngày nghỉ. Có đơn nghỉ phép hôm nay không: reportKind=requests, requestKind=leave. Tổng hợp tất cả người nghỉ phép: leave-summary; chỉ khi hỏi ai nghỉ nhiều nhất mới dùng leave-most. Ai làm online/từ xa nhiều nhất: wfh-most và requestKind=wfh. Nhân viên chỉ xem đơn của mình; API kiểm soát quyền xem toàn bộ.",
+  description: "Tra cứu đơn nghỉ phép/làm online giao với khoảng ngày. Có đơn nghỉ phép hôm nay không: reportKind=requests, requestKind=leave. Tổng hợp tất cả người nghỉ phép: leave-summary; chỉ khi hỏi ai nghỉ nhiều nhất mới dùng leave-most. Ai làm online/từ xa nhiều nhất: wfh-most và requestKind=wfh. Nhân viên chỉ xem đơn của mình; API kiểm soát quyền xem toàn bộ.",
   module: "hr",
   permissions: ["hr:read", "timekeeping:read"],
   permissionGroups: [["hr:read"], ["timekeeping:read"]],
@@ -1593,11 +2178,9 @@ operations.push({
   fields: [
     queryField(date("rangeStart", "Từ ngày"), "rangeStart"),
     queryField(date("rangeEnd", "Đến ngày"), "rangeEnd"),
-    queryField(date("createdFrom", "Gửi đơn từ ngày")),
-    queryField(date("createdTo", "Gửi đơn đến ngày")),
     queryField(choice("requestKind", "Loại yêu cầu", ["leave", "wfh", "event", "exception"])),
     queryField(choice("status", "Trạng thái đơn", ["pending", "approved", "rejected"])),
-    queryField(choice("reportKind", "Kiểu báo cáo", ["requests", "leave-summary", "leave-most", "wfh-most"], "requests")),
+    queryField(choice("reportKind", "Kiểu báo cáo", ["requests", "leave-summary", "leave-most", "wfh-most"])),
     queryField(text("employeeName", "Tên nhân sự")),
     queryField({ ...number("page", "Trang", 1), min: 1 }),
     queryField({ ...number("limit", "Số kết quả", 100), min: 1, max: 100 }),
@@ -1605,7 +2188,7 @@ operations.push({
   assistantOnlyFields: ["reportKind"],
   resultFields: ["reportKind", "requests", "maximumDays", "leaders"],
   resultChildFields: {
-    requests: ["employeeName", "type", "requestKind", "startDate", "endDate", "createdAt", "reason", "status", "chargeableDays"],
+    requests: ["employeeName", "type", "requestKind", "startDate", "endDate", "reason", "status", "chargeableDays"],
     leaders: ["employeeName", "days", "requests"],
   },
   readOnly: true,
@@ -1700,7 +2283,8 @@ const leaveBalanceReport = {
   method: "GET" as const,
   path: "/leave/balances",
   link: "/nhan-su",
-  fields: [reportYearField()],
+  fields: [reportYearField(), queryField(text("query_search", "Tên nhân sự cần lọc"))],
+  assistantOnlyFields: ["query_search"],
   resultFields: ["year", "balances"],
   resultChildFields: { balances: ["employeeName", "department", "entitlement", "used", "pending", "unexcused", "remaining"] },
   readOnly: true,
@@ -1713,7 +2297,7 @@ operations.push(
     title: "Nhân sự còn ít nhất số ngày phép được yêu cầu",
     description: "Liệt kê nhân sự có số phép năm còn lại bằng hoặc cao hơn ngưỡng được yêu cầu trong phạm vi được cấp quyền.",
     fields: [...leaveBalanceReport.fields, queryField({ ...number("thresholdDays", "Ngưỡng ngày phép"), max: 365, required: true, systemRequired: true })],
-    assistantOnlyFields: ["thresholdDays"],
+    assistantOnlyFields: ["query_search", "thresholdDays"],
     resultFields: ["year", "balances", "thresholdDays"],
   },
   { ...leaveBalanceReport, id: "leave.balances.exhausted", title: "Nhân sự đã hết phép năm", description: "Liệt kê nhân sự có phép năm được hưởng nhưng số ngày còn lại bằng không trong phạm vi công ty hoặc chi nhánh được cấp quyền." },
@@ -1754,8 +2338,6 @@ if (hrContractExpiringLookup) operations.push({
   title: "Báo cáo hợp đồng nhân sự sắp hết hạn",
   description: "Liệt kê hợp đồng nhân sự sắp hết hạn trong số ngày cảnh báo đã cài cho công ty hoặc khoảng ngày được yêu cầu. Chỉ hiển thị tên nhân sự, loại hợp đồng và ngày hết hạn.",
   resultFields: ["expiryAlerts", "expiryAlertTotal", "expiryAlertDays"],
-  resultRowsField:'expiryAlerts',resultRowsTotalField:'expiryAlertTotal',resultRowsComplete:true,
-  resultChildFields:{expiryAlerts:['employeeName','contractType','endDate','daysRemaining']},
   fields: [...hrContractExpiringLookup.fields, queryField({ ...text("query_contractType", "Loại hợp đồng cần lọc"), max: 100 }, "contractType")],
   readOnly: true,
 });
@@ -1775,7 +2357,6 @@ const hrContractExtend = operations.find(op => op.id === "api.post.8dad6fff5226b
 if (hrContractExtend) operations.push({
   ...hrContractExtend,
   id: "hr.contract.extend",
-  currentDateDefaults: ["extensionDate"],
   title: "Gia hạn hợp đồng nhân sự",
   description: "Gia hạn hợp đồng của đúng nhân sự đã chọn tới ngày kết thúc mới. Ngày ghi nhận gia hạn mặc định là hôm nay; luôn xem trước và xác nhận trước khi lưu.",
   fields: hrContractExtend.fields.map(field => field.key === "path_id"
@@ -1787,7 +2368,6 @@ if (hrContractExtend) operations.push({
 
 operations.push({
   id: "hr.training.incomplete.list",
-  coverageAliases: ["Chưa hoàn thành bài học trong đào tạo nội bộ", "Chưa hoàn thành đào tạo nội bộ"],
   title: "Báo cáo tiến độ đào tạo nội bộ chưa hoàn thành",
   description: "Liệt kê nhân sự và khóa đào tạo có tiến độ chưa hoàn thành. Chỉ quản trị viên, quản lý và nhân sự được hệ thống xác định là cấp giám sát mới được xem tiến độ của người khác.",
   module: "hr",
@@ -1864,131 +2444,103 @@ if (payrollReconciliation) operations.push({
 });
 
 const dailyAttendance = operations.find(op => op.id === "timekeeping.records.list");
-operations.push({id:'worker.project.workers.list',title:'Tra cứu lao động được phân công trong dự án',description:'Danh sách lao động đang được phân công vào dự án/công trình đã chọn theo tên hoặc mã. Đây là danh sách phân công, không phải bằng chứng có mặt hoặc chấm công hôm nay.',module:'worker',permissions:['people:read'],permissionGroups:[['people:read','people:manage']],method:'GET',path:'/worker-management/projects/:id/workers',adapter:'contract',rawResponse:true,readOnly:true,link:'/quan-ly-lao-dong',
-  functionAreas:[{key:'project',label:'Dự án và phân công lao động'}],fields:[{...ref('path_id','Tên hoặc mã dự án','worker.project.list'),source:'path',apiKey:'id'}],resultFields:['items'],resultRowsField:'items',resultChildFields:{items:['fullName','phone','laborType','status','projectName','projectCode']}});
 const interviewList = operations.find(op => op.id === "recruitment.interview.list");
 if (interviewList) interviewList.resultFields = ["applicantName", "jobTitle", "interviewers", ...interviewList.resultFields];
 operations.push({
-  id: "student.batch.attendance.summary", title: "Báo cáo điểm danh lớp học theo ngày", description: "Kiểm tra lớp/khóa học học viên hôm nay có đi đủ không; đếm có mặt, đi muộn, vắng, có phép và chưa ghi nhận. Cần chọn lớp theo tên hoặc mã; không thay bằng lịch học hoặc đào tạo nội bộ.",
-  functionAreas: [{ key: 'attendance', label: 'Điểm danh học viên' }],
+  id: "student.batch.attendance.summary", title: "Báo cáo lịch học và điểm danh lớp theo ngày", description: "Tra cứu giờ bắt đầu, giờ kết thúc, phòng học, số chỗ còn và tình trạng điểm danh của lớp học viên theo ngày; đếm có mặt, đi muộn, vắng, có phép và chưa ghi nhận. Dùng khi người dùng hỏi kết hợp lịch lớp, sĩ số/chỗ trống và vắng học. Cần chọn lớp theo tên hoặc mã; không thay bằng lịch học đào tạo nội bộ.",
   module: "student", permissions: ["people:read"], method: "GET", path: "/batches/:id", adapter: "contract", rawResponse: true, readOnly: true, link: "/quan-ly-hoc-vien",
   fields: [{ ...ref("path_id", "Tên hoặc mã lớp", "batch.list"), source: "path", apiKey: "id" }, queryField(date("date", "Ngày điểm danh"))],
-  resultFields: ["className", "courseTitle", "date", "total", "present", "late", "absent", "excused", "unrecorded", "note"],
+  resultFields: ["className", "courseTitle", "date", "startTime", "endTime", "location", "remainingSlots", "total", "present", "late", "absent", "absentStudents", "excused", "unrecorded", "note"],
 });
 operations.push({
   id: "hr.workflow.category.create", title: "Tạo nhãn phân loại quy trình", description: "Tạo nhãn/nhóm phân loại quy trình dùng chung trong doanh nghiệp. Chỉ cần tên nhãn, không tạo quy trình hoặc bước công việc.",
   module: "hr", permissions: ["hr:manage"], method: "POST", path: "/crud/workflow-categories", adapter: "contract", link: "/nhan-su", confirmation: true,
   fields: [{ ...text("name", "Tên nhãn phân loại", true), max: 50, source: "body", apiKey: "name" }], resultFields: ["name"],
 });
-if (dailyAttendance) operations.push({ ...dailyAttendance, id: "hr.daily.overview", title: "Báo cáo tình hình nhân sự hôm nay", description: "Tổng quan nhân sự trong ngày: danh sách nhân sự cùng trạng thái vào/ra ca, đi muộn, vắng, nghỉ phép và chưa chấm công trong chi nhánh. Dùng cho báo cáo tình hình nhân sự hoặc chấm công hôm nay; không dùng cho lao động trong dự án.", readOnly: true });
+if (dailyAttendance) operations.push({ ...dailyAttendance, id: "hr.daily.overview", title: "Báo cáo tình hình nhân sự hôm nay", description: "Dùng cho nhân viên thuộc hồ sơ nhân sự công ty: trạng thái vào/ra ca, đi muộn, vắng, nghỉ phép và chưa chấm công trong chi nhánh. Chọn khi người dùng hỏi tình hình nhân sự/nhân viên công ty. Không chọn cho người lao động, công nhân hoặc nhân công làm tại dự án, kể cả khi câu hỏi có cụm chấm công hôm nay; các trường hợp đó thuộc Báo cáo chấm công và thiếu lao động theo dự án (worker.report).", readOnly: true });
 operations.push({
   id: "worker.report", title: "Báo cáo chấm công và thiếu lao động theo dự án", module: "worker", permissions: ["people:read", "people:manage"],
-  description: "Báo cáo người lao động của một hoặc mọi dự án, gồm tổng quan chấm công, đi muộn, chưa chấm công/vắng, số ngày chưa chấm công vượt ngưỡng và dự án thiếu lao động so với định biên. Không phải chấm công nhân sự công ty. Không nêu dự án nghĩa là mọi dự án trong chi nhánh. Đếm số buổi cần khoảng ngày; không có bản ghi không đồng nghĩa đã xác nhận vắng.",
+  description: "Dùng khi người dùng hỏi về người lao động, công nhân hoặc nhân công tại dự án. Chọn action này cho các câu như ‘báo cáo chấm công các lao động hôm nay’, ‘lao động nào chưa chấm công’ hoặc ‘dự án nào thiếu lao động’; các từ lao động/công nhân là đối tượng dữ liệu, không tự chúng chỉ tên phân hệ. Báo cáo gồm tổng quan chấm công, đi muộn, chưa chấm công/vắng, số ngày chưa chấm công vượt ngưỡng và dự án thiếu lao động so với định biên. Nếu không nêu dự án thì lấy mọi dự án trong phạm vi chi nhánh. Không dùng báo cáo chấm công nhân sự công ty. Đếm số buổi cần khoảng ngày; không có bản ghi không đồng nghĩa đã xác nhận vắng.",
   method: "GET", path: "/worker-management/reports/assistant", link: "/quan-ly-lao-dong", adapter: "contract", rawResponse: true, readOnly: true,
-  fields: [queryField(choice("mode", "Loại báo cáo", ["all", "late", "absent", "absence-threshold", "shortage"], "all")), queryField(ref("projectId", "Tên hoặc mã dự án", "worker.project.list", false)),
+  fields: [queryField(choice("mode", "Loại báo cáo", ["all", "late", "absent", "absence-threshold", "shortage", "filled", "gps-enabled", "labor-types"], "all")), queryField(ref("projectId", "Tên hoặc mã dự án", "worker.project.list", false)),
     queryField(date("date", "Ngày báo cáo")), queryField({ ...date("from", "Từ ngày"), requiredWhen: { field: "mode", equals: "absence-threshold" } }), queryField({ ...date("to", "Đến ngày"), requiredWhen: { field: "mode", equals: "absence-threshold" } }), queryField({ ...number("threshold", "Số buổi vượt quá"), integer: true, max: 366 })],
-  resultFields: ["projectName", "workerName", "date", "attendanceStatus", "checkIn", "checkOut", "quota", "allocated", "gap", "from", "to", "absentDays", "note"],
+  resultFields: ["projectName", "workerName", "date", "attendanceStatus", "checkIn", "checkOut", "quota", "allocated", "gap", "gpsAttendanceEnabled", "from", "to", "absentDays", "note", "laborType", "workerCount"],
 });
 const trainingIncomplete = operations.find(op => op.id === "hr.training.incomplete.list")!;
-for (const operation of operations) {
-  if(operation.method==='GET'&&operation.path==='/inventory/receiving/receipts')operation.unboundedTimeRead=true;
-  if (operation.path === '/timekeeping/records' && operation.fields.some(field => field.key === 'query_date')) operation.currentDateDefaults = ['query_date'];
-  if (operation.method === 'PATCH' && operation.path === '/auth/users/:id') operation.clearableFields = ['jobTitle'];
-  if (operation.method === 'POST' && operation.path === '/hr-contracts/:id/extensions') operation.currentDateDefaults = ['extensionDate'];
-  if (operation.id === 'department.lookup') operation.coverageAliases = ['Có bao nhiêu nhân sự', 'Số nhân sự của phòng ban'];
-  if (operation.id === 'employee.birthday.next-month') operation.coverageAliases = ['Nhân sự có sinh nhật trong tháng tới'];
-}
-operations.push({ ...trainingIncomplete, coverageAliases: undefined, id: "hr.training.progress", title: "Báo cáo toàn bộ tiến độ đào tạo nội bộ", description: "Tiến độ học của từng nhân sự trong khóa đào tạo nội bộ, gồm cả chưa bắt đầu, đang học và đã hoàn thành. Khác với danh sách chỉ những người chưa hoàn thành. Không phải lịch học hoặc điểm danh học viên.", rawResponse: true, resultFields: ["employeeName", "courseTitle", "progress", "status"], resultChildFields: undefined });
-const studentClassDetail = operations.find(op => op.id === 'student.batch.detail');
-const legalRepositoryStatus=operations.find(op=>op.id==='legal.repository.status');
-if(legalRepositoryStatus) legalRepositoryStatus.rawResponse=true;
-const studentLookup=operations.find(op=>op.id==='student.list');
-if(studentLookup) studentLookup.description+=' Trạng thái hồ sơ không phản ánh số tiền còn nợ học phí. Khi hỏi còn nợ/đã đóng đủ, dùng phép đối chiếu học phí với danh sách phiếu thu; không chỉ lọc status=Nợ học phí.';
-if (studentClassDetail) {
-  studentClassDetail.functionAreas = [{key:'schedule',label:'Lịch học'}];
-  studentClassDetail.resultFields = [...new Set([...studentClassDetail.resultFields, 'daysOfWeek', 'startTime', 'endTime'])];
-  studentClassDetail.description += ' Xem lịch học định kỳ của một lớp/khóa học: ngày trong tuần, giờ bắt đầu/kết thúc và khoảng ngày của lớp. Không phải báo cáo điểm danh hoặc lịch đào tạo nội bộ. Chọn đúng lớp theo tên hoặc mã; nếu nhiều lớp cùng khóa thì hỏi chọn lớp.';
-}
+operations.push({ ...trainingIncomplete, id: "hr.training.progress", title: "Báo cáo toàn bộ tiến độ đào tạo nội bộ", description: "Tiến độ học của từng nhân sự trong khóa đào tạo nội bộ, gồm cả chưa bắt đầu, đang học và đã hoàn thành. Khác với danh sách chỉ những người chưa hoàn thành. Không phải lịch học hoặc điểm danh học viên.", rawResponse: true, resultFields: ["employeeName", "courseTitle", "progress", "status"], resultChildFields: undefined });
 
 operations.push(...HEALTHCARE_OPERATIONS);
 operations.push(...QUOTATION_OPERATIONS);
 const laborKpi = operations.find(op => op.method === "GET" && op.path === "/worker-management/partners/kpi");
+const laborSettlementList = operations.find(op => op.id === "worker.partner.settlements.list");
+if (laborSettlementList) {
+  laborSettlementList.title = "Tra cứu kỳ đối soát và công nợ hoa hồng đối tác lao động";
+  laborSettlementList.description = "Tra cứu các kỳ đối soát hoa hồng của đối tác lao động theo kỳ hoặc trạng thái. Trả về số phải trả, đã trả và còn phải trả; kỳ chưa thanh toán đủ có số dư dương. Khi người dùng hỏi tổng số tiền công ty còn nợ, lọc các kỳ có balanceAmount lớn hơn 0 rồi cộng balanceAmount từ toàn bộ kết quả trong phạm vi được phép.";
+  laborSettlementList.fields = [
+    queryRef("query_partnerId", "Tên hoặc mã đối tác lao động", "worker.partner.list", false),
+    queryField(choice("query_status", "Trạng thái kỳ đối soát", ["draft", "calculated", "approved", "partially_paid", "paid", "void"]), "status"),
+    queryField(date("query_periodStart", "Kỳ kết thúc từ ngày"), "periodStart"),
+    queryField(date("query_periodEnd", "Kỳ bắt đầu đến ngày"), "periodEnd"),
+    queryField({ key: "analysis", label: "Điều kiện phân tích", type: "json" }, "analysis"),
+  ];
+  laborSettlementList.resultFields = ["partnerName", "partnerCode", "periodStart", "periodEnd", "status", "totalAmount", "paidAmount", "balanceAmount"];
+  laborSettlementList.analysis = { fields: {
+    partnerName: { label: "Đối tác", type: "text" },
+    partnerCode: { label: "Mã đối tác", type: "text" },
+    periodStart: { label: "Từ ngày", type: "text" },
+    periodEnd: { label: "Đến ngày", type: "text" },
+    totalAmount: { label: "Tổng hoa hồng (đồng)", type: "number" },
+    paidAmount: { label: "Đã trả (đồng)", type: "number" },
+    balanceAmount: { label: "Còn phải trả (đồng)", type: "number" },
+    status: { label: "Trạng thái", type: "text", values: { draft: "Bản nháp", calculated: "Đã tính", approved: "Đã duyệt", partially_paid: "Đã trả một phần", paid: "Đã trả đủ", void: "Đã hủy" } },
+  } };
+  laborSettlementList.assistantOnlyFields = [...new Set([...(laborSettlementList.assistantOnlyFields || []), "analysis"] )];
+}
 if (laborKpi) {
   laborKpi.title = "Phân tích KPI và số lao động giới thiệu của đối tác";
-  // The business validator requires an ISO calendar anchor. Reflect that
-  // transport contract and the already documented current-month default.
-  for(const field of laborKpi.fields)if((field.apiKey||field.key)==='periodAnchor'||field.key==='query_periodAnchor')field.type='date';
-  laborKpi.currentDateDefaults=['query_periodAnchor'];
-  laborKpi.analysis = { rowDimensions:["partnerName","partnerCode"], fields: {
+  laborKpi.analysis = { fields: {
     partnerName: { label: "Đối tác", type: "text" },
     partnerCode: { label: "Mã đối tác", type: "text" },
     targetReferrals: { label: "Chỉ tiêu", type: "number" },
-    actualReferrals: { label: "Đã giới thiệu", type: "number", measureOperation:"count", aliases: ["lao động được giới thiệu", "số lao động giới thiệu", "số lao động được giới thiệu", "lao động giới thiệu", "lao động", "người được giới thiệu", "số người giới thiệu", "số lượt giới thiệu", "lượt giới thiệu", "giới thiệu"] },
+    actualReferrals: { label: "Đã giới thiệu", type: "number", aliases: ["lao động được giới thiệu", "số lao động giới thiệu", "số lao động được giới thiệu", "lao động giới thiệu", "lao động", "người được giới thiệu", "số người giới thiệu", "số lượt giới thiệu", "lượt giới thiệu", "giới thiệu"] },
     remainingReferrals: { label: "Còn thiếu", type: "number" },
     completionRate: { label: "Tỷ lệ đạt (%)", type: "number" },
-    status: { label: "Trạng thái KPI", type: "text", values: { not_set: "Chưa thiết lập", achieved: "Đã đạt", incomplete: "Chưa đạt" },
-      valueAliases: { incomplete:['thiếu KPI','chưa đạt KPI','chưa đủ KPI'], not_set:['chưa thiết lập KPI','chưa đặt KPI','chưa có chỉ tiêu KPI'], achieved:['đã đạt KPI','đạt đủ KPI'] } },
+    status: { label: "Trạng thái KPI", type: "text", values: { not_set: "Chưa thiết lập", achieved: "Đã đạt", incomplete: "Chưa đạt" } },
   } };
+  laborKpi.resultFields = Object.keys(laborKpi.analysis.fields);
   laborKpi.fields.push({ key: "analysis", label: "Điều kiện phân tích", type: "json" });
   laborKpi.assistantOnlyFields = ["analysis"];
-  laborKpi.description = `Tra cứu số lao động giới thiệu và KPI của TẤT CẢ đối tác trong một tháng, bao gồm đối tác 0 lao động. query_periodAnchor là ngày trong tháng cần xem. Nếu không nêu tháng, dùng tháng hiện tại theo giờ Việt Nam. status=not_set là chưa thiết lập KPI, không phải chưa đạt. analysis là JSON khai báo, không phải mã: filters:[{field,operator:eq|ne|gt|gte|lt|lte,value}], extreme:{field,direction:min|max} giữ tất cả đồng hạng, sort:{field,direction:asc|desc}, limit:1..1000, aggregate:{operation:count|sum|avg,field}, groupBy. Bộ lọc kết hợp AND. Sau tổng hợp có thể dùng having rồi sort/extreme/limit trên chỉ tiêu tổng hợp đã chọn. Trường cho phép: ${JSON.stringify(laborKpi.analysis.fields)}. Dùng phép phân tích phù hợp mọi yêu cầu tương tự, không thay bằng tổng quan tiền hoa hồng. Không hỗ trợ khoảng nhiều tháng trong một lần gọi, cần làm rõ kỳ nếu chưa xác định được.`;
+  laborKpi.description = `Tra cứu số lao động giới thiệu và KPI của TẤT CẢ đối tác trong một tháng, bao gồm đối tác 0 lao động. query_periodAnchor là ngày trong tháng cần xem. Nếu không nêu tháng, dùng tháng hiện tại theo giờ Việt Nam. status=not_set là chưa thiết lập KPI, không phải chưa đạt. analysis là JSON khai báo, không phải mã: filters:[{field,operator:eq|ne|gt|gte|lt|lte,value}], extreme:{field,direction:min|max} giữ tất cả đồng hạng, sort:{field,direction:asc|desc}, limit:1..1000, aggregate:{operation:count|sum|avg,field}, groupBy. Bộ lọc kết hợp AND. Không kết hợp aggregate với sort/extreme/limit. Trường cho phép: ${JSON.stringify(laborKpi.analysis.fields)}. Dùng phép phân tích phù hợp mọi yêu cầu tương tự, không thay bằng tổng quan tiền hoa hồng. Không hỗ trợ khoảng nhiều tháng trong một lần gọi, cần làm rõ kỳ nếu chưa xác định được.`;
 }
+if (laborKpi) laborKpi.description += " status=not_set nghĩa là chưa thiết lập hoặc chưa cài chỉ tiêu KPI; status=incomplete nghĩa là đã có chỉ tiêu nhưng còn thiếu/chưa đạt; status=achieved nghĩa là đã đạt đủ chỉ tiêu. Khi hỏi 'đang thiếu KPI tháng', lọc status=incomplete; khi hỏi 'chưa thiết lập KPI', lọc status=not_set.";
 for (const op of operations.filter(op => op.path === "/worker-management/partners/policies/:policyId" && op.method === "PATCH")) {
   op.partialUpdate = true;
   op.partialUpdateArrayKeys = { "official.milestones": "month" };
-  op.partialUpdateArrayBounds = { "official.milestones": { itemField: "month", upperBound: "official.maxMonths" } };
   op.mergeBodyWithReference = true;
   op.description += " Chỉnh sửa từng phần cấu hình chính sách đã chọn. Chỉ trích xuất trường người dùng muốn đổi, kể cả thuộc tính lồng nhau như official.maxMonths (Số mốc tháng). Máy chủ đọc cấu hình hiện tại và giữ phần không đổi. Không điền lại các trường chưa được yêu cầu. official.milestones cập nhật từng mục theo khóa month, chỉ nêu month và thuộc tính cần sửa, giữ các mốc khác. Giảm maxMonths loại bỏ mốc vượt giới hạn, tăng maxMonths cần thu thập tiền và điều kiện cho các mốc mới. Các mảng khác là thay thế toàn bộ và phải có đủ nội dung. Không tự đoán số tiền hoặc điều kiện. Nếu chưa có tên chính sách, để trống path_policyId để người dùng chọn.";
 }
 const studentPartners = operations.find(op => op.id === "partner.list")!;
-const fullyPaidCommissionAliases=['thanh toán đủ 100% hoa hồng','thanh toán 100% hoa hồng','thanh toán đủ hoa hồng','trả đủ hoa hồng'];
 operations.push({ ...studentPartners, id: "partner.analysis", title: "Phân tích đối tác học viên", rawResponse: true,
-  functionAreas:[{key:'partner-records',label:'Hồ sơ đối tác học viên'},{key:'partner-payouts',label:'Chi trả hoa hồng đối tác học viên'}],
-  coverageAliases:['hiện tại có','hiện tại'],
-  description: "Phân tích và tra cứu đối tác tuyển sinh: trạng thái hoạt động/tạm dừng, liên hệ, tài khoản ngân hàng, ghi chú, ngày tạo, số học viên giới thiệu, học phí và hoa hồng. createdFrom/createdTo lọc NGÀY TẠO ĐỐI TÁC mới. referralFrom/referralTo chỉ giới hạn số học viên và học phí theo NGÀY ĐĂNG KÝ của học viên được giới thiệu (không phải ngày tạo đối tác). Không có kỳ thì số học viên/học phí là lũy kế. Hoa hồng, đã trả, còn phải trả và cấp bậc luôn là LŨY KẾ, không hỗ trợ phân bổ các khoản này theo kỳ; hỏi lại nếu yêu cầu hoa hồng theo kỳ. Không tự tính hoa hồng; lấy nguyên API. Có thể đếm theo trạng thái bằng groupBy=isActive, aggregate=count; tính nhiều chỉ tiêu bằng aggregates trong một lần. bankConfigured=0 là chưa có số tài khoản, =1 là đã có. notes hỗ trợ contains. Dùng select chọn các cột người dùng cần, giữ name khi liệt kê hồ sơ. Không có KPI nếu chưa có ngưỡng. targetBranch chọn chi nhánh theo quyền, không dùng search để lọc chi nhánh. Tháng/tuần dùng lịch Việt Nam; tuần bắt đầu thứ Hai; truyền đầy đủ hai đầu khoảng ngày.",
-  fields: [...studentPartners.fields, queryField(ref('targetBranch', 'Chi nhánh đối tác', 'branch.list', false), 'branchId'),
-    ...['createdFrom','createdTo','referralFrom','referralTo'].map((key,index) => queryField(date(key, ['Ngày tạo đối tác từ','Ngày tạo đối tác đến','Ngày đăng ký học viên giới thiệu từ','Ngày đăng ký học viên giới thiệu đến'][index]))),
+  description: "Phân tích danh sách đối tác học viên trong phạm vi được cấp quyền. Có thể lọc thời gian tạo đối tác bằng createdFrom/createdTo. referralFrom/referralTo lọc số học viên và học phí được giới thiệu trong kỳ; hoa hồng, số đã trả và số còn nợ vẫn là số lũy kế theo dữ liệu nghiệp vụ. Trạng thái, ghi chú và tình trạng tài khoản ngân hàng có thể dùng để lọc hoặc nhóm. Không hiển thị số tài khoản. Không có chỉ tiêu KPI: nếu hỏi đạt/chưa đạt KPI mà chưa nêu chỉ tiêu, hỏi chỉ tiêu và ngưỡng. Không dùng cấp bậc hoa hồng làm KPI. Số hoa hồng lấy nguyên từ API nghiệp vụ, không tự tính lại.",
+  fields: [...studentPartners.fields,
+    queryField(date("createdFrom", "Đối tác tạo từ ngày")), queryField(date("createdTo", "Đối tác tạo đến ngày")),
+    queryField(date("referralFrom", "Học viên giới thiệu từ ngày")), queryField(date("referralTo", "Học viên giới thiệu đến ngày")),
+    queryField(ref("targetBranch", "Chi nhánh đối tác học viên", "branch.list", false), "branchId"),
+    queryField(choice("query_isActive", "Trạng thái hoạt động", ["true", "false"]), "isActive"),
     queryField({ ...number("page", "Trang"), defaultValue: 1 }), queryField({ ...number("limit", "Số dòng mỗi trang"), defaultValue: 500 })],
-  analysis: { scopeLabel: "lũy kế", rowDimensions:["name","code"], replaces:["partner.list"], displayFields:['name','isActive','referredStudentsCount','totalReferredTuition','totalCommission','totalPaid','unpaidBalance'], pagination: { pageField: "page", sizeField: "limit" }, fields: {
-    name: { label: "Đối tác", type: "text" }, code:{label:"Mã đối tác",type:"text"}, levelName: { label: "Cấp bậc hoa hồng", type: "text" },
-    isActive: {label:'Trạng thái',type:'text',values:{active:'Đang hoạt động',inactive:'Tạm dừng'},valueAliases:{active:['đang hoạt động'],inactive:['đang tạm dừng','tạm dừng','ngưng hoạt động']}},
-    phone:{label:'Điện thoại',type:'text'},email:{label:'Email',type:'text'},
-    bankName:{label:'Ngân hàng',type:'text'},bankAccountNo:{label:'Số tài khoản',type:'text',format:'bank-account'},bankAccountName:{label:'Chủ tài khoản',type:'text'},
-    bankConfigured:{label:'Đã có tài khoản ngân hàng',type:'number',values:{'0':'Chưa cập nhật','1':'Đã cập nhật'},predicates:[{aliases:['chưa cập nhật tài khoản ngân hàng','chưa cập nhật tài khoản ngân hàng nhận hoa hồng','chưa có số tài khoản ngân hàng','chưa có tài khoản ngân hàng'],operator:'eq',value:0}]},
-    notes:{label:'Ghi chú',type:'text',contains:true},createdAt:{label:'Ngày tạo đối tác',type:'text',format:'date'},
-    referredStudentsCount: { label: "Học viên giới thiệu", type: "number", measureOperation:"count", aliases:['học viên giới thiệu','số học viên','học viên','đã giới thiệu được bao nhiêu học viên'], predicates:[{aliases:['đã giới thiệu học viên'],operator:'gt',value:0}] },
-    totalReferredTuition: { label: "Tổng học phí (VND)", type: "number", measureOperation:"sum",aliases:['doanh số học phí','tổng học phí','học phí'],predicates:[{aliases:['chưa phát sinh học phí'],operator:'eq',value:0}] },
-    totalCommission: { label: "Hoa hồng lũy kế (VND)", type: "number", measureOperation:"sum",aliases:['hoa hồng phát sinh','tổng hoa hồng','tổng hoa hồng phát sinh'],predicates:[{aliases:fullyPaidCommissionAliases,operator:'gt',value:0}] },
-    totalPaid: { label: "Đã thanh toán lũy kế (VND)", type: "number", measureOperation:"sum",aliases:['đã thanh toán','đã trả','đã trả được bao nhiêu'] },
-    unpaidBalance: { label: "Còn phải trả lũy kế (VND)", type: "number",aliases:['hoa hồng còn nợ','hoa hồng còn phải trả','số dư còn phải trả','còn nợ','còn phải trả'],predicates:[{aliases:fullyPaidCommissionAliases,operator:'lte',value:0}] },
-  } }, resultFields: ["name", "code", "levelName", "isActive","phone","email","bankName","bankAccountNo","bankAccountName","bankConfigured","notes","createdAt","referredStudentsCount", "totalReferredTuition", "totalCommission", "totalPaid", "unpaidBalance"] });
-const partnerDetail = operations.find(op => op.path === '/partners/:id' && op.method === 'GET')!;
-// partner.service computes unpaidBalance = earned commission - paid amount.
-// Completion requires an actual earned obligation; a 0/0 account is not paid.
-operations.find(op=>op.id==='partner.analysis')!.analysis!.numericPredicateEquivalences=[{operator:'eq',value:100,
-  description:'Hoàn tất 100% nghĩa vụ hoa hồng lũy kế: đã phát sinh hoa hồng dương và không còn số dư phải trả; 0/0 không được coi đã thanh toán.',
-  predicates:[{field:'totalCommission',operator:'gt',value:0},{field:'unpaidBalance',operator:'lte',value:0}]}];
-operations.push({...studentPartners, id:'partner.payouts.analysis', title:'Tra cứu lịch sử chi trả hoa hồng đối tác tuyển sinh', path:'/partners/payout-history', rawResponse:true, readOnly:true,
-  coverageAliases:['trả hoa hồng','chi trả hoa hồng','thanh toán hoa hồng'],
-  functionAreas:[{key:'partner-payouts',label:'Chi trả hoa hồng đối tác học viên'},{key:'partner-analysis',label:'Phân tích đối tác học viên'}],
-  description:'Đọc đầy đủ lịch sử các khoản hoa hồng ĐÃ CHI TRẢ cho đối tác tuyển sinh trong chi nhánh theo quyền. Trả tên người nhận, ngày chi trả, số tiền thực trả và phương thức. Dùng cho lần gần nhất/cuối cùng, trả cho ai, đã chi tổng bao nhiêu theo tháng/tuần/kỳ. Không dùng tổng lũy kế để thay giao dịch theo kỳ, không dùng nguồn này tính hoa hồng phát sinh hoặc còn nợ. from/to là cặp ngày YYYY-MM-DD bao gồm hai đầu theo lịch Việt Nam; bỏ cả hai nếu xem toàn bộ lịch sử. search tìm tên đối tác. Ngày có độ chính xác theo ngày: extreme max paidOn giữ mọi khoản cùng ngày gần nhất, không tự chọn một khoản trong ngày. analysis là JSON khai báo: extreme:{field,direction:min|max}, sort:{field,direction:asc|desc}, filters:[{field,operator:eq|ne|gt|gte|lt|lte|contains,value}], limit, select:[field], groupBy, aggregate:{operation:count|sum|avg,field} hoặc aggregates. Không kết hợp tổng hợp với xếp hạng trong cùng bước. Các trường đầu ra: partnerName,paidOn,amount,method. Tính tổng chi thực tế bằng aggregate sum amount; ngày mới nhất bằng extreme max paidOn. Không có lịch sử thì chưa có dữ liệu chi trả trong phạm vi, không suy ra thiếu quyền.',
-  fields:[queryField(text('search','Tên đối tác')),queryField(date('from','Từ ngày')),queryField(date('to','Đến ngày')),queryField(ref('targetBranch','Chi nhánh đối tác','branch.list',false),'branchId'),{key:'analysis',label:'Điều kiện phân tích',type:'json'}],
-  assistantOnlyFields:['analysis'],resultFields:['partnerName','paidOn','amount','method'],
-  analysis:{displayFields:['partnerName','paidOn','amount','method'],fields:{
-    partnerName:{label:'Đối tác',type:'text',contains:true,answerAliases:['cho ai','ai nhận']},
-    paidOn:{label:'Ngày chi trả',type:'text',format:'date',aliases:['lần chi trả','ngày thanh toán','lần thanh toán'],answerAliases:['khi nào','ngày nào']},
-    amount:{label:'Số tiền chi trả (VND)',type:'number',aliases:['tiền đã chi','tiền chi trả','tiền đã thanh toán','tiền hoa hồng']},
-    method:{label:'Phương thức',type:'text'},
-  }},
-});
-// Keep identity, state and bank presence visible within the shared table's
-// compact column budget, even on fully populated partner profiles.
-partnerDetail.resultFields=[...new Set(['name','isActive','bankAccountStatus','phone','email','bankName','bankAccountName','bankAccountNo',...partnerDetail.resultFields])];
-partnerDetail.coverageAliases=[...(partnerDetail.coverageAliases || []),'đang dùng tài khoản ngân hàng nào để nhận hoa hồng','tài khoản ngân hàng nhận hoa hồng'];
-operations.push({...partnerDetail,id:'partner.referrals',title:'Xem học viên do đối tác tuyển sinh giới thiệu',rawResponse:true,readOnly:true,
-  coverageAliases:['đã giới thiệu','đã giới thiệu học viên','những học viên nào','tổng học phí bao nhiêu'],
-  description:'Xem danh sách và lịch sử học viên do một đối tác tuyển sinh giới thiệu, kèm ngày đăng ký và tổng học phí của đối tác. Nếu chưa có tên đối tác thì để trống trường tham chiếu để người dùng chọn. Ngày đăng ký là ngày trên hồ sơ học viên, không suy ra ngày gắn đối tác. Số học viên và học phí lấy từ API nghiệp vụ.',
-  resultFields:['partnerName','fullName','registrationDate','fee','totalReferredTuition']});
+  analysis: { replaces: ["partner.list"], scopeLabel: "lượt học viên và học phí giới thiệu có thể lọc theo ngày; hoa hồng và thanh toán là số lũy kế", pagination: { pageField: "page", sizeField: "limit" }, fields: {
+    name: { label: "Đối tác", type: "text" }, isActive: { label: "Trạng thái", type: "text", values: { active: "Đang hoạt động", inactive: "Tạm dừng" }, valueAliases: { active: ["đang hoạt động", "hoạt động"], inactive: ["tạm dừng", "ngừng hoạt động", "ngưng hoạt động"] } },
+    notes: { label: "Ghi chú", type: "text", display: false },
+    bankAccountNo: { label: "Số tài khoản (đã che)", type: "text", displayByDefault: false },
+    hasBankAccount: { label: "Tài khoản ngân hàng", type: "text", values: { has: "Đã cập nhật", missing: "Chưa cập nhật" }, valueAliases: { has: ["đã có tài khoản ngân hàng", "đã cập nhật tài khoản ngân hàng"], missing: ["chưa có tài khoản ngân hàng", "chưa cập nhật tài khoản ngân hàng", "thiếu tài khoản ngân hàng"] } },
+    bankName: { label: "Ngân hàng", type: "text" }, levelName: { label: "Cấp bậc hoa hồng", type: "text" },
+    referredStudentsCount: { label: "Học viên giới thiệu", type: "number", aliases: ["số học viên giới thiệu", "lượt giới thiệu", "học viên được giới thiệu"], predicates: [
+      { aliases: ["chưa giới thiệu học viên nào", "chưa có học viên giới thiệu", "0 học viên"], operator: "eq", value: 0 },
+      { aliases: ["đã giới thiệu học viên", "ít nhất một học viên", "từ 1 học viên trở lên"], operator: "gt", value: 0 },
+    ] },
+    totalReferredTuition: { label: "Tổng học phí (VND)", type: "number", aliases: ["doanh số học phí", "tổng doanh số học phí", "học phí được giới thiệu"], predicates: [{ aliases: ["học phí bằng 0", "chưa phát sinh học phí"], operator: "eq", value: 0 }] },
+    totalCommission: { label: "Hoa hồng (VND)", type: "number" }, totalPaid: { label: "Đã thanh toán (VND)", type: "number" }, unpaidBalance: { label: "Còn phải trả (VND)", type: "number", aliases: ["hoa hồng còn nợ", "số dư hoa hồng còn phải trả"], predicates: [{ aliases: ["còn nợ", "nợ hoa hồng", "còn phải trả"], operator: "gt", value: 0 }] },
+  } }, resultFields: ["name", "isActive", "notes", "hasBankAccount", "bankName", "levelName", "referredStudentsCount", "totalReferredTuition", "totalCommission", "totalPaid", "unpaidBalance"] });
 const retailPerformance = operations.find(op => op.path === "/retail/finance/commission/kpi" && op.method === "GET")!;
 retailPerformance.title = "Phân tích hoa hồng đối tác bán lẻ";
 retailPerformance.fields.push(queryField(date("from", "Từ ngày", true)), queryField(date("to", "Đến ngày", true)));
@@ -1996,11 +2548,59 @@ retailPerformance.analysis = { fields: {
   partnerName: { label: "Đối tác", type: "text" }, partnerCode: { label: "Mã đối tác", type: "text" },
   commission: { label: "Hoa hồng ròng (VND)", type: "number" }, sources: { label: "Số bút toán hoa hồng", type: "number" },
 } };
+retailPerformance.fields.push({ key: "analysis", label: "Điều kiện phân tích", type: "json" });
+retailPerformance.assistantOnlyFields = [...(retailPerformance.assistantOnlyFields || []), "analysis"];
 retailPerformance.description = "Phân tích hoa hồng ròng và số BÚT TOÁN hoa hồng trong khoảng ngày theo chi nhánh, bao gồm cộng tác viên không phát sinh. commission có thể âm do hoàn/đảo hoa hồng. sources KHÔNG phải số đơn hàng, số khách hoặc lượt giới thiệu. Không có chỉ tiêu KPI đạt/chưa đạt, cần hỏi ngưỡng nếu người dùng chưa nêu. Không đổi yêu cầu về đơn hàng/khách sang số bút toán. Tháng này dùng ngày đầu đến cuối tháng hiện tại theo Việt Nam. Chỉ dùng khoảng ngày API hỗ trợ.";
+const retailCommissionBalances = operations.find(op => op.method === "GET" && op.path === "/retail/finance/commission/balances");
+if (retailCommissionBalances) {
+  retailCommissionBalances.module = "retail-partner";
+  retailCommissionBalances.title = "Tra cứu số dư hoa hồng cộng tác viên bán lẻ";
+  retailCommissionBalances.description = "Tra số dư hoa hồng hiện tại của cộng tác viên bán lẻ; có thể lọc theo tên hoặc mã. Số dư được lưu ở phạm vi toàn công ty, không tách theo chi nhánh. Dùng để trả lời một cộng tác viên còn bao nhiêu, liệt kê người có số dư dương hoặc tính tổng số tiền còn phải trả. Không trả lời về tài khoản ngân hàng nhận tiền vì hồ sơ đối tác bán lẻ không lưu trường đó.";
+  retailCommissionBalances.resultFields = ["partnerName", "partnerCode", "balance"];
+  if (!retailCommissionBalances.fields.some(field => field.source === "query" && field.apiKey === "partnerId")) {
+    retailCommissionBalances.fields.push(queryField(ref("query_partnerId", "Tên hoặc mã cộng tác viên bán lẻ", "retail.partner.list", false), "partnerId"));
+  }
+  retailCommissionBalances.analysis = { scopeLabel: "số dư hiện tại toàn công ty", fields: {
+    partnerName: { label: "Cộng tác viên bán lẻ", type: "text" },
+    partnerCode: { label: "Mã cộng tác viên", type: "text" },
+    balance: { label: "Số dư hoa hồng còn phải trả (VND)", type: "number", aliases: ["số dư", "còn phải trả", "hoa hồng chưa trả"] },
+  } };
+  retailCommissionBalances.fields.push({ key: "analysis", label: "Điều kiện phân tích", type: "json" });
+  retailCommissionBalances.assistantOnlyFields = [...(retailCommissionBalances.assistantOnlyFields || []), "analysis"];
+  retailCommissionBalances.description += ` Dùng analysis với filters:[{field,operator:eq|ne|gt|gte|lt|lte,value}], aggregate:{operation:count|sum|avg,field}, groupBy. Trường cho phép: ${JSON.stringify(retailCommissionBalances.analysis.fields)}.`;
+}
+const inventoryTransferReport = operations.find(op => op.id === "inventory.transfer.list");
+if (inventoryTransferReport) {
+  for (const field of [
+    queryField(number("page", "Trang", 1), "page"),
+    queryField(number("limit", "Số phiếu mỗi trang", 500), "limit"),
+    queryField(choice("status", "Trạng thái phiếu", ["in_transit", "received", "cancelled", "reversed"]), "status"),
+    queryField(date("from", "Từ ngày")),
+    queryField(date("to", "Đến ngày")),
+  ]) if (!inventoryTransferReport.fields.some(existing => existing.apiKey === field.apiKey)) inventoryTransferReport.fields.push(field);
+  inventoryTransferReport.resultFields = ["code", "status", "reason", "fromWarehouseName", "toWarehouseName", "items", "createdAt"];
+  inventoryTransferReport.resultChildFields = { items: ["productName", "sku", "quantity"] };
+  inventoryTransferReport.analysis = { scopeLabel: "phiếu điều chuyển của chi nhánh đã chọn", pagination: { pageField: "query_page", sizeField: "query_limit" }, fields: {
+    status: { label: "Trạng thái phiếu", type: "text", values: { in_transit: "Đang chuyển", received: "Đã nhận", cancelled: "Đã hủy", reversed: "Đã đảo" } },
+    code: { label: "Mã phiếu", type: "text" },
+  } };
+  inventoryTransferReport.fields.push({ key: "analysis", label: "Điều kiện phân tích", type: "json" });
+  inventoryTransferReport.assistantOnlyFields = [...(inventoryTransferReport.assistantOnlyFields || []), "analysis"];
+  inventoryTransferReport.description += " Có thể thống kê số phiếu theo trạng thái. Dùng analysis.aggregate={operation:count} và groupBy=status; danh sách API có phân trang và máy chủ sẽ đọc đủ các trang trước khi tổng hợp.";
+}
+const inventoryReceiptListOperation = operations.find(op => op.id === "inventory.receipt.list");
+if (inventoryReceiptListOperation) {
+  inventoryReceiptListOperation.resultFields = [...new Set([...inventoryReceiptListOperation.resultFields, "financeTerms"])];
+  inventoryReceiptListOperation.resultChildFields = { ...(inventoryReceiptListOperation.resultChildFields || {}), financeTerms: ["paidAmount"] };
+}
+if (retailOrderListOperation) {
+  retailOrderListOperation.resultFields = [...new Set([...retailOrderListOperation.resultFields, "status", "items", "refundedAmount", "businessDate"])];
+  retailOrderListOperation.resultChildFields = { ...(retailOrderListOperation.resultChildFields || {}), items: ["productName", "sku", "quantity"] };
+}
 for (const op of [operations.find(op => op.id === "partner.analysis")!, retailPerformance]) {
   op.fields.push({ key: "analysis", label: "Điều kiện phân tích", type: "json" });
   op.assistantOnlyFields = [...(op.assistantOnlyFields || []), "analysis"];
-  op.description += ` Dùng analysis với filters:[{field,operator:eq|ne|gt|gte|lt|lte|contains,value}] (contains chỉ cho trường khai báo hỗ trợ), extreme:{field,direction:min|max}, sort:{field,direction:asc|desc}, limit, select:[tên trường], groupBy, aggregate:{operation:count|sum|avg,field} hoặc aggregates:[{operation,field}] để tính nhiều chỉ tiêu cùng lúc. Không dùng cả aggregate và aggregates. Giữ mọi đồng hạng cho cực trị. Không kết hợp tổng hợp với sort/extreme/limit. Trường cho phép: ${JSON.stringify(op.analysis!.fields)}.`;
+  op.description += ` Dùng analysis với filters:[{field,operator:eq|ne|gt|gte|lt|lte|contains,value}], extreme:{field,direction:min|max}, sort:{field,direction:asc|desc}, limit, select, groupBy, aggregate:{operation:count|sum|avg,field} hoặc aggregates:[...]. Giữ mọi đồng hạng cho cực trị. Không kết hợp tổng hợp với sort/extreme/limit. Trường cho phép: ${JSON.stringify(op.analysis!.fields)}.`;
 }
 for (const op of operations.filter(op => op.method === "PATCH" && ["/partners/commission-levels/:id", "/retail/partners/commission-policies/:id"].includes(op.path))) {
   op.partialUpdate = true;
@@ -2008,9 +2608,37 @@ for (const op of operations.filter(op => op.method === "PATCH" && ["/partners/co
   op.description += " Chỉ gửi thuộc tính người dùng muốn sửa. Máy chủ đọc bản hiện tại và giữ các phần không đổi, kể cả thuộc tính lồng trong config. Chọn đúng bản ghi trước khi sửa và xác nhận trước khi lưu. Không tự tạo bản ghi mới khi người dùng yêu cầu sửa.";
 }
 const retailPolicyList = operations.find(op => op.id === "retail.partner.commission.policy.list")!;
+retailPolicyList.fields.push(queryField({ key: "currentOnly", apiKey: "currentOnly", source: "query", type: "boolean", label: "Chỉ cấu hình hiện có hiệu lực" }));
+const retailProductCommissionList = operations.find(op => op.method === "GET" && op.path === "/retail/partners/product-commissions");
+if (retailProductCommissionList && !retailProductCommissionList.resultFields.includes("partnerName")) {
+  retailProductCommissionList.resultFields.push("partnerName");
+}
+if (retailProductCommissionList) {
+  retailProductCommissionList.resultFields = [...new Set([...retailProductCommissionList.resultFields,
+    "variantName", "categoryCode", "categoryName", "commissionTotal", "productCategoryCount", "productCount", "variantCount", "configuredSkuCount"] )];
+  if (!retailProductCommissionList.fields.some(field => field.apiKey === "q")) retailProductCommissionList.fields.push(queryField({ ...text("q", "Tên sản phẩm, biến thể hoặc SKU"), max: 160 }, "q"));
+  retailProductCommissionList.fields.push(queryField({ ...number("quantity", "Số máy dự kiến bán", 1), min: 1, max: 100000 }, "quantity"));
+  retailProductCommissionList.analysis = { fields: {
+    sku: { label: "SKU", type: "text" }, productName: { label: "Sản phẩm", type: "text" }, variantName: { label: "Biến thể", type: "text" },
+    categoryCode: { label: "Mã nhóm hàng", type: "text" }, categoryName: { label: "Nhóm hàng", type: "text" },
+    kind: { label: "Loại sản phẩm", type: "text" }, commissionType: { label: "Cách tính hoa hồng", type: "text" },
+    commissionValue: { label: "Mức hoa hồng", type: "number" }, ratePercent: { label: "Tỷ lệ hoa hồng (%)", type: "number" },
+    status: { label: "Phạm vi cấu hình", type: "text", values: { common: "Chính sách chung", configured: "Mức riêng sản phẩm", "partner-specific": "Mức riêng cộng tác viên", "no-policy": "Chưa có chính sách" } },
+    partnerName: { label: "Cộng tác viên", type: "text" },
+  } };
+  retailProductCommissionList.fields.push({ key: "analysis", label: "Điều kiện phân tích", type: "json" });
+  retailProductCommissionList.assistantOnlyFields = [...(retailProductCommissionList.assistantOnlyFields || []), "analysis"];
+  retailProductCommissionList.description += " Kết quả gồm cả biến thể đang áp dụng chính sách chung và biến thể đã đặt mức riêng; status phân biệt common, configured và partner-specific. Có thể lọc theo tên sản phẩm, biến thể hoặc SKU. Khi nêu số lượng máy và mức hoa hồng cố định, quantity có thể dùng để trả tổng hoa hồng; không tự tính tiền phần trăm nếu thiếu giá trị bán. Kết quả báo cáo cũng có số lượng danh mục, sản phẩm, biến thể và SKU được đặt mức riêng.";
+  retailProductCommissionList.description += ` Dùng analysis để lọc, đếm theo status hoặc tìm cực trị commissionValue; trường hợp lệ: ${JSON.stringify(retailProductCommissionList.analysis.fields)}.`;
+}
 operations.find(op => op.id === "retail.order.list")!.fields.push({ key: "query_heldOnly", apiKey: "heldOnly", source: "query", type: "boolean", label: "Chỉ đơn nháp đang giữ" });
 retailPolicyList.resultFields.push("partnerName");
+retailPolicyList.resultFields = retailPolicyList.resultFields.filter(field => field !== "partnerId");
+retailPolicyList.resultFields = [...new Set([...retailPolicyList.resultFields.filter(field => field !== "config"),
+  "scope", "kind", "sku", "phoneAmount", "accessoryBps", "repairBps", "ratePercent", "effectiveFrom", "status"])];
 retailPolicyList.description += " Chính sách được phân biệt bằng ngày áp dụng và cộng tác viên (hoặc chính sách chung). Không tự chọn một bản khi chưa xác định được.";
+retailPolicyList.description += " Dùng currentOnly=true khi hỏi cấu hình hiện đang có hiệu lực; hệ thống lấy phiên bản mới nhất đã bắt đầu áp dụng cho từng phạm vi. Bỏ bộ lọc này khi người dùng yêu cầu xem tất cả phiên bản.";
+retailPolicyList.description += " Hệ thống chỉ lưu ngày bắt đầu hiệu lực, không lưu ngày hết hạn; nếu người dùng hỏi chính sách sắp hết hiệu lực thì phải nêu rõ dữ liệu hiện không đủ để xác định, không suy đoán từ ngày áp dụng.";
 for (const op of operations.filter(op => /\/retail\/partners\/commission-policies/.test(op.path) && ["POST", "PATCH"].includes(op.method))) {
   op.description += " config.phoneAmount là tiền VND (150000–300000). config.accessoryBps và config.repairBps là điểm cơ bản (1000–1500), 1%=100 điểm cơ bản. Đổi 12% thành 1200, không phải 12. Thiếu mức tiền hoặc tỷ lệ khi tạo mới thì hỏi, không tự đặt.";
   const config = op.fields.find(field => field.key === "config");
@@ -2030,14 +2658,24 @@ if (studentIndividualCommission) {
 }
 // Query contracts must expose business filters to both interpretation and execution.
 // Keep these keyed by route so changing a generated operation ID cannot lose filters.
+const retailSummary = operations.find(operation => operation.id === "retail.report.summary");
+if (retailSummary) operations.push({
+  ...retailSummary,
+  id: "retail.report.daily.summary",
+  title: "Tổng hợp đơn bán và tiền thu trong ngày",
+  description: "Tổng hợp số đơn, tiền thu theo phương thức thanh toán và sản phẩm bán trong một ngày cụ thể. Dùng cùng báo cáo doanh số theo kỳ khi người dùng hỏi kết hợp kết quả hôm nay với kết quả của tháng; phải đặt from và to bằng đúng ngày được hỏi.",
+  fields: structuredClone(retailSummary.fields),
+  resultFields: [...retailSummary.resultFields],
+  resultChildFields: structuredClone(retailSummary.resultChildFields),
+});
 const businessOverview = operations.find(operation => operation.id === "dashboard.business-overview");
 if (businessOverview) businessOverview.resultFields = [...businessOverview.resultFields, "comparisonRange", "scopeLabel"];
 for (const operation of operations.filter(item => ["student.create", "student.update"].includes(item.id))) {
   operation.resultFields = [...new Set([...operation.resultFields, "address", "birthday", "referral"])];
 }
 operations.push({
-  id: "student.payment.reconcile", title: "Tra cứu số nợ và đối chiếu học phí học viên", module: "student", permissions: ["people:read", "people:manage"],
-  description: "Tra cứu học phí hiện tại của một học viên theo tên/mã: studentName là tên, totalFee là tổng học phí, recordedPaidAmount là đã đóng, remainingAmount là số còn nợ trên hồ sơ (totalFee trừ recordedPaidAmount). Dùng trực tiếp để hỏi học viên còn nợ bao nhiêu, không cần giả định có tranh chấp thanh toán. Cũng đối chiếu tổng phiếu thu và lịch sử thanh toán để nêu chênh lệch khi cần. Không thay bằng tổng kỳ trả góp amountDue vì khác số nợ hiện tại. Chỉ đọc, không thu thêm hay sửa tiền. Không hỗ trợ giới hạn theo kỳ.",
+  id: "student.payment.reconcile", title: "Đối chiếu học phí học viên", module: "student", permissions: ["people:read", "people:manage"],
+  description: "Đối chiếu tổng phiếu thu, lịch sử thanh toán và số đã đóng trên hồ sơ của một học viên trong toàn bộ lịch sử. Dùng khi học viên nói đã đóng nhưng còn báo nợ. Chỉ đọc và nêu chênh lệch, không thu thêm, không sửa tiền và không suy đoán nguyên nhân. Không hỗ trợ giới hạn theo kỳ.",
   method: "GET", path: "/payments/reconciliation/:id", adapter: "contract", readOnly: true,
   fields: [{ ...ref("path_id", "Học viên cần đối chiếu", "student.list"), source: "path", apiKey: "id" }],
   link: "/quan-ly-hoc-vien", resultFields: ["studentName", "totalFee", "recordedPaidAmount", "receiptTotal", "historyTotal", "remainingAmount", "paymentDifference", "receiptCount", "reconciliationStatus", "scopeDescription"],
@@ -2060,7 +2698,13 @@ const auditedQueryFields: Record<string, AssistantField[]> = {
   "/retail/finance/commission/me": reportDates(),
   "/retail/finance/commission/partners/:id/statement": reportDates(),
   "/retail/warranty/expiring": [queryChoice("scope", "Loại bảo hành", ["supplier", "customer"]), { ...number("days", "Số ngày tới khi hết bảo hành"), min: 1, integer: true }],
-  "/retail/warranty/orders": [text('q','Mã đơn, tên khách, số điện thoại, sản phẩm hoặc SKU'),queryChoice('status','Trạng thái bảo hành',['all','active','expiring','expired','pending','none','unrecorded']),{...number('days','Số ngày dùng phân loại sắp hết bảo hành'),min:1,max:3650,integer:true},{...number('page','Trang'),min:1,integer:true},{...number('limit','Số dòng mỗi trang'),min:1,max:100,integer:true}],
+  "/retail/warranty/orders": [
+    queryField(ref("targetBranch", "Chi nhánh bán lẻ", "branch.list"), "branchId"),
+    queryChoice("status", "Tình trạng bảo hành", ["all", "active", "expiring", "expired", "pending", "none", "unrecorded"]),
+    { ...number("days", "Khoảng ngày sắp hết hạn", 30), min: 1, integer: true },
+    { ...number("page", "Trang", 1), min: 1, integer: true },
+    { ...number("limit", "Số kết quả mỗi trang", 100), min: 1, max: 100, integer: true },
+  ],
 };
 for (const op of operations) {
   const fields = op.method === "GET" ? auditedQueryFields[op.path] : undefined;
@@ -2070,149 +2714,239 @@ for (const op of operations) {
   }
   op.description += " Giữ đầy đủ bộ lọc người dùng đã nêu. Chọn bản ghi tham chiếu theo tên, không tự đoán mã. Khoảng ngày phải có đủ đầu và cuối kỳ, thiếu kỳ thì hỏi lại. Danh sách bị giới hạn số dòng không đại diện cho toàn bộ dữ liệu.";
 }
+const retailWarrantyOrders = operations.find(operation => operation.path === "/retail/warranty/orders" && operation.method === "GET");
+if (retailWarrantyOrders) operations.push({
+  ...retailWarrantyOrders,
+  id: "retail.warranty.status-counts",
+  title: "Thống kê thiết bị còn hạn và hết hạn bảo hành",
+  description: "Đếm số lượng thiết bị còn trong thời hạn bảo hành (gồm còn hạn và sắp hết hạn) và đã hết hạn tại chi nhánh được chọn; tính theo số lượng hàng trên từng dòng thiết bị, không phải số dòng đơn hàng.",
+  fields: [retailWarrantyOrders.fields.find(field => field.key === "targetBranch")!],
+  resultFields: ["asOf", "activeQuantity", "expiringQuantity", "inWarrantyQuantity", "expiredQuantity", "unrecordedQuantity"],
+});
+const retailReportSource = operations.find(operation => operation.id === "retail.report.summary");
+const retailOrderSource = operations.find(operation => operation.id === "retail.order.list");
+const retailShiftSource = operations.find(operation => operation.id === "retail.shift.list");
+const retailAfterSaleSource = operations.find(operation => operation.id === "retail.after-sale.list");
+const retailCashbookSource = operations.find(operation => operation.id === "retail.finance.cashbook.list");
+const retailPartnerSource = operations.find(operation => operation.id === "retail.partner.list");
+if (retailPartnerSource) operations.push({
+  ...retailPartnerSource,
+  id: "retail.partner.overview",
+  title: "Tổng quan đối tác bán lẻ",
+  method: "GET",
+  path: "/retail/partners/assistant-overview",
+  fields: [],
+  resultFields: ["total", "collaborators", "dealers", "suppliers", "active", "inactive", "missingPhone", "missingEmail", "missingAddress"],
+  description: "Đếm toàn bộ hồ sơ đối tác bán lẻ trong công ty theo vai trò, trạng thái hoạt động và thông tin liên hệ còn thiếu. Dùng cho câu hỏi tổng quan hoặc đếm cộng tác viên, đại lý, nhà cung cấp; không suy ra liên kết tài khoản ngân hàng.",
+});
+if (retailReportSource) {
+  const branchAndRange = retailReportSource.fields.filter(field => ["branchId", "from", "to"].includes(String(field.apiKey)));
+  operations.push(
+    { ...retailReportSource, id: "retail.report.margin-watch", title: "Kiểm tra mặt hàng bán dưới giá vốn hoặc biên lãi thấp", description: "Kiểm tra lợi nhuận và biên lợi nhuận theo mặt hàng trong kỳ; chỉ nêu mặt hàng lỗ hoặc có biên dưới ngưỡng được hỏi. Nếu dữ liệu không có giá vốn thì nói rõ không thể xác định.", fields: [...structuredClone(branchAndRange), queryField({ ...number("marginThresholdPercent", "Ngưỡng biên lợi nhuận thấp (%)", 10), min: 0, max: 100 })], resultFields: ["range", "belowCost", "lowMargin", "missingCost"] },
+    { ...retailReportSource, id: "retail.report.business-overview", title: "Tổng hợp tình hình kinh doanh bán lẻ", description: "Tổng hợp doanh thu, lãi gộp, đơn hủy/đổi trả, công nợ khách và hoa hồng cộng tác viên cho cùng một chi nhánh và kỳ.", fields: structuredClone(branchAndRange), resultFields: ["range", "grossSales", "grossProfit", "cancelledOrders", "returns", "customerDebt", "collaboratorCommission"] },
+    { ...retailReportSource, id: "retail.report.top-products-return-status", title: "Mặt hàng bán chạy, lợi nhuận và đổi trả", description: "Xếp hạng mặt hàng bán trong kỳ theo số lượng, tính lợi nhuận từ báo cáo bán lẻ và đối chiếu phiếu đổi trả trong cùng kỳ.", fields: structuredClone(branchAndRange), resultFields: ["range", "products", "returns"] },
+    { ...retailReportSource, id: "retail.report.employee-cancelled-cash-variance", title: "Nhân viên hủy đơn và chênh lệch tiền ca POS", description: "Trong cùng kỳ và chi nhánh, tìm người ghi nhận nhiều đơn hủy nhất và thu ngân có tổng độ lệch tiền ca đã đóng lớn nhất; chỉ báo cáo người thực hiện hủy nếu hồ sơ có ghi nhận trường đó.", fields: structuredClone(branchAndRange), resultFields: ["range", "cancellationLeader", "varianceLeader", "unattributedCancelledOrders"] },
+  );
+}
+if (retailShiftSource) operations.push(
+  { ...retailShiftSource, id: "retail.shift.variance-report", title: "Báo cáo ca POS có chênh lệch tiền", description: "Liệt kê ca POS đã đóng trong khoảng ngày và chi nhánh được chọn, chỉ giữ ca có số tiền kiểm đếm lệch so với dự kiến.", resultFields: ["from", "to", "shifts"] },
+  { ...retailShiftSource, id: "retail.shift.latest-close-report", title: "Ca POS đã đóng gần nhất và thu chi cùng ngày", description: "Tìm ca POS đã đóng gần nhất của chi nhánh hiện tại và đối chiếu tiền đầu ca, doanh số, chi tiền mặt cùng ngày.", fields: retailShiftSource.fields.filter(field => field.apiKey === "branchId"), resultFields: ["shift", "cashExpenses"] },
+);
+if (retailAfterSaleSource) operations.push(
+  { ...retailAfterSaleSource, id: "retail.after-sale.customer-return-summary", title: "Thống kê khách trả hàng và tiền hoàn", description: "Đếm khách hàng riêng biệt và tổng tiền trên phiếu đổi trả đã hoàn tất trong kỳ.", resultFields: ["range", "customerCount", "returnCount", "refundTotal"] },
+  { ...retailAfterSaleSource, id: "retail.after-sale.return-product-analysis", title: "Mặt hàng bị trả và lý do trả hàng", description: "Xếp mặt hàng theo số lượng bị trả trong kỳ và tổng hợp các lý do đã được ghi trên phiếu. Không tự suy luận lý do nếu phiếu không ghi.", resultFields: ["range", "returnCount", "products", "reasons"] },
+  { ...retailAfterSaleSource, id: "retail.after-sale.warranty-audit", title: "Đối chiếu đổi trả và bảo hành theo ngày bán", description: "Đối chiếu phiếu đổi trả và thiết bị bán trong khoảng ngày được hỏi; chỉ báo cáo dữ liệu bảo hành có trong hồ sơ, không khẳng định có/không có yêu cầu bảo hành nếu nguồn không cung cấp lịch sử yêu cầu.", resultFields: ["range", "returns", "warrantyDevices", "warrantyRequestsAvailable"] },
+);
+if (retailOrderSource) operations.push(
+  { ...retailOrderSource, id: "retail.order.installment-balances", title: "Đơn bán lẻ còn công nợ", description: "Liệt kê đơn trong kỳ còn phải thu. Nếu hệ thống không có trường xác nhận mua trả góp, trình bày là đơn còn công nợ và không gán nhãn trả góp.", resultFields: ["range", "orders", "installmentTypeTracked"] },
+  { ...retailOrderSource, id: "retail.order.warranty-match", title: "Tìm đơn theo ngày và tổng tiền để tra bảo hành", description: "Chỉ tìm đơn khớp chính xác ngày và tổng tiền được hỏi. Nếu không có đơn khớp, trả lời không tìm thấy và không thay bằng đơn gần giống.", fields: [...retailOrderSource.fields.filter(field => ["branchId", "from", "to"].includes(String(field.apiKey))), queryField(number("exactTotal", "Tổng tiền đơn cần khớp"))], resultFields: ["range", "exactTotal", "matches"] },
+  { ...retailOrderSource, id: "retail.order.invoice-debt-exceptions", title: "Đơn đã hoàn tất thiếu hóa đơn hoặc còn công nợ", description: "Liệt kê đơn đã hoàn tất nếu chưa có hóa đơn phát hành hoặc còn số dư phải thu; không đưa các đơn đã đủ tiền và đã có hóa đơn.", fields: [...retailOrderSource.fields.filter(field => ["branchId", "from", "to"].includes(String(field.apiKey)))], resultFields: ["orders", "total"] },
+);
+const retailDebtSource = operations.find(operation => operation.id === "finance.debt.list");
+if (retailDebtSource) operations.push({ ...retailDebtSource, id: "retail.order.debt-ranking", title: "Khách còn nợ nhiều nhất và khoản quá hạn lâu nhất", description: "Xếp công nợ bán lẻ theo số dư khách hàng và số ngày quá hạn nếu nguồn có dữ liệu đến hạn. Không suy ra tuổi nợ nếu không có ngày đến hạn.", resultFields: ["highestBalance", "oldestOverdue", "overdueAgeAvailable"] });
+if (retailCashbookSource) operations.push(
+  { ...retailCashbookSource, id: "retail.finance.cashbook.expense-report", title: "Các khoản chi tiền mặt bán lẻ", description: "Liệt kê khoản chi ghi trong sổ quỹ bán lẻ theo kỳ và chi nhánh, gồm ngày, số tiền và nội dung.", resultFields: ["range", "expenses", "total"] },
+  { ...retailCashbookSource, id: "retail.finance.cashbook.latest-close", title: "Kỳ chốt quỹ bán lẻ gần nhất", description: "Tra cứu kỳ đối soát quỹ gần nhất ở chi nhánh hiện tại và nêu ngày, số tiền chênh lệch theo các ca đã đóng nếu có.", path: "/retail/finance/cashbook/latest-close", fields: retailCashbookSource.fields.filter(field => field.apiKey === "branchId"), resultFields: ["closeDate", "from", "to", "difference", "balanced", "status"] },
+);
+if (retailPartnerSource) operations.push({ ...retailPartnerSource, id: "retail.partner.supplier-dealer-directory", title: "Danh sách nhà cung cấp và đại lý bán lẻ", description: "Liệt kê nhà cung cấp và đại lý bán lẻ, chỉ gồm tên và số điện thoại; bỏ qua cộng tác viên.", fields: retailPartnerSource.fields.filter(field => field.apiKey === "branchId"), resultFields: ["partners"], rawResponse: true });
+const retailWarrantyPhoneSource = operations.find(operation => operation.id === "retail.warranty.lookup.phone");
+if (retailWarrantyPhoneSource) operations.push({ ...retailWarrantyPhoneSource, id: "retail.customer.purchase-warranty-summary", title: "Lịch sử mua hàng và bảo hành khách hàng", description: "Tra lịch sử đơn bán và số dư nợ hiện tại của khách theo số điện thoại cùng thiết bị và hạn bảo hành hiện có. Nếu nguồn không cung cấp lịch sử yêu cầu bảo hành, nêu rõ giới hạn đó.", resultFields: ["customerName", "orderCount", "totalPurchased", "currentDebt", "orders", "warrantyDevices", "warrantyRequestsAvailable"] });
+const customerListSource = operations.find(operation => operation.id === "customer.list");
+if (customerListSource) operations.push({ ...customerListSource, id: "retail.customer.profile-summary", title: "Hạng và lịch sử mua khách hàng bán lẻ", description: "Tra hồ sơ khách theo tên hoặc số điện thoại, gồm hạng và tổng mua nếu trường dữ liệu có sẵn; chỉ báo trạng thái mã ưu đãi nếu API cung cấp trạng thái đã dùng.", resultFields: ["customerName", "tier", "totalSpent", "unusedCoupons", "couponUsageStatusAvailable"], rawResponse: true });
 // These PATCH endpoints express the complete command in the URL, with no editable body.
 for (const operation of operations) {
-  if(operation.method==='GET'&&operation.path==='/retail/warranty/orders'){
-    operation.resultRowsField='items';
-    operation.description='Tra cứu bảo hành theo từng dòng sản phẩm đã bán, gồm hàng quản lý số lượng và hàng có serial. Dữ liệu thuộc khách hàng, công ty và chi nhánh được xác thực. Có ngày hết bảo hành, khách hàng và mã đơn. status=all lấy đủ các trạng thái; days chỉ dùng phân loại trạng thái expiring, không giới hạn ngày khi status=all. Lọc khoảng ngày hết bảo hành cụ thể trên warrantyEndAt bằng bộ lọc đọc chung, lấy đủ các trang.';
-  }
-  if(operation.method==='GET'&&operation.path==='/retail/warranty/expiring'){
-    operation.description='Chỉ tra thiết bị quản lý serial trong khoảng từ thời điểm hiện tại đến days ngày tới; scope supplier/customer chọn đồng hồ bảo hành. Không bao gồm hàng quản lý số lượng. Khi cần toàn bộ sản phẩm khách đã mua và khoảng ngày lịch cụ thể, chọn nguồn bảo hành theo dòng đơn bán.';
-    operation.resultFields=['productName','sku','serialNumber','soldOrderCode','customerWarranty','supplierWarranty'];
-    operation.resultChildFields={customerWarranty:['startAt','endAt','months'],supplierWarranty:['startAt','endAt','months','supplierName']};
-  }
   if (["notification.mark-read", "notification.mark-all-read"].includes(operation.id)) operation.allowEmptyUpdate = true;
   if (operation.id === "marketing.lead-intake-profile.activate") {
     const version = operation.fields.find(field => field.apiKey === "version");
     if (version) version.referenceValueKey = "version";
   }
 }
-// Reviewed read contracts must expose the same filters as their scoped APIs.
+const partnerListOperation = operations.find(operation => operation.id === "partner.list");
+if (partnerListOperation) {
+  partnerListOperation.resultFields = [...new Set([...partnerListOperation.resultFields, "unpaidBalance", "hasBankAccount", "bankName"])];
+  partnerListOperation.fields.push(
+    queryField(choice("query_bankAccountFilter", "Lọc tài khoản ngân hàng", ["missing", "has"]), "bankAccountFilter"),
+    queryField({ key: "query_unpaidOnly", label: "Chỉ còn nợ hoa hồng", type: "boolean", systemRequired: false, required: false }, "unpaidOnly"),
+  );
+  partnerListOperation.assistantOnlyFields = [...(partnerListOperation.assistantOnlyFields || []), "query_bankAccountFilter", "query_unpaidOnly"];
+  partnerListOperation.description = "Tra cứu đối tác giới thiệu trong phạm vi được cấp quyền, gồm số dư hoa hồng còn phải trả, trạng thái đã có thông tin tài khoản ngân hàng và tên ngân hàng nếu được lưu. Không hiển thị số tài khoản hoặc tên chủ tài khoản.";
+  operations.push({
+    ...partnerListOperation,
+    id: "partner.payout.history.list",
+    title: "Tra cứu lịch sử chi trả hoa hồng đối tác",
+    description: "Tra cứu tên đối tác, ngày và số tiền các lần chi trả hoa hồng đã ghi nhận trong phạm vi được cấp quyền. Không hiển thị số tài khoản hoặc thông tin chi trả riêng tư.",
+    resultFields: ["name", "date", "amount"],
+    resultChildFields: undefined,
+  });
+  const partnerPayoutHistory = operations.find(operation => operation.id === "partner.payout.history.list")!;
+  partnerPayoutHistory.fields.push(queryField({ ...number("query_limit", "Số lần chi trả cần xem"), min: 1, max: 1000, defaultValue: 500 }));
+  partnerPayoutHistory.assistantOnlyFields = [...(partnerPayoutHistory.assistantOnlyFields || []), "query_limit"];
+}
+const partnerDetailSource = operations.find(operation => operation.method === "GET" && operation.path === "/partners/:id");
+if (partnerDetailSource) operations.push({
+  ...partnerDetailSource,
+  id: "partner.referrals.list",
+  title: "Lịch sử học viên do đối tác giới thiệu",
+  description: "Liệt kê học viên đã gắn với đối tác tuyển sinh được chọn, gồm tên, trạng thái và ngày đăng ký. Không hiển thị số điện thoại, học phí hoặc số tiền hoa hồng theo từng học viên.",
+  rawResponse: true,
+  resultFields: ["name", "referredStudentsCount", "totalReferredTuition", "referredStudents"],
+  resultChildFields: { referredStudents: ["fullName", "status", "registrationDate"] },
+});
+operations.push({
+  id: "student.assignment.missing-submissions", title: "Tra cứu học viên chưa nộp bài tập", description: "Tra cứu học viên trong danh sách của lớp đã gắn với bài tập, nhưng chưa có bản nộp. Cần tên bài tập; chỉ đọc tên học viên, lớp và hạn nộp trong phạm vi quyền hiện tại.", module: "student", permissions: ["people:read"], method: "GET", path: "/assignments/missing-submissions", link: "/student-management/batches", fields: [queryField(text("query_search", "Tên bài tập"), "search")], resultFields: ["assignmentCount", "missingCount", "students"], resultChildFields: { students: ["assignmentTitle", "batchName", "studentName", "dueDate"] }, readOnly: true, rawResponse: true,
+});
+operations.push({
+  id: "student.debt.report", title: "Báo cáo học viên còn nợ học phí", description: "Đếm học viên có học phí còn phải thu trong phạm vi công ty/chi nhánh và trả số dư theo từng học viên. Học viên được miễn học phí không tính là nợ; kết quả chỉ gồm tên, khóa học và số tiền còn thiếu.", module: "student", permissions: ["people:read"], method: "GET", path: "/students/debt-summary", link: "/student-management/students", fields: [], resultFields: ["studentCount", "totalOutstandingAmount", "students"], resultChildFields: { students: ["fullName", "courseName", "outstandingAmount"] }, readOnly: true, rawResponse: true,
+});
+operations.push({
+  id: "partner.payout.report", title: "Thống kê hoa hồng đã chi trả theo phương thức", description: "Tổng hợp số lượt và số tiền hoa hồng đã ghi nhận chi trả theo chuyển khoản hoặc tiền mặt trong khoảng ngày đã chọn. Giới hạn theo công ty và chi nhánh người dùng được cấp quyền; không hiển thị thông tin tài khoản ngân hàng.", module: "student", permissions: ["relationship:read"], method: "GET", path: "/partners/payout-report", link: "/student-management/partners", fields: [queryField(date("query_from", "Từ ngày", true), "from"), queryField(date("query_to", "Đến ngày", true), "to")], resultFields: ["from", "to", "payoutCount", "totalAmount", "methodTotals", "payouts"], resultChildFields: { methodTotals: ["method", "payoutCount", "totalAmount"], payouts: ["partnerName", "date", "method", "amount"] }, readOnly: true, rawResponse: true,
+});
+const workerOverviewSource = operations.find(operation => operation.id === "worker.report");
+if (workerOverviewSource) operations.push({
+  ...workerOverviewSource,
+  id: "worker.report.overview",
+  title: "Báo cáo tổng quan Lao động theo kỳ",
+  description: "Tổng hợp số dự án, số hồ sơ lao động, tỷ lệ chuyên cần trên các ngày làm theo lịch có chấm công, hợp đồng đang hiệu lực hết hạn trong kỳ và số dư dương của các kỳ đối soát hoa hồng đối tác giao với kỳ báo cáo. Chỉ đọc dữ liệu trong công ty/chi nhánh được cấp quyền.",
+  path: "/worker-management/reports/assistant/overview",
+  fields: [queryField(date("query_from", "Từ ngày", true), "from"), queryField(date("query_to", "Đến ngày", true), "to")],
+  resultFields: ["from", "to", "projectCount", "workerCount", "attendanceRate", "attendedWorkCount", "scheduledWorkCount", "expiringContractCount", "expiringContracts", "unpaidCommissionAmount", "unpaidCommissionSettlementCount", "unpaidCommissionSettlements"],
+  resultChildFields: { expiringContracts: ["code", "workerName", "clientName", "endDate"], unpaidCommissionSettlements: ["partnerName", "periodStart", "periodEnd", "balanceAmount"] },
+  rawResponse: true,
+});
+operations.push({
+  id: "student.notification.audience.counts", title: "Thống kê nhóm học viên nhận thông báo", description: "Đếm học viên thuộc các nhóm mà màn hình thông báo đang hỗ trợ: sắp thi/đang thi, còn nợ học phí, và cần học lại/thi lại. Mỗi học viên chỉ được đếm một lần trong từng nhóm; không gửi thông báo.", module: "student", permissions: ["people:read"], method: "GET", path: "/student-notifications/audience-counts", link: "/student-management/notifications", fields: [], resultFields: ["upcomingExamCount", "unpaidTuitionCount", "retakeCount"], readOnly: true, rawResponse: true,
+});
+operations.push({
+  id: "student.suspension.report", title: "Báo cáo học viên xin bảo lưu", description: "Tra cứu các lần chuyển trạng thái sang Bảo lưu trong khoảng ngày đã chọn, hoặc học viên đang bảo lưu có ngày dự kiến quay lại trong khoảng đã chọn. Giới hạn trong phạm vi công ty/chi nhánh.", module: "student", permissions: ["people:read"], method: "GET", path: "/batches/enrollment-suspensions", link: "/student-management/batches", fields: [queryField(choice("query_mode", "Loại báo cáo", ["requests", "upcoming"], "requests"), "mode"), queryField(date("query_from", "Từ ngày", true), "from"), queryField(date("query_to", "Đến ngày", true), "to")], resultFields: ["mode", "studentCount", "requestCount", "requests"], resultChildFields: { requests: ["studentName", "batchName", "requestedAt", "expectedReturnAt"] }, readOnly: true, rawResponse: true,
+});
+operations.push({
+  id: "worker.public-registration-link.create", title: "Tạo liên kết đăng ký hồ sơ lao động", description: "Tạo liên kết công khai để ứng viên tự điền hồ sơ lao động trong phạm vi tài khoản. Chỉ tạo sau khi người dùng xác nhận; liên kết là dữ liệu có thể chia sẻ ra ngoài.", module: "worker", permissions: ["people:manage"], method: "POST", path: "/students/public-register-link", link: "/worker-management/workers", fields: [], fixedBodyValues: { entityPreset: "worker" }, confirmation: true, resultFields: ["registrationUrl"],
+});
+for (const operation of operations.filter(item => ["batch.list", "student.batch.detail"].includes(item.id))) {
+  operation.resultFields = [...new Set([...operation.resultFields, "maxLearners", "enrolledCount", "remainingSlots"])];
+}
+const studentBranchQueryActions = new Map<string, string>([
+  ["batch.list", "Chi nhánh lớp học"],
+  ["student.learning-roadmap.waitlist.list", "Chi nhánh danh sách chờ lớp"],
+]);
 for (const operation of operations) {
-  const addQuery = (field: AssistantField) => {
-    if (!operation.fields.some(existing => existing.apiKey === field.key && existing.source === 'query')) operation.fields.push({ ...field, key: `query_${field.key}`, apiKey: field.key, source: 'query' });
-  };
-  if (operation.id === 'inventory.prices.list') {
-    addQuery(text('sku', 'Mã SKU cần tra giá'));
-    operation.description = 'Tra giá bán và giá vốn theo mã SKU chính xác trong chi nhánh đang chọn. query_sku lọc mã SKU; kết quả có sku, sellingPrice, costPrice theo quyền hiện tại. Không cần ghép nhiều nguồn cho hai loại giá.';
+  const branchLabel = studentBranchQueryActions.get(operation.id);
+  if (!branchLabel || operation.fields.some(field => field.source === "query" && field.apiKey === "branchId")) continue;
+  operation.fields.unshift(queryField(ref("targetBranch", branchLabel, "branch.list"), "branchId"));
+}
+const batchListForCapacity = operations.find(operation => operation.id === "batch.list");
+if (batchListForCapacity) operations.push({
+  ...batchListForCapacity,
+  id: "student.batch.roadmap.lookup",
+  title: "Tra cứu lộ trình và chặng của lớp học",
+  description: "Tra cứu một lớp theo tên hoặc mã và trả rõ lộ trình, số chặng, tên khóa học trong phạm vi chi nhánh được cấp quyền. Chỉ hiển thị trường công khai đã duyệt; không trả ID nội bộ hay thông tin điểm danh.",
+  fields: batchListForCapacity.fields.filter(field => field.source !== "query" || ["search", "branchId", "page", "limit"].includes(String(field.apiKey))),
+  resultFields: ["code", "name", "roadmapName", "roadmapStepNumber", "courseTitle"],
+  resultChildFields: undefined,
+  rawResponse: true,
+});
+if (batchListForCapacity) operations.push({
+  ...batchListForCapacity,
+  id: "batch.capacity.report",
+  title: "Báo cáo sĩ số và chỗ trống lớp học",
+  description: "Tra cứu lớp hoặc nhóm học trong một chi nhánh theo tên/mã lớp hay khóa học liên kết (ví dụ HSK2), rồi lọc lớp còn chỗ hoặc đã đủ sĩ số. Lớp đủ sĩ số có remainingSlots=0; lớp còn chỗ hoặc không giới hạn được gom vào capacityStatus=available. Dùng analysis.filters để lọc capacityStatus hoặc remainingSlots, aggregate để đếm; máy chủ đọc đủ các trang trước khi lọc. Nếu tài khoản quản trị chưa gắn với chi nhánh, phải hỏi và chọn chi nhánh trước; action này không tự tổng hợp toàn công ty.",
+  fields: [...batchListForCapacity.fields.map(field => field.key === "search" ? { ...field, label: "Tên/mã lớp hoặc tên/mã khóa học" } : field), { key: "analysis", label: "Điều kiện phân tích", type: "json" }],
+  analysis: { scopeLabel: "các lớp trong phạm vi được cấp quyền", pagination: { pageField: "page", sizeField: "limit" }, fields: {
+    code: { label: "Mã lớp", type: "text" },
+    name: { label: "Lớp học", type: "text" },
+    courseCode: { label: "Mã khóa học", type: "text" },
+    courseTitle: { label: "Khóa học", type: "text" },
+    instructorName: { label: "Giảng viên", type: "text" },
+    enrolledCount: { label: "Sĩ số hiện tại", type: "number", aliases: ["số học viên", "sĩ số", "đã ghi danh"] },
+    maxLearners: { label: "Sĩ số tối đa", type: "number", aliases: ["chỉ tiêu lớp", "sĩ số tối đa"] },
+    remainingSlots: { label: "Số chỗ còn lại", type: "number", aliases: ["chỗ trống", "chỗ còn", "còn chỗ"] },
+    capacityStatus: { label: "Tình trạng sĩ số", type: "text", values: { available: "Còn chỗ hoặc không giới hạn", full: "Đã đủ sĩ số" }, aliases: ["đã đủ sĩ số", "sĩ số tối đa", "còn chỗ", "còn trống"] },
+    status: { label: "Trạng thái lớp", type: "text" },
+  } },
+  resultFields: ["code", "name", "courseCode", "courseTitle", "instructorName", "enrolledCount", "maxLearners", "remainingSlots", "capacityStatus", "status"],
+  assistantOnlyFields: [...(batchListForCapacity.assistantOnlyFields || []), "analysis"],
+});
+const waitlistListForCount = operations.find(operation => operation.id === "student.learning-roadmap.waitlist.list");
+if (waitlistListForCount) operations.push({
+  ...waitlistListForCount,
+  id: "student.learning-roadmap.waitlist.count",
+  title: "Đếm học viên trong danh sách chờ lớp",
+  description: "Đếm tổng số học viên khớp bộ lọc trong danh sách Chờ lớp/lộ trình của một chi nhánh. Dùng total của API trước khi phân trang, không đếm số dòng đang hiển thị. Có thể lọc theo lộ trình, chặng học, lớp nguồn, tên hoặc số điện thoại. Nếu tài khoản quản trị chưa gắn với chi nhánh, phải hỏi và chọn chi nhánh trước; action này không tự tổng hợp toàn công ty. Để trả số lượng, dùng analysis.aggregate={operation:sum,field:waitingCount}.",
+  fields: [...waitlistListForCount.fields.filter(field => field.apiKey !== "page" && field.apiKey !== "limit"), { key: "analysis", label: "Điều kiện phân tích", type: "json" }],
+  analysis: { fields: { waitingCount: { label: "Số học viên đang chờ lớp", type: "number" } } },
+  resultFields: ["waitingCount"],
+  assistantOnlyFields: [...(waitlistListForCount.assistantOnlyFields || []), "analysis"],
+});
+const workerListOperation = operations.find(operation => operation.id === "worker.list");
+if (workerListOperation) {
+  workerListOperation.resultFields = [...new Set([...workerListOperation.resultFields, "laborType", "workPermitExpiry"])];
+  workerListOperation.resultFields = [...new Set([...workerListOperation.resultFields, "partnerName", "partnerCode"])];
+  if (!workerListOperation.fields.some(field => field.source === "query" && field.apiKey === "referralStatus")) {
+    workerListOperation.fields.push(queryField(choice("query_referralStatus", "Trạng thái đối tác giới thiệu", ["linked", "missing"]), "referralStatus"));
   }
-  if (operation.id === 'worker.partner.referrals.list') {
-    addQuery(date('from', 'Từ ngày giới thiệu'));
-    addQuery(date('to', 'Đến ngày giới thiệu'));
-    operation.description += ' Lọc theo ngày giới thiệu referredAt bằng query_from và query_to (YYYY-MM-DD, bao gồm hai đầu). Khi hỏi một tháng, lấy ngày đầu đến ngày cuối tháng đó; không dùng ngày hiệu lực hợp đồng thay ngày giới thiệu.';
-  }
-  if (operation.id === 'finance.receivable.list') {
-    addQuery({ ...number('minOverdueDays', 'Số ngày quá hạn tối thiểu'), min: 1, integer: true });
-    const key=operation.fields.find(f=>f.source==='query'&&f.apiKey==='minOverdueDays')!.key;
-    operation.queryPredicates={...operation.queryPredicates,[key]:{operator:'gte',integer:true}};
-    operation.description += ' query_minOverdueDays là ngưỡng số ngày quá hạn bao gồm ngưỡng. Ví dụ quá hạn trên 30 ngày: query_minOverdueDays=31, chỉ một truy vấn; không tách thành ba nguồn agingBucket. Giữ nguyên các bộ lọc khác nếu được yêu cầu.';
-  }
-  if (['inventory.serial.list', 'inventory.serial.detail'].includes(operation.id)) {
-    operation.resultFields = [...new Set([...operation.resultFields, 'warehouseName', 'warehouseCode'])];
-    operation.description += ' Tra vị trí kho hiện tại của serial/IMEI bằng warehouseName và warehouseCode cùng trạng thái. Chỉ trả tên kho được API cấp trong phạm vi, không suy vị trí từ chi nhánh bán.';
+  if (!workerListOperation.fields.some(field => field.source === "query" && field.apiKey === "permitExpiryWithinDays")) {
+    workerListOperation.fields.push(queryField({
+      ...number("query_permitExpiryWithinDays", "GPLĐ/visa còn hạn trong N ngày"),
+      min: 0,
+      max: 365,
+      integer: true,
+    }, "permitExpiryWithinDays"));
   }
 }
+const actionDescriptionOverrides: Record<string, string> = {
+  "employee.list": "Tra cứu hồ sơ nhân sự công ty theo tên, email hoặc số điện thoại trong phạm vi được cấp quyền; có thể chọn chi nhánh. Kết quả gồm thông tin hồ sơ cơ bản như phòng ban, bộ phận và trình độ. Không dùng để tra người lao động/công nhân theo dự án hoặc ứng viên tuyển dụng.",
+  "partner.list": "Tra cứu đối tác giới thiệu học viên trong phân hệ quản lý học viên, gồm thông tin liên hệ, số dư hoa hồng còn phải trả và việc đã có thông tin tài khoản ngân hàng hay chưa. Không hiển thị số tài khoản. Không dùng cho cộng tác viên, đại lý hoặc nhà cung cấp bán lẻ; các đối tượng đó thuộc danh sách đối tác bán lẻ.",
+  "retail.partner.list": "Tra cứu hồ sơ cộng tác viên, đại lý hoặc nhà cung cấp thuộc phân hệ bán lẻ theo tên, mã, số điện thoại, email, vai trò, trạng thái active/inactive hoặc hồ sơ thiếu ít nhất một trong ba thông tin điện thoại/email/địa chỉ. Kết quả chỉ có thông tin hồ sơ cơ bản; action này không trả số dư hoa hồng, trạng thái liên kết tài khoản ngân hàng hoặc trạng thái sao kê. Không dùng cho đối tác giới thiệu học viên hoặc đối tác cung ứng lao động.",
+  "retail.report.summary": "Báo cáo doanh thu bán lẻ của một chi nhánh theo khoảng ngày; gồm tiền thu tiền mặt và chuyển khoản, doanh thu gộp/ròng, hoàn tiền, công nợ còn lại và số đơn. Mặc định hôm nay; chọn 7 hoặc 30 ngày hoặc nêu từ/đến. Kết quả có doanh thu từng ngày. Giá vốn, lợi nhuận gộp và biên lợi nhuận chỉ có với tài khoản được phép xem lợi nhuận. Nếu tài khoản quản trị chưa gắn chi nhánh thì hỏi và chọn chi nhánh trước; action này không tự tổng hợp toàn công ty.",
+  "retail.report.cashier-ranking": "Xếp thu ngân theo doanh số ròng sau hoàn trong tháng hoặc khoảng ngày được hỏi; hiển thị thu ngân đồng hạng cao nhất, số đơn và doanh số. Báo cáo áp dụng theo chi nhánh được cấp quyền; nếu tài khoản quản trị chưa gắn chi nhánh thì hỏi chọn chi nhánh.",
+  "retail.order.list": "Tra cứu đơn bán lẻ trong một chi nhánh theo mã/khách hàng, ngày, trạng thái đơn và thanh toán. Đã giao/bán xong là status=completed; còn nợ là paymentStatus=partial hoặc unpaid và dueAmount>0. Dùng để tìm đơn đã hoàn tất nhưng khách chưa thanh toán đủ; trạng thái hoàn tất không có nghĩa đã thu đủ tiền. Nếu tài khoản quản trị chưa gắn chi nhánh thì hỏi và chọn chi nhánh trước.",
+  "retail.order.cancelled.report": "Đếm đơn bán lẻ theo ngày hủy, không theo ngày bán; trả mã đơn, thời điểm hủy, lý do và người hủy khi hồ sơ có ghi nhận. Đọc đủ các trang để có tổng chính xác. Báo cáo theo chi nhánh được cấp quyền; nếu tài khoản quản trị chưa gắn chi nhánh thì hỏi chọn chi nhánh.",
+  "batch.list": "Tra cứu lớp học hoặc nhóm học theo mã/tên lớp, tên/mã khóa học liên kết, giảng viên hoặc trạng thái, trong một chi nhánh. Trường tìm kiếm khớp cả tên và mã khóa học, ví dụ HSK2. Kết quả có sĩ số hiện tại, sĩ số tối đa và số chỗ còn lại; lớp đã đủ sĩ số khi remainingSlots=0, còn chỗ khi remainingSlots>0. remainingSlots=null nghĩa là lớp không giới hạn sĩ số. Nếu tài khoản quản trị chưa gắn với chi nhánh, phải hỏi và chọn chi nhánh trước khi tra cứu; action này không tự tổng hợp toàn công ty.",
+  "student.learning-roadmap.waitlist.list": "Liệt kê học viên đang chờ xếp vào lớp theo lộ trình, chặng học, lớp nguồn, tên hoặc số điện thoại trong một chi nhánh. Đây là danh sách chờ lộ trình, không phải danh sách học viên của một lớp đã mở hay lịch học. Nếu tài khoản quản trị chưa gắn với chi nhánh, phải hỏi và chọn chi nhánh trước khi tra cứu; action này không tự tổng hợp toàn công ty.",
+  "student.learning-roadmap.waitlist.count": "Đếm số học viên còn trong danh sách Chờ lớp của một chi nhánh, theo lộ trình, chặng học, lớp nguồn, tên hoặc số điện thoại nếu có bộ lọc. Dùng total của API trước khi phân trang, không đếm số dòng đang hiển thị; đưa tổng vào waitingCount để phân tích. Nếu tài khoản quản trị chưa gắn với chi nhánh, phải hỏi và chọn chi nhánh trước; không báo đây là tổng toàn công ty.",
+  "inventory.transfer.create": "Chọn action này khi người dùng yêu cầu tạo/lập phiếu điều chuyển hàng giữa hai kho, thường viết ‘tạo phiếu điều chuyển … từ kho X sang kho Y’. Giữ riêng chi nhánh gửi, tên kho gửi, chi nhánh nhận và tên kho nhận; tên kho không thay thế tên chi nhánh. Giữ nguyên tên sản phẩm và số lượng đã nêu để tra cứu; hỏi chọn SKU/biến thể khi một sản phẩm có nhiều loại, rồi ghi biến thể hoặc SKU chính xác vào variantId; yêu cầu IMEI/serial cho từng máy nếu SKU quản lý từng số máy. Phải hỏi lý do nếu người dùng chưa nêu. Chỉ tạo sau khi xác định đúng hai chi nhánh, hai kho, sản phẩm/SKU, số lượng, lý do và người dùng xác nhận. Không chọn action này cho báo cáo hoặc tra cứu phiếu, nhận/hủy phiếu, phiếu nhập hay phiếu xuất kho.",
+  "repair.list": "Tra cứu phiếu sửa chữa theo mã phiếu, khách hàng, số sê-ri, trạng thái sửa chữa hoặc trạng thái thanh toán. Dùng khi hỏi thiết bị tiếp nhận sửa chữa/bảo hành; không phải đơn hàng bán lẻ. Trạng thái delivered nghĩa là đã bàn giao thiết bị, paymentStatus=partial/unpaid hoặc dueAmount>0 nghĩa là còn công nợ.",
+  "project.update": "Cập nhật dự án đã chọn theo tên hoặc mã, gồm tên dự án, độ ưu tiên, ngày bắt đầu và hạn hoàn thành. Chỉ thay đổi trường người dùng nêu, giữ nguyên trường khác; nếu có nhiều dự án trùng tên thì hỏi chọn đúng dự án. Luôn xác nhận trước khi lưu.",
+  "project.delete": "Xóa hồ sơ dự án đã chọn theo tên hoặc mã. Nếu tên trùng hoặc chưa xác định duy nhất dự án thì hỏi lại trước khi thao tác; luôn yêu cầu người dùng xác nhận trước khi xóa.",
+  "task.delete": "Xóa công việc đã chọn theo tên hoặc mã công việc. Nếu có nhiều công việc cùng tên thì hỏi thêm dự án hoặc người được giao để xác định đúng bản ghi; luôn yêu cầu người dùng xác nhận trước khi xóa.",
+  "branch.list": "Tra cứu chi nhánh theo tên hoặc mã trong phạm vi tài khoản được cấp quyền. Kết quả có tên, mã, địa chỉ và trạng thái hoạt động; dùng action này để chọn đúng chi nhánh cho báo cáo hoặc thao tác khác, không tự suy đoán khi có nhiều kết quả.",
+  "training.list": "Tra cứu khóa đào tạo nội bộ theo tên hoặc danh mục, gồm tên khóa, danh mục, thời lượng và giảng viên. Dùng cho chương trình đào tạo nhân sự của công ty; không dùng thay danh sách khóa học/lớp học dành cho học viên.",
+  "product.list": "Tra cứu sản phẩm trong danh mục theo tên, mã sản phẩm hoặc SKU; kết quả có nhóm hàng, loại sản phẩm và trạng thái. Dùng để xác định đúng sản phẩm trước thao tác kho; nếu hỏi số lượng tồn, kho còn hàng hoặc số sê-ri thì cần action báo cáo tồn kho tương ứng.",
+  "finance.treasury.accounts.list": "Xem các quỹ tiền mặt và tài khoản ngân hàng tại chi nhánh tài chính đã chọn, gồm số dư đầu kỳ và số dư hiện tại. Dùng khi hỏi quỹ/tài khoản còn bao nhiêu tiền; không dùng để liệt kê phiếu thu chi hay tính doanh thu.",
+  "finance.treasury.vouchers.list": "Liệt kê phiếu thu và phiếu chi tại chi nhánh tài chính đã chọn, gồm nội dung, loại phiếu, số tiền, ngày, trạng thái và chứng từ tham chiếu. Dùng khi hỏi các khoản thu/chi đã ghi nhận; nếu hỏi số dư quỹ hiện tại thì dùng action tra cứu quỹ và tài khoản.",
+  "api.post.f03e901c8ee14a8f": "Bắt đầu đếm trên một phiếu kiểm kê kho nháp đã có, chuyển phiếu sang trạng thái đang kiểm kê. Phải xác định đúng phiếu theo mã hoặc tên; action này không tạo phiếu mới và không gửi phiếu đi duyệt.",
+  "api.post.a9dc1045ea6b35ab": "Gửi phiếu kiểm kê kho đã nhập kết quả sang trạng thái chờ phê duyệt. Phải chọn đúng phiếu đã có; action này không bắt đầu đếm và không tự phê duyệt hay cập nhật tồn kho.",
+  "api.get.3b0987c2af0ac3e5": "Xem cấu hình in hóa đơn bán lẻ hiện tại: khổ giấy, mẫu hóa đơn, thuế suất mặc định và tên cửa hàng. Đây là thiết lập chung của điểm bán, không phải tra cứu hoặc in một hóa đơn giao dịch cụ thể.",
+  "worker.labor.contract.delete": "Xóa hợp đồng lao động đã chọn theo mã hợp đồng hoặc thông tin nhận diện được hỗ trợ. Nếu chưa xác định duy nhất hợp đồng thì hỏi lại; luôn yêu cầu xác nhận trước khi xóa. Action này không xóa hồ sơ người lao động hay dự án.",
+  "timekeeping.records.list": "Tra cứu bảng chấm công trong ngày của nhân sự công ty theo tên, trạng thái vào/ra ca và giờ vào/ra. Mặc định xem hôm nay trong phạm vi chi nhánh hiện tại; quản trị viên có thể chọn toàn công ty. Nhân sự chưa có bản ghi được hiển thị là Chưa ghi nhận.",
+  "timekeeping.records.late": "Lọc bảng chấm công trong ngày để liệt kê nhân sự có trạng thái đi muộn, kể cả trường hợp vừa đi muộn vừa về sớm. Mặc định xem hôm nay theo chi nhánh; quản trị viên có thể chọn toàn công ty. Không bao gồm người vắng hoặc chưa có bản ghi.",
+  "timekeeping.records.absent": "Lọc bảng chấm công trong ngày để liệt kê người có trạng thái Vắng đã được ghi nhận. Mặc định xem hôm nay theo chi nhánh; quản trị viên có thể chọn toàn công ty. Không coi người Chưa ghi nhận hoặc người Nghỉ phép là Vắng.",
+  "timekeeping.records.unrecorded": "Liệt kê nhân sự trong bảng chấm công ngày được chọn chưa có bản ghi, hiển thị trạng thái Chưa ghi nhận. Mặc định là hôm nay theo chi nhánh; quản trị viên có thể chọn toàn công ty. Chưa ghi nhận không đồng nghĩa đã xác nhận người đó vắng mặt.",
+  "timekeeping.records.leave": "Lọc bảng chấm công trong ngày để liệt kê nhân sự có trạng thái Nghỉ phép đã được ghi nhận. Mặc định xem hôm nay theo chi nhánh; quản trị viên có thể chọn toàn công ty. Dùng để xem tình trạng chấm công, không phải tra số phép năm còn lại hoặc mọi đơn nghỉ phép.",
+};
 for (const operation of operations) {
-  // ProductCatalogService.list supports page/limit (limit <= 100). Expose the
-  // real parameters so shared post-filtering can read beyond the first page.
-  if(operation.method==='GET' && operation.path==='/inventory/catalog/products')for(const field of [
-    {key:'page',label:'Trang',type:'number' as const,min:1,integer:true},
-    {key:'limit',label:'Số sản phẩm mỗi trang',type:'number' as const,min:1,max:100,integer:true},
-  ])if(!operation.fields.some(f=>(f.apiKey||f.key)===field.key))operation.fields.push(queryField(field));
-}
-for (const operation of operations) {
-  if(operation.id==='retail.shift.current')operation.description='Chỉ đọc ca POS đang mở của CHÍNH TÀI KHOẢN ĐANG ĐĂNG NHẬP. Không phải danh sách ca của mọi nhân viên; cần xem ai/các thu ngân đang mở ca trong chi nhánh thì dùng nguồn danh sách ca. expectedCash là số tiền theo sổ, không phải tiền thực kiểm kê.';
-  if(operation.id==='retail.shift.list')operation.description+=' Liệt kê ca của các thu ngân trong chi nhánh theo quyền; status=open để tìm những người đang mở ca. expectedCash là tiền theo sổ; countedCash là số đã kiểm đếm khi có.';
-  if(operation.path==='/timekeeping/records')operation.description+=' Nguồn chấm công NHÂN SỰ CÔNG TY. Người lao động/nhân công tham gia dự án thuộc quản lý lao động là loại hồ sơ riêng; nguồn này không trả chấm công của loại hồ sơ đó.';
-  if(operation.id==='student.schedule.list'){
-    operation.resultFields=[...new Set([...operation.resultFields,'location'])];
-    operation.description+=' location là tên phòng/địa điểm có cấu trúc, dùng lọc phòng; không suy địa điểm từ lời mô tả giảng viên hay số học viên.';
-  }
-  if(operation.id==='student.resource.list')operation.description+=' Loại tài nguyên là danh mục cụ thể (ví dụ máy chiếu), không phải tên chung của màn hình. Màn hình thiết bị của web lấy toàn bộ loại trừ Phòng học bằng excludeType; màn hình phòng học lấy type=Phòng học.';
-  if(operation.method==='GET'&&operation.path==='/analytics/pnl'){
-    operation.fields=operation.fields.map(field=>field.source==='query'&&['from','to'].includes(field.apiKey||field.key)?{...field,type:'date'}:field);
-    operation.precomputedMeasures=Object.fromEntries(['revenue','tuitionRevenue','goodsRevenue','goodsGrossProfit','payrollExpense','commissionExpense','generalOperatingExpense','totalOperatingExpenses','operatingResult'].map(key=>[key,{operation:'sum' as const,label:key}]));
-  }
-  if(operation.method==='GET'&&operation.path==='/retail/finance/profit')operation.precomputedMeasures=Object.fromEntries(['revenue','knownCost','grossProfit','operatingExpense','commissionExpense','netProfit'].map(key=>['summary.'+key,{operation:'sum' as const,label:key}]));
-  if(operation.method==='GET'&&operation.path==='/finance/management/report')operation.precomputedMeasures=Object.fromEntries(['revenue','cost','grossProfit','expense','netProfit','cashIn','cashOut'].map(key=>['summary.'+key,{operation:'sum' as const,label:key}]));
-  if(operation.id==='retail.report.summary'){
-    // RetailReportModel.paymentMix is already grouped by method and sums paid amounts.
-    operation.resultChildFields={...operation.resultChildFields,paymentMix:['method','amount']};
-    operation.precomputedGroups={paymentMix:{dimension:'method',measures:{amount:'sum'}}};
-    operation.precomputedMeasures={...operation.precomputedMeasures,'paymentMix.amount':{operation:'sum',label:'Số tiền theo phương thức thanh toán'}};
-  }
-  if(operation.id==='inventory.receipt.list'){
-    // listReceipts returns lean GoodsReceipt documents with these declared timestamps.
-    operation.resultFields=[...new Set([...operation.resultFields,'receivedAt','confirmedAt','createdAt'])];
-  }
-  // laborPartnerReportSchema/listSettlementSchema require YYYY-MM-DD, even
-  // when the generated catalog labels the boundary as a period rather than a day.
-  if(operation.method==='GET'&&['/worker-management/partners/dashboard','/worker-management/partners/reports/commission','/worker-management/partners/settlements'].includes(operation.path))
-    operation.fields=operation.fields.map(field=>field.source==='query'&&['periodFrom','periodTo','periodStart','periodEnd'].includes(field.apiKey||field.key)?{...field,type:'date'}:field);
-  if(operation.method==='GET'&&operation.path==='/inventory/transfers')operation.description+=' Trạng thái nghiệp vụ: in_transit là đã gửi, đang vận chuyển và bên nhận chưa tiếp nhận; received là bên nhận đã xác nhận nhận; cancelled là đã hủy; reversed là đã đảo phiếu.';
-  operation.fields=operation.fields.map(normalizeAssistantFieldContract);
-  if(operation.id==='department.lookup'){
-    operation.analysis={publicRead:true,rowDimensions:['name'],displayFields:['name','managerName','employeeCount'],fields:{name:{label:'Phòng ban',type:'text'},managerName:{label:'Người quản lý',type:'text'},employeeCount:{label:'Số nhân sự',type:'number',measureOperation:'count'}}};
-    if(!operation.fields.some(f=>f.key==='analysis'))operation.fields.push({key:'analysis',label:'Điều kiện lọc và tổng hợp',type:'json'});
-    operation.assistantOnlyFields=[...(operation.assistantOnlyFields||[]),'analysis'];
-  }
-  if(operation.id==='partner.analysis'&&operation.analysis)operation.analysis.additiveCountFields=['referredStudentsCount'];
-  if(['POST','PATCH'].includes(operation.method)&&/^\/worker-management\/partners\/policies(?:\/:\w+)?$/.test(operation.path))operation.inputArrayLengths={'official.milestones':'official.maxMonths'};
-  const analysis=publicReadAnalysis(operation,operations);
-  if (!analysis) continue;
-  operation.analysis=analysis;
-  if(operation.id==='student.resource.list'&&analysis.fields.status)analysis.fields.status.values={AVAILABLE:'Sẵn sàng sử dụng',OCCUPIED:'Đang sử dụng',MAINTENANCE:'Đang bảo trì'};
-  operation.fields.push({key:'analysis',label:'Điều kiện lọc và tổng hợp',type:'json'});
-  operation.assistantOnlyFields=[...(operation.assistantOnlyFields||[]),'analysis'];
-}
-const couponCreateSource=operations.find(operation=>operation.id==='retail.coupon.create')!;
-operations.push({id:'retail.coupon.list',title:'Tra cứu danh sách mã giảm giá và thời hạn',module:'retail',
-  permissions:['retail:manage'],method:'GET',path:'/retail/coupons',adapter:'contract',link:couponCreateSource.link,
-  description:'Danh sách đầy đủ mã ưu đãi trong chi nhánh theo quyền quản lý. active là bật/tắt; startsAt và endsAt là thời điểm hiệu lực. Lọc kết hợp bằng analysis; không dùng assistant-options để thay danh sách quản trị. Còn hạn không đồng nghĩa còn lượt sử dụng: usageLimit và usedCount là hai cột riêng. API cố định 20 dòng/trang, truyền page để đọc tiếp.',
-  fields:[queryField(ref('targetBranch','Chi nhánh bán lẻ','branch.list',false),'branchId'),queryField({...number('page','Trang',1),integer:true,min:1}),{key:'analysis',label:'Điều kiện lọc và tổng hợp',type:'json'}],assistantOnlyFields:['analysis'],
-  resultFields:['code','name','discountType','value','minSubtotal','maxDiscount','startsAt','endsAt','active','usageLimit','usedCount'],
-  analysis:{publicRead:true,fields:{code:{label:'Mã giảm giá',type:'text',contains:true},name:{label:'Tên ưu đãi',type:'text',contains:true},discountType:{label:'Loại giảm giá',type:'text',values:{amount:'Số tiền',percent:'Phần trăm'}},value:{label:'Mức giảm',type:'number'},minSubtotal:{label:'Đơn tối thiểu',type:'number'},maxDiscount:{label:'Giảm tối đa',type:'number'},startsAt:{label:'Bắt đầu hiệu lực',type:'text',format:'date'},endsAt:{label:'Hết hiệu lực',type:'text',format:'date'},active:{label:'Đang bật',type:'boolean'},usageLimit:{label:'Giới hạn lượt dùng',type:'number'},usedCount:{label:'Đã sử dụng',type:'number'}}}});
-// Reviewed array sections remain ordinary read operations: same scoped HTTP
-// source, permissions and dispatcher, with a typed row contract for the shared
-// filter/sort/aggregate engine. No natural-language phrase selects these views.
-const retailSummarySource=operations.find(operation=>operation.id==='retail.report.summary')!;
-for(const section of [
-  {id:'retail.report.payment-methods',title:'Tổng hợp tiền thu theo phương thức thanh toán',key:'paymentMix',
-    description:'Toàn bộ số tiền thực thu theo từng phương thức trong khoảng ngày báo cáo bán lẻ. Lọc phương thức, cộng tiền, liệt kê hoặc nhóm bằng analysis. amount là số tiền đã được báo cáo tính sẵn, không đếm bản ghi thành tiền.',
-    fields:{method:{label:'Phương thức thanh toán',type:'text',values:{cash:'Tiền mặt',card:'Thẻ',transfer:'Chuyển khoản',ewallet:'Ví điện tử'}},amount:{label:'Số tiền đã thu',type:'number',measureOperation:'sum'}}},
-  {id:'retail.report.products',title:'Phân tích và xếp hạng sản phẩm bán lẻ',key:'products',
-    description:'Toàn bộ sản phẩm phát sinh bán hàng trong khoảng ngày báo cáo. netQuantity là số lượng bán ròng, netSales là doanh thu ròng. Có thể lọc, xếp hạng và lấy top N bằng analysis; không chỉ lấy thứ tự doanh thu sẵn có. Không có sản phẩm không phát sinh giao dịch. Giá vốn/lợi nhuận chỉ có nếu API cho phép.',
-    fields:{sku:{label:'Mã SKU',type:'text'},productName:{label:'Sản phẩm',type:'text'},category:{label:'Danh mục',type:'text'},brand:{label:'Thương hiệu',type:'text'},netQuantity:{label:'Số lượng bán ròng',type:'number',measureOperation:'sum'},netSales:{label:'Doanh thu ròng',type:'number',measureOperation:'sum'},profit:{label:'Lợi nhuận',type:'number',measureOperation:'sum'}}},
-] as const){
-  const fields=section.fields as AnalysisContract['fields'];
-  operations.push({...retailSummarySource,id:section.id,title:section.title,description:section.description,
-    fields:structuredClone(retailSummarySource.fields),resultFields:[section.key],resultChildFields:{[section.key]:Object.keys(fields)},
-    precomputedGroups:undefined,precomputedMeasures:undefined,
-    analysis:{publicRead:true,publicRowsField:section.key,rowDimensions:[Object.keys(fields)[0]],displayFields:Object.keys(fields),fields,
-      ...(section.key==='paymentMix'?{completeGroups:{dimension:'method',values:['cash','card','transfer','ewallet'],zeroMeasures:['amount']}}:{})}});
-}
-registerAssistantBusinessReadViews(operations);
-for(const operation of operations){
-  if(operation.analysis)for(const [key,definition]of Object.entries(operation.analysis.fields)){
-    if(!definition.values||!/(?:^|_)status$/i.test(key))continue;
-    const values=Object.keys(definition.values),terminal=values.filter(v=>['completed','cancelled','canceled','closed','ended','terminated','archived'].includes(v));
-    const open=values.filter(v=>['draft','pending','confirmed','processing','in_progress','open','active'].includes(v));
-    if(terminal.length>1&&open.length)operation.analysis.lifecycleFields={...operation.analysis.lifecycleFields,[key]:{terminal,open}};
-  }
-  if(operation.id==='inventory.balance.list'&&operation.analysis){
-    operation.fields.push(queryRef('productId','Tên hoặc mã sản phẩm','product.list',false));
-    operation.analysis.referenceInputs={productName:'productId',warehouseName:'warehouseId'};
-    operation.description+=' Nhận diện tên sản phẩm qua productId và tên kho qua warehouseId; không lọc literal nhãn sản phẩm/kho khi đã dùng tham chiếu.';
-  }
-  if(operation.id==='student.schedule.list'&&operation.analysis){
-    operation.fields.push(queryRef('query_batchId','Tên hoặc mã lớp','batch.list',false));
-    operation.fields[operation.fields.length-1].apiKey='batchId';
-    operation.analysis.referenceInputs={title:'query_batchId'};
-    operation.resultFields.push('startAt','endAt');
-    for(const key of ['startAt','endAt'])operation.analysis.fields[key]={label:key==='startAt'?'Bắt đầu lúc':'Kết thúc lúc',type:'text',format:'date'};
-    operation.description+=' Lọc lớp qua batchId, không so tên lớp với tiêu đề ghép mã lớp/khóa học. startAt/endAt là thời gian cụ thể để lọc một buổi trong ngày.';
-  }
-  if(operation.id==='hr.daily.overview'&&operation.analysis)operation.analysis.statusCoverage={field:'attendanceStatus',unknownValues:['Chưa ghi nhận','unrecorded']};
+  const override = actionDescriptionOverrides[operation.id];
+  if (override) operation.description = override;
 }
 export const ASSISTANT_OPERATIONS: readonly AssistantOperation[] = operations.map(operation => ({
   ...operation,
@@ -2222,6 +2956,8 @@ export function operationById(id: string) { return ASSISTANT_OPERATIONS.find(op 
 export function defaultWorkflow(op: AssistantOperation): AssistantWorkflow {
   const instructions = op.module === "quotation" ? quotationWorkflowInstructions : op.module === "healthcare" ? healthcareWorkflowInstructions : op.id === "hr.contract.create"
     ? "Khi lập hợp đồng, chọn nhân sự theo tên và thu thập loại hợp đồng, ngày bắt đầu, ngày kết thúc. Nếu người dùng chưa nêu trạng thái, lưu Bản nháp theo mặc định. Luôn xác nhận trước khi tạo. Sau khi tạo, hỏi một lần về ghi chú tùy chọn còn thiếu; cho phép bỏ qua."
+    : op.id === "recruitment.report"
+      ? "For recruitment.report reportType=onboarded, each item is one onboarded applicant and item.department is the department of the associated recruitment role. For a request asking for the total and which department has the most onboarded applicants, use reportType=onboarded, preserve the date range, then count items by department and report the department with the highest count. Do not substitute applicants-by-department because that report counts active applicants only."
     : op.id === "hr.contract.missing.list"
     ? "Báo cáo số nhân sự chưa có hợp đồng đang hiệu lực và liệt kê tên trong phạm vi API trả về. Không diễn giải kết quả thành thiếu chữ ký, tệp hoặc trường thông tin hợp đồng vì nguồn dữ liệu không kiểm tra các mục đó. Chỉ dùng các trường kết quả đã được cho phép."
     : ["retail.report.summary", "retail.invoice.summary"].includes(op.id)

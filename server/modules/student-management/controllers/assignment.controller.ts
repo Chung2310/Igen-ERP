@@ -4,6 +4,18 @@ import { AssignmentService } from "../services/assignment.service";
 import { getAllowedOwnerIds, resolveCreateOwnerId } from "../utils/auth.util";
 
 export class AssignmentController {
+  static async getMissingSubmissions(req: AuthRequest, res: Response) {
+    try {
+      const search = typeof req.query.search === "string" ? req.query.search : "";
+      const ownerScope = await getAllowedOwnerIds(req.user!);
+      const data = await AssignmentService.getMissingSubmissions(ownerScope, req.user!.branchId, search);
+      res.json({ success: true, data });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Lỗi lấy danh sách học viên chưa nộp bài.";
+      res.status(400).json({ success: false, error: msg });
+    }
+  }
+
   static async create(req: AuthRequest, res: Response) {
     try {
       const ownerId = await resolveCreateOwnerId(req.user!);

@@ -27,6 +27,11 @@ export type WorkerInput = {
   projectId?: unknown;
 };
 
+export type WorkerListFilters = {
+  permitExpiryWithinDays?: number;
+  referralStatus?: "linked" | "missing";
+};
+
 export type BulkWorkerInput = {
   fullName?: unknown;
   phone?: unknown;
@@ -100,6 +105,34 @@ export function normalizeLaborType(value: unknown): WorkerLaborType {
   return "official";
 }
 
+function workerDateDay(value: unknown): number | null {
+  const raw = String(value ?? "").trim();
+  let year: number;
+  let month: number;
+  let day: number;
+  let match = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (match) {
+    year = Number(match[1]); month = Number(match[2]); day = Number(match[3]);
+  } else {
+    match = raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+    if (!match) return null;
+    day = Number(match[1]); month = Number(match[2]); year = Number(match[3]);
+  }
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  return Math.floor(date.getTime() / 86_400_000);
+}
+
+export function isWorkerPermitExpiringWithinDays(value: unknown, days: number, now = new Date()): boolean {
+  if (!Number.isSafeInteger(days) || days < 0 || days > 365) return false;
+  const todayText = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(now);
+  const today = workerDateDay(todayText);
+  const expiry = workerDateDay(value);
+  return today !== null && expiry !== null && expiry >= today && expiry <= today + days;
+}
+
 export function normalizeWorkerInput(input: WorkerInput) {
   const fullName = String(input.fullName || "").trim();
   if (!fullName) throw new Error("Worker full name is required");
@@ -140,8 +173,11 @@ export function normalizeWorkerInput(input: WorkerInput) {
 }
 
 export class WorkerService {
-  static async list(scope: WorkerScope) {
-    const workers = await WorkerModel.find(buildWorkerQuery(scope)).sort({ createdAt: -1 }).lean();
+  static async list(scope: WorkerScope, filters: WorkerListFilters = {}) {
+    const listedWorkers = await WorkerModel.find(buildWorkerQuery(scope)).sort({ createdAt: -1 }).lean();
+    const workers = filters.permitExpiryWithinDays === undefined
+      ? listedWorkers
+      : listedWorkers.filter((worker: any) => worker.laborType === "foreign" && isWorkerPermitExpiringWithinDays(worker.workPermitExpiry, filters.permitExpiryWithinDays!));
     if (!workers.length) return workers;
 
     const referrals = await WorkerReferralModel.find({
@@ -150,7 +186,9 @@ export class WorkerService {
       ...(scope.branchId ? { branchId: scope.branchId } : {}),
       status: { $in: ["pending", "active"] },
     }).sort({ effectiveFrom: -1, createdAt: -1 }).lean();
-    if (!referrals.length) return workers;
+    if (!referrals.length) return filters.referralStatus === "missing"
+      ? workers.map((worker: any) => ({ ...worker, partnerName: "", partnerCode: "" }))
+      : filters.referralStatus === "linked" ? [] : workers;
 
     const partnerIds = Array.from(new Set(referrals.map((referral: any) => String(referral.partnerId))));
     const partners = await LaborPartnerModel.find({
@@ -165,7 +203,7 @@ export class WorkerService {
       const partner = partnerById.get(String(referral.partnerId));
       if (partner && !partnerByWorkerId.has(String(referral.workerId))) partnerByWorkerId.set(String(referral.workerId), partner);
     }
-    return workers.map((worker: any) => ({
+    const enriched = workers.map((worker: any) => ({
       ...worker,
       ...(partnerByWorkerId.has(String(worker._id))
         ? {
@@ -174,6 +212,9 @@ export class WorkerService {
           }
         : {}),
     }));
+    return filters.referralStatus === "missing"
+      ? enriched.filter((worker: any) => !worker.partnerName)
+      : filters.referralStatus === "linked" ? enriched.filter((worker: any) => Boolean(worker.partnerName)) : enriched;
   }
   static async create(scope: WorkerScope, input: WorkerInput) {
     const data = normalizeWorkerInput(input);

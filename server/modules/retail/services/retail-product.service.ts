@@ -50,6 +50,23 @@ export function buildRetailProductFilter(scope: RetailBranchScope, query: any) {
   };
 }
 
+export function filterRetailVariantsByBranchPrice<T extends { _id: unknown }>(
+  variants: T[],
+  prices: Array<{ variantId: unknown }>,
+) {
+  const pricedVariantIds = new Set(prices.map(price => String(price.variantId)));
+  return variants.filter(variant => pricedVariantIds.has(String(variant._id)));
+}
+
+export function buildRetailVariantSearchConditions(search: string, productIds: string[]) {
+  return [
+    { sku: { $regex: search, $options: "i" } },
+    { barcode: { $regex: search, $options: "i" } },
+    { displayName: { $regex: search, $options: "i" } },
+    ...(productIds.length ? [{ productId: { $in: productIds } }] : []),
+  ];
+}
+
 export const RetailProductService = {
   async search(scope: RetailBranchScope, query: any) {
     const { q, barcode, page, limit, search, productNameFilter } = buildRetailProductFilter(scope, query);
@@ -74,11 +91,7 @@ export const RetailProductService = {
         ...(scannedUnit ? [scannedUnit.variantId ? { _id: String(scannedUnit.variantId) } : { productId: String(scannedUnit.productId) }] : []),
       ];
     } else if (q) {
-      variantFilter.$or = [
-        { sku: { $regex: search, $options: "i" } },
-        { barcode: { $regex: search, $options: "i" } },
-        ...(productIdsByName.length ? [{ productId: { $in: productIdsByName } }] : []),
-      ];
+      variantFilter.$or = buildRetailVariantSearchConditions(search, productIdsByName);
     }
     const variants: any[] = await ProductVariantModel.find(variantFilter).lean();
     const variantIds = variants.map((item) => String(item._id));
@@ -121,7 +134,7 @@ export const RetailProductService = {
       .select("code name").lean();
     const brandByCode = new Map(brands.map((brand) => [brand.code, brand.name]));
     const priceByVariant = new Map(prices.map((item) => [String(item.variantId), item]));
-    const items: any[] = variants
+    const items: any[] = filterRetailVariantsByBranchPrice(variants, prices)
       .map((variant) => {
         const product = productById.get(String(variant.productId));
         if (!product) return null;

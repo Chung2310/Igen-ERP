@@ -32,6 +32,7 @@ const workerModuleGuard = requireModule("worker") as any;
 router.use((req, res, next) => (req.originalUrl.includes("/worker-management/") ? workerModuleGuard : studentModuleGuard)(req, res, next));
 router.use(requireRead);
 router.post("/", requireTeacherOperation, validate(createAssignmentSchema), AssignmentController.create);
+router.get("/missing-submissions", AssignmentController.getMissingSubmissions);
 router.get("/", AssignmentController.getList);
 router.get("/:id/submissions", validate(idParamSchema, "params"), AssignmentController.getSubmissions);
 router.post("/:id/students/:studentId/submit", requireTeacherOperation, validate(staffSubmitProofSchema), AssignmentController.staffSubmit);

@@ -1,5 +1,6 @@
 import type { AssistantReply, AssistantValue } from "../../src/shared/assistant-workflow";
 import { formatAssistantResultTable } from "../../src/shared/assistant-result-table";
+import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
 import { safeAssistantHttpUrl } from "../../src/components/common/assistant-link-utils";
 
 const normalize = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase();
@@ -38,6 +39,8 @@ export function legalAnswerReply(result: unknown): AssistantReply {
   // Keep numbered explanations from being mistaken for rows by the shared table parser.
   const answer = typeof data.answer === "string" ? data.answer.trim().replace(/^(\s*\d+)\.\s+/gm, "$1) ") : "";
   if (!answer) return { status: "failed", reply: "Chưa nhận được câu trả lời từ kho văn bản pháp luật. Bạn thử lại nhé." };
+  const asOf = typeof data.asOf === "string" ? formatAssistantTemporalValue(data.asOf) : undefined;
+  const datedAnswer = asOf ? `${answer}\nNgày áp dụng: ${asOf}` : answer;
   const records = (Array.isArray(data.sources) ? data.sources : []).filter(source => source && typeof source === "object").map(source => {
     const value = (key: string) => typeof source[key] === "string" ? source[key] : "";
     const url = safeAssistantHttpUrl(value("sourceUrl"));
@@ -51,7 +54,7 @@ export function legalAnswerReply(result: unknown): AssistantReply {
   });
   return {
     status: "completed",
-    reply: records.length ? `${answer}\n\n${formatAssistantResultTable("Nguồn văn bản pháp luật", records)}` : answer,
+    reply: records.length ? `${datedAnswer}\n\n${formatAssistantResultTable("Nguồn văn bản pháp luật", records)}` : datedAnswer,
     link: "/van-ban-phap-luat",
   };
 }

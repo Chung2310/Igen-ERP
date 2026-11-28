@@ -32,12 +32,23 @@ async function handle(
 }
 
 export const workerController = {
-  list: async (req: Request, res: Response) =>
-    handle(res, async () =>
+  list: async (req: Request, res: Response) => {
+    const rawExpiryWindow = req.query.permitExpiryWithinDays;
+    const permitExpiryWithinDays = rawExpiryWindow === undefined ? undefined : Number(rawExpiryWindow);
+    const rawReferralStatus = req.query.referralStatus;
+    const referralStatus = rawReferralStatus === undefined ? undefined : String(rawReferralStatus);
+    if (permitExpiryWithinDays !== undefined && (!Number.isSafeInteger(permitExpiryWithinDays) || permitExpiryWithinDays < 0 || permitExpiryWithinDays > 365)) {
+      return res.status(400).json({ message: "Khoảng ngày hết hạn giấy phép phải là số nguyên từ 0 đến 365." });
+    }
+    if (referralStatus !== undefined && !["linked", "missing"].includes(referralStatus)) {
+      return res.status(400).json({ message: "Trạng thái đối tác giới thiệu không hợp lệ." });
+    }
+    return handle(res, async () =>
       res.json({
-        workers: await WorkerService.list(scopeFromRequest(req)),
+        workers: await WorkerService.list(scopeFromRequest(req), { permitExpiryWithinDays, referralStatus: referralStatus as "linked" | "missing" | undefined }),
       }),
-    ),
+    );
+  },
 
   create: async (req: Request, res: Response) =>
     handle(res, async () =>

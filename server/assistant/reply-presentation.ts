@@ -1,24 +1,11 @@
 import type { AssistantReply } from "../../src/shared/assistant-workflow";
 import { formatAssistantResultTable, parseAssistantResultTable } from "../../src/shared/assistant-result-table";
-import { stripRequestFraming } from './request-framing';
 
 export const assistantNaturalLanguageRule = "Viết tiếng Việt như một đồng nghiệp đang hỗ trợ trực tiếp, xưng mình–bạn. Nói ngay kết quả hoặc điều cần hỏi, dùng câu ngắn, rõ và ấm áp. Khi hỏi lại, chỉ hỏi phần thật sự còn thiếu và tận dụng ngữ cảnh đã có. Không bắt người dùng viết lại câu theo mẫu. Không mở đầu bằng ‘Mình hiểu yêu cầu’, ‘Mình kiểm tra giúp bạn rồi nhé’ hay lời xác nhận chung không có thông tin. Không lặp ‘nhé’, không dùng giọng hành chính như ‘cung cấp đầy đủ các trường’. Nêu hạn chế bằng việc chưa làm được và bước tiếp theo, không đổ lỗi cho cách hỏi của người dùng. Không dùng dấu chấm phẩy trong lời dẫn do bạn viết. Giữ nguyên dấu câu trong dữ liệu, tên, mã, ghi chú, trích dẫn, bảng, URL và mã nguồn. Tôn trọng định dạng người dùng yêu cầu. Không đổi trạng thái thao tác hoặc bịa dữ liệu để câu nghe trôi chảy hơn.";
 export const assistantReplyPresentationRule = `Chỉ nói về yêu cầu, thông tin còn thiếu, xác nhận và kết quả nghiệp vụ. Không kể tên hay giải thích workflow đang dùng. Không liệt kê các trường được tự điền bằng giá trị mặc định. Giữ thông tin người dùng chủ động nhập, câu hỏi cần bổ sung và yêu cầu xác nhận. Nếu có biểu mẫu hoặc lựa chọn, hướng dẫn họ điền/chọn ngay ở đó. Không đưa API, workflow, mapping, payload hay lỗi ánh xạ vào lời giải thích nghiệp vụ. Không dùng tiêu đề Markdown, dấu ** hoặc mẫu [đối tượng], [thông tin cần sửa] trong lời dẫn. Giữ nguyên bảng và nội dung dữ liệu. Phân biệt không có dữ liệu với chưa đọc được dữ liệu, thiếu quyền với phân hệ chưa bật. Không nói đã tạo/sửa/xóa khi còn hỏi thêm hoặc chờ xác nhận. Không tự đổi bộ lọc hoặc phạm vi để đưa ra kết quả. ${assistantNaturalLanguageRule}`;
 
 const normalize = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().trim();
 const fieldLine = /^([^:\r\n]{1,100}):\s*(.*)$/;
-
-/** An empty, successfully completed read is a business finding, not a routing
- * error. Reuse only a single validated question, never an unexecuted plan. */
-export function assistantEmptyReadResult(requestText = '') {
-  const questions=[...new Set(requestText.normalize('NFC').split(/\r?\n+/).map(line=>line.trim()).filter(Boolean))];
-  if(questions.length===1 && questions[0].length<=300 && !/[<>`{}]|(?:^|\s)[#*]/u.test(questions[0])){
-    const question=stripRequestFraming(questions[0]).replace(/[?!.]+$/u,'').trim();
-    const match=/^Có\s+(.+?)\s+nào\s+(.+)$/iu.exec(question);
-    if(match)return `Hiện mình chưa thấy ${match[1]} nào ${match[2]} trong phạm vi đang xem.`;
-  }
-  return 'Mình chưa tìm thấy dữ liệu theo yêu cầu của bạn trong phạm vi đang xem.';
-}
 
 function conversationalFieldLabel(label: string) {
   return label.replace(/\s*\((?:DD\/MM\/YYYY|YYYY-MM-DD)[^)]*\)/giu, '').replace(/\s+/g, ' ').trim();

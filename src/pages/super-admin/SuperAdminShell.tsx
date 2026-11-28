@@ -13,6 +13,7 @@ import { TenantDetailPage } from "./tenants/TenantDetailPage";
 import { UserManagementPanel } from "./users/UserManagementPanel";
 import { SuperAdminAccountsPage } from "./admins/SuperAdminAccountsPage";
 import AiSubscriptionsPage from "./subscriptions/AiSubscriptionsPage";
+import { SuperAdminAssistantFeedbackPage } from "./assistant-feedback/SuperAdminAssistantFeedbackPage";
 import { LogOut, Menu, X } from "lucide-react";
 import { getSidebarArtworkIcon, type SidebarArtworkName } from "../../components/common/SidebarMenuIcon";
 import {
@@ -27,7 +28,7 @@ export default function SuperAdminShell() {
     localStorage.getItem("accessToken") ? "authenticated" : "password"
   );
   
-  const [activeTab, setActiveTab] = React.useState<"overview" | "activity" | "audit" | "sessions" | "tenants" | "users" | "admins" | "subscriptions">("overview");
+  const [activeTab, setActiveTab] = React.useState<"overview" | "activity" | "audit" | "sessions" | "tenants" | "users" | "admins" | "subscriptions" | "assistant-feedback">("overview");
   const [selectedTenantCode, setSelectedTenantCode] = React.useState<string | null>(null);
   const [challenge, setChallenge] = React.useState(pendingChallenge?.challengeId || "");
   const [email, setEmail] = React.useState("");
@@ -169,6 +170,8 @@ export default function SuperAdminShell() {
         return <SuperAdminAccountsPage />;
       case "subscriptions":
         return <AiSubscriptionsPage />;
+      case "assistant-feedback":
+        return <SuperAdminAssistantFeedbackPage />;
       case "overview":
       default:
         return <DashboardTab />;
@@ -177,6 +180,7 @@ export default function SuperAdminShell() {
 
   const navItems = [
     { id: "overview" as const, label: "Tổng quan hệ thống", artwork: "overview" },
+    { id: "assistant-feedback" as const, label: "Đánh giá trợ lý ERP", artwork: "chart" },
     { id: "activity" as const, label: "Giám sát hoạt động", artwork: "chart" },
     { id: "audit" as const, label: "Nhật ký kiểm toán", artwork: "document" },
     { id: "users" as const, label: "Quản trị tài khoản", artwork: "user" },

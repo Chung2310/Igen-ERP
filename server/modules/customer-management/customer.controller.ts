@@ -4,6 +4,7 @@ import { searchActiveCustomers, quickCreateCustomer } from "./contracts";
 import { CustomerService, type CustomerActor, type CustomerScope } from "./customer.service";
 import { BillingProfileService } from "./billing-profile.service";
 import { CustomerPurchaseHistoryService } from "./customer-purchase-history.service";
+import { customerTierCounts, upcomingCustomerBirthdays } from "./customer-assistant-reports.service";
 import { requireRetailBranch, retailScopeFromRequest, resolveRetailScopeFromRequest, RetailScopeError, type RetailBranchScope } from "../retail/contracts";
 
 function scopeFromRequest(req: Request): CustomerScope {
@@ -58,6 +59,10 @@ const handle = (action: (req: Request, res: Response) => Promise<Response>) => a
 
 export const customerController = {
   list: handle(async (req, res) => res.json({ success: true, data: await CustomerService.list(scopeFromRequest(req), req.query as any) })),
+  assistantTierCounts: handle(async (req, res) => res.json({ success: true, data: await customerTierCounts(scopeFromRequest(req).companyCode) })),
+  assistantUpcomingBirthdays: handle(async (req, res) => res.json({ success: true, data: await upcomingCustomerBirthdays(
+    scopeFromRequest(req).companyCode, req.query.from, req.query.to,
+  ) })),
   search: handle(async (req, res) => res.json({ success: true, data: await searchActiveCustomers(scopeFromRequest(req), String(req.query.q || ""), Number(req.query.limit) || 10) })),
   create: handle(async (req, res) => res.status(201).json({ success: true, data: await CustomerService.create(scopeFromRequest(req), req.body || {}, actorFromRequest(req)) })),
   quickCreate: handle(async (req, res) => res.status(201).json({ success: true, data: await quickCreateCustomer(scopeFromRequest(req), req.body || {}, actorFromRequest(req)) })),

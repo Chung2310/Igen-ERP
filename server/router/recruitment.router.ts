@@ -5,7 +5,7 @@ import { recruitmentController as controller, type RecruitmentRequest } from "..
 import { requireAuth, requirePermission } from "../middleware/auth";
 import { requireModule } from "../middleware/require-module";
 import { resolveRecruitmentScope } from "../utils/recruitment-scope";
-import { applicantBodySchema, applicantUpdateBodySchema, interviewBodySchema, interviewUpdateBodySchema, jobBodySchema, jobUpdateBodySchema, statusBodySchema, transitionBodySchema, validateBody, versionBodySchema } from "../validation/recruitment.validation";
+import { applicantBodySchema, applicantHistoryQuerySchema, applicantUpdateBodySchema, interviewBodySchema, interviewUpdateBodySchema, jobBodySchema, jobUpdateBodySchema, statusBodySchema, transitionBodySchema, validateBody, validateQuery, versionBodySchema } from "../validation/recruitment.validation";
 
 export const recruitmentRouter = Router();
 const readPermission = requirePermission("recruitment:read");
@@ -48,7 +48,7 @@ recruitmentRouter.patch("/applicants/:id", managePermissionGuard as any, validat
 recruitmentRouter.post("/applicants/:id/transition", managePermissionGuard as any, validateBody(transitionBodySchema), controller.transitionApplicant);
 recruitmentRouter.post("/applicants/:id/delete", managePermissionGuard as any, validateBody(versionBodySchema), controller.deleteApplicant);
 recruitmentRouter.post("/applicants/:id/restore", managePermissionGuard as any, validateBody(versionBodySchema), controller.restoreApplicant);
-recruitmentRouter.get("/applicants/:id/history", readPermissionGuard as any, controller.applicantHistory);
+recruitmentRouter.get("/applicants/:id/history", readPermissionGuard as any, validateQuery(applicantHistoryQuerySchema), controller.applicantHistory);
 recruitmentRouter.get("/interviews", readPermissionGuard as any, controller.listInterviews);
 recruitmentRouter.post("/interviews", managePermissionGuard as any, validateBody(interviewBodySchema), controller.createInterview);
 recruitmentRouter.get("/interviews/:id", readPermissionGuard as any, controller.getInterview);

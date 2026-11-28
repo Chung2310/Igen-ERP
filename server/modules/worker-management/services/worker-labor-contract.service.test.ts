@@ -44,6 +44,28 @@ function contractDoc(overrides: Record<string, unknown> = {}) {
 }
 
 describe("worker labor contract service", () => {
+  it("filters contracts by an explicit end-date range", async () => {
+    const chain = {
+      sort: vi.fn().mockReturnThis(),
+      skip: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      lean: vi.fn().mockResolvedValue([]),
+    };
+    const find = vi.spyOn(WorkerLaborContractModel, "find").mockReturnValue(chain as any);
+    vi.spyOn(WorkerLaborContractModel, "countDocuments").mockResolvedValue(0 as any);
+    vi.spyOn(WorkerLaborContractModel, "distinct").mockResolvedValue([] as any);
+
+    await WorkerLaborContractService.list({ companyCode: "ACME" }, {
+      endDateFrom: "2026-11-01",
+      endDateTo: "2026-11-30",
+    }, TODAY);
+
+    expect(find.mock.calls[0][0]).toMatchObject({
+      endDate: { $gte: "2026-11-01", $lte: "2026-11-30" },
+      status: { $nin: ["renewed", "terminated"] },
+    });
+  });
+
   it("scopes contracts by company and branch and hides soft-deleted rows", () => {
     const branchId = new Types.ObjectId();
     const query = buildWorkerLaborContractQuery({

@@ -31,6 +31,7 @@ import { createStudioMindmap, studioMindmapRequestSchema } from "./studio-mindma
 import { getAssistantProjectFile, listAssistantProjects, saveAssistantProjectCollection, saveAssistantProjectFile } from "./projects";
 import { assistantConversationFileFilter, isAssistantConversationFileAllowedForMode } from "./conversation-file";
 import { isAssistantConversationImageName, maxAssistantConversationImageBatchBytes, maxAssistantConversationImageCount, maxAssistantConversationImageFileBytes } from "../../src/shared/assistant-conversation-upload";
+import { saveAssistantAnswerFeedback } from "./feedback";
 
 export const assistantRouter = Router();
 assistantRouter.use(requireAuth as any, requirePermission("chat:read") as any);
@@ -204,6 +205,14 @@ assistantRouter.get("/conversations", validateRequest({ query: Joi.object({ limi
 assistantRouter.get("/conversations/:conversationId/memory", validateRequest({ params: Joi.object({ conversationId: id }) }), wrap(req => conversationMemory(req, req.params.conversationId)));
 assistantRouter.patch("/conversations/:conversationId/memory", validateRequest({ params: Joi.object({ conversationId: id }), body: Joi.object({ summary: Joi.string().max(2000).allow("").required(), version: Joi.number().integer().min(0).required() }) }), wrap(req => saveConversationMemory(req, req.params.conversationId, req.body.summary, req.body.version)));
 assistantRouter.delete("/conversations/:conversationId/memory", validateRequest({ params: Joi.object({ conversationId: id }) }), wrap(req => clearConversationMemory(req, req.params.conversationId)));
+assistantRouter.post("/conversations/:conversationId/feedback", validateRequest({
+  params: Joi.object({ conversationId: id }),
+  body: Joi.object({
+    answerAt: Joi.string().isoDate().required(),
+    rating: Joi.number().integer().min(1).max(5).required(),
+    comment: Joi.string().trim().min(1).max(1000).required(),
+  }).unknown(false),
+}), wrap(req => saveAssistantAnswerFeedback(req, { conversationId: req.params.conversationId, ...req.body })));
 assistantRouter.delete("/conversations/:conversationId", validateRequest({ params: Joi.object({ conversationId: id }) }), wrap(req => deleteConversation(req, req.params.conversationId)));
 assistantRouter.get("/conversations/:conversationId", validateRequest({ params: Joi.object({ conversationId: id }) }), wrap(req => conversationState(req, req.params.conversationId)));
 const tableAttachment = Joi.object({

@@ -18,20 +18,14 @@ export function withAssistantExecution<T>(control: AssistantExecutionControl, wo
   if (assistantSafeExecutionEnabled() && !Number.isFinite(control.deadlineAt)) return Promise.reject(new AssistantError("Thời hạn xử lý không hợp lệ.", 503));
   return assistantSafeExecutionEnabled() ? execution.run({ ...control, abort: new AbortController() }, work) : work();
 }
-/** Interpretation is read-only. Its deadline must abort outstanding provider
- * requests even when the experimental business execution gate is disabled. */
-export function withAssistantInterpretationControl<T>(work:()=>Promise<T>,timeoutMs=90_000):Promise<T>{
- if(execution.getStore())return withAssistantRequestControl(timeoutMs,()=>work());
- return execution.run({deadlineAt:Date.now()+timeoutMs,abort:new AbortController()},()=>withAssistantRequestControl(timeoutMs,()=>work()));
+
+/** Bound read-only interpretation requests even when the business execution gate is disabled. */
+export function withAssistantInterpretationControl<T>(work: () => Promise<T>, timeoutMs = 90_000): Promise<T> {
+  if (execution.getStore()) return withAssistantRequestControl(timeoutMs, () => work());
+  return execution.run({ deadlineAt: Date.now() + timeoutMs, abort: new AbortController() },
+    () => withAssistantRequestControl(timeoutMs, () => work()));
 }
-/** Optional wording may time out without invalidating a completed business
- * result. Inherit cancellation/deadline, but keep the local stop isolated. */
-export function withAssistantOptionalAIControl<T>(work:()=>Promise<T>,timeoutMs=8_000):Promise<T>{
- const parent=execution.getStore();
- return execution.run({deadlineAt:Math.min(parent?.deadlineAt??Infinity,Date.now()+timeoutMs),abort:new AbortController(),
-  ...(parent?{signal:AbortSignal.any([parent.abort.signal,...(parent.signal?[parent.signal]:[])]),cancelled:parent.cancelled}:{})},
-  ()=>withAssistantRequestControl(timeoutMs,()=>work()));
-}
+
 export async function assertAssistantExecutionActive() {
   const frame = execution.getStore();
   if (!frame) return;

@@ -86,6 +86,8 @@ export const listWorkerLaborContractQuerySchema = Joi.object({
   workerId: objectIdSchema.optional(),
   status: Joi.string().valid("draft", "active", "renewed", "expired", "terminated").optional(),
   alert: Joi.string().valid("expiring", "expired", "any").optional(),
+  endDateFrom: dateSchema("Ngày kết thúc từ").optional(),
+  endDateTo: dateSchema("Ngày kết thúc đến").optional(),
   search: Joi.string().trim().allow("").optional(),
   page: Joi.number().integer().min(1).default(1).optional(),
   limit: Joi.number().integer().min(1).max(100).default(10).optional(),

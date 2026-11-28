@@ -5,7 +5,12 @@ import { quoteCreatedRange } from "../modules/quotation/created-range";
 import { appendFileSync } from "node:fs";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({ session: null as any, turns: [] as any[], interpret: vi.fn(), documents: vi.fn(), provider: vi.fn() }));
-vi.mock("../service/openrouter.service", () => ({ openrouterChat: state.provider }));
+vi.mock("../service/openrouter.service", () => ({ openrouterChat: async (...args: any[]) => {
+  const response = await state.provider(...args);
+  if (typeof response?.text !== "string") return response;
+  try { const parsed = JSON.parse(response.text); if (typeof parsed.actionId === "string" && parsed.intentType === undefined) parsed.intentType = "workflow"; if (typeof parsed.actionId === "string" && parsed.requestCoverage === undefined) { let requestText = args[0]?.messages?.at(-1)?.content; try { requestText = JSON.parse(requestText).text ?? requestText; } catch { /* current user message */ } if (typeof requestText === "string") parsed.requestCoverage = [{ evidence: requestText, requirement: "Yêu cầu thao tác", mappedTo: ["action"] }]; } return { ...response, text: JSON.stringify(parsed) }; }
+  catch { return response; }
+} }));
 vi.mock("./models", () => {
   const apply = (record: any, updates: any) => {
     for (const [key, value] of Object.entries(updates.$set || {})) {
@@ -194,6 +199,9 @@ it("cancels a catalog creation without sending a write", async () => {
   expect(fetcher.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
 });
 beforeEach(() => {
+  // The developer's local .env may select the real Codex CLI. This suite uses
+  // a deterministic OpenRouter fixture and must not launch external CLI calls.
+  vi.stubEnv("ASSISTANT_PLANNER_PROVIDER", "openrouter");
   audit.reset();
   state.provider.mockReset();
   auditTurns = [];
@@ -239,6 +247,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetcher);
 });
 afterEach(() => vi.unstubAllGlobals());
+afterEach(() => vi.unstubAllEnvs());
 afterEach(context => audit.write(context, state, { products, quotes, contracts, acceptances, pending: state.session?.pending }));
 afterEach(context => {
   if (!process.env.ASSISTANT_AUDIT_OUTPUT) return;
@@ -409,7 +418,7 @@ it("lets the user choose between manual product selection and AI product suggest
   expect(aiPromptStep.status).toBe("collecting");
   expect(aiPromptStep.reply).toContain("nhập mô tả yêu cầu của khách hàng");
   expect(aiPromptStep.referenceSelections).toBeUndefined();
-  interpreted("customer-quote.create", {});
+  interpreted("customer-quote.create", { customerName: "Bình", sourceRequirements: "Gia đình 4 người cần máy lọc nước và vòi inox phụ" });
   const preview = await turn({ text: "Gia đình 4 người cần máy lọc nước và vòi inox phụ" });
   expect(preview.status).toBe("confirmation");
   expect(preview.action?.values).toEqual(expect.arrayContaining([
@@ -491,12 +500,12 @@ it("handles a bare 'tạo báo giá mới' flow when the user selects template +
   expect(selectedModeStep.reply).toMatch(/tên khách hàng/iu);
   expect(selectedModeStep.reply).toContain("nhập mô tả yêu cầu của khách hàng");
 
-  interpreted("customer-quote.create", {});
-  const preview = await turn({ text: 'khách tên Hiệp yêu cầu là "lặp đặt camera cho căn nhà 2 tầng 40m"' });
+  interpreted("customer-quote.create", { customerName: "Hiệp", sourceRequirements: "lắp đặt camera cho căn nhà 2 tầng 40m" });
+  const preview = await turn({ text: 'khách tên Hiệp yêu cầu là "lắp đặt camera cho căn nhà 2 tầng 40m"' });
   expect(preview.status).toBe("confirmation");
   expect(preview.action?.values).toEqual(expect.arrayContaining([
     expect.objectContaining({ label: "Tên khách hàng", value: "Hiệp" }),
-    expect.objectContaining({ label: "Yêu cầu khách hàng (để AI gợi ý sản phẩm)", value: "lặp đặt camera cho căn nhà 2 tầng 40m" }),
+    expect.objectContaining({ label: "Yêu cầu khách hàng (để AI gợi ý sản phẩm)", value: "lắp đặt camera cho căn nhà 2 tầng 40m" }),
     expect.objectContaining({ label: "Sản phẩm AI gợi ý", value: "CAM01 — Camera DAHUA 2MP" }),
   ]));
   const created = await confirm(preview);
@@ -504,7 +513,7 @@ it("handles a bare 'tạo báo giá mới' flow when the user selects template +
   expect(quotes).toHaveLength(1);
   expect(quotes[0]).toMatchObject({
     customerName: "Hiệp",
-    sourceRequirements: "lặp đặt camera cho căn nhà 2 tầng 40m",
+    sourceRequirements: "lắp đặt camera cho căn nhà 2 tầng 40m",
     items: [{ catalogItemId: productId, unit: "cái", quantity: 1, catalogUpdatedAt: "2026-11-11T01:00:00.000Z" }],
   });
 });
@@ -525,7 +534,7 @@ it("does not mistake a customer-name-only reply for the AI requirement when both
   expect(afterNameOnly.reply).toContain("nhập mô tả yêu cầu của khách hàng");
   expect(fetcher.mock.calls.filter(([url]) => String(url).endsWith("/customer-quotes/suggest"))).toHaveLength(0);
 
-  interpreted("customer-quote.create", {});
+  interpreted("customer-quote.create", { sourceRequirements: "lắp đặt camera và wifi cho 1 tòa nhà 5 tầng diện tích sàn 50m2" });
   const preview = await turn({ text: "lắp đặt camera và wifi cho 1 tòa nhà 5 tầng diện tích sàn 50m2" });
   expect(preview.status).toBe("confirmation");
   expect(preview.action?.values).toEqual(expect.arrayContaining([

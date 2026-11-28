@@ -20,6 +20,103 @@ it('preserves only a matching transfer endpoint for branch-parent selection', ()
   }
 });
 
+it('keeps warehouse names pending until the source and destination branches are selected', async () => {
+  const transfer = operationById('inventory.transfer.create')!;
+  const values = { fromWarehouseId: 'Trụ sở chính', toWarehouseId: 'KHO2A' };
+  const result = await resolveReferences({
+    user: { id: 'admin', companyCode: 'TEST', role: 'admin' },
+    headers: {}, socket: { localAddress: '127.0.0.1', localPort: 4050 },
+  } as any, transfer, values as any);
+
+  expect(result.errors.join('\n')).toContain('Chi nhánh điều chuyển');
+  expect(result.values).toMatchObject(values);
+});
+
+it('resolves ambiguous internal issue products through a nested product selector', async () => {
+  const operation = operationById('inventory.stock-log.internal.issue.create')!;
+  const branchId = '507f1f77bcf86cd799439024';
+  const req = {
+    user: { id: 'admin', companyCode: 'TEST', branchId, role: 'admin' },
+    headers: {}, socket: { localAddress: '127.0.0.1', localPort: 4050 },
+  } as any;
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+    success: true,
+    data: [
+      { _id: '507f1f77bcf86cd799439025', name: 'Redmi Note 14', productCode: 'REDMI-HN', status: 'active', productType: 'physical' },
+      { _id: '507f1f77bcf86cd799439026', name: 'Redmi Note 14', productCode: 'REDMI-HCM', status: 'active', productType: 'physical' },
+    ],
+  }), { status: 200, headers: { 'content-type': 'application/json' } })));
+  try {
+    const resolved = await resolveReferences(req, operation, {
+      customerName: 'Bộ phận kế toán',
+      notes: 'Sử dụng nội bộ',
+      operatorName: 'QA Admin',
+      items: JSON.stringify([{ productId: 'Redmi Note 14', quantity: 1 }]),
+    } as any);
+    expect(resolved.unresolvedReferenceKeys).toContain('items[1].productId');
+    expect(resolved.errors.join('\n')).toContain('nhiều bản ghi trùng tên');
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+async function resolveTransferItems(trackingMode: 'quantity' | 'serial', identifiers: string[] = []) {
+  const operation = operationById('inventory.transfer.create')!;
+  const itemsOnly = { ...operation, fields: [
+    ...operation.fields.filter(field => field.key === 'items'),
+    { key: 'targetBranch', label: 'Chi nhánh', type: 'text' as const, source: 'query' as const, apiKey: 'branchId' },
+  ] };
+  const branchId = '507f1f77bcf86cd799439024';
+  const productId = '507f1f77bcf86cd799439025';
+  const variantId = '507f1f77bcf86cd799439026';
+  const warehouseId = '507f1f77bcf86cd799439027';
+  const req = {
+    user: { id: 'admin', companyCode: 'TEST', branchId, role: 'admin' },
+    headers: {}, socket: { localAddress: '127.0.0.1', localPort: 4050 },
+  } as any;
+  const serialRequests: URL[] = [];
+  vi.stubGlobal('fetch', vi.fn(async (input: URL | string) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith('/inventory/catalog/products') && !url.pathname.endsWith(`/${productId}`)) {
+      return new Response(JSON.stringify({ success: true, data: [{ _id: productId, name: 'Test phone', productCode: 'PHONE-1', status: 'active', productType: 'physical' }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith(`/inventory/catalog/products/${productId}`)) {
+      return new Response(JSON.stringify({ success: true, data: { _id: productId, name: 'Test phone', variants: [{ _id: variantId, sku: 'PHONE-1-128', displayName: '128 GB', trackingMode, status: 'active' }] } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.pathname.endsWith('/inventory/serials')) {
+      serialRequests.push(url);
+      return new Response(JSON.stringify({ status: 'success', data: { items: [], total: 0, page: 1, limit: 100 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    throw new Error(`Unexpected inventory lookup: ${url.pathname}`);
+  }));
+  try {
+    const resolved = await resolveReferences(req, itemsOnly, {
+      targetBranch: branchId,
+      fromWarehouseId: warehouseId,
+      items: JSON.stringify([{ productId, variantId: 'PHONE-1-128', quantity: 1, ...(identifiers.length ? { unitIdentifiers: identifiers } : {}) }]),
+    } as any);
+    return { resolved, serialRequests };
+  } finally {
+    vi.unstubAllGlobals();
+  }
+}
+
+it('supplies an empty identifier list for quantity tracked transfer SKUs', async () => {
+  const { resolved, serialRequests } = await resolveTransferItems('quantity');
+  expect(resolved.errors).toEqual([]);
+  expect(JSON.parse(String(resolved.values.items))).toEqual([{ productId: '507f1f77bcf86cd799439025', variantId: '507f1f77bcf86cd799439026', quantity: 1, unitIdentifiers: [] }]);
+  expect(serialRequests).toHaveLength(0);
+});
+
+it('blocks transfer confirmation when a selected serial is not in stock at the source warehouse', async () => {
+  const { resolved, serialRequests } = await resolveTransferItems('serial', ['IMEI-REPAIRING']);
+  expect(resolved.errors.join('\n')).toContain('không còn trong kho gửi');
+  expect(serialRequests.length).toBeGreaterThan(0);
+  expect(serialRequests[0].searchParams.get('status')).toBe('in_stock');
+  expect(serialRequests[0].searchParams.get('warehouseId')).toBe('507f1f77bcf86cd799439027');
+  expect(serialRequests[0].searchParams.get('sku')).toBe('PHONE-1-128');
+});
+
 it('preserves the Mongo reference alias privately after projecting job records', () => {
   const operation = operationById('marketing.campaign.bulk-import.jobs.list')!;
   const id = '507f1f77bcf86cd799439021';

@@ -89,4 +89,21 @@ describe("worker-management assistant requests", () => {
       expect(operation.confirmation, operation.id).toBe(true);
     }
   });
+
+  it("supports filtering expiring work permits and displays only the required worker fields", () => {
+    const workerList = operationById("worker.list")!;
+    const expiryFilter = workerList.fields.find(field => field.apiKey === "permitExpiryWithinDays");
+
+    expect(expiryFilter).toMatchObject({
+      key: "query_permitExpiryWithinDays",
+      label: "GPLĐ/visa còn hạn trong N ngày",
+      source: "query",
+      min: 0,
+      max: 365,
+      integer: true,
+    });
+    expect(workerList.resultFields).toContain("laborType");
+    expect(workerList.resultFields).toContain("workPermitExpiry");
+    expect(workerList.resultFields).not.toContain("idCard");
+  });
 });

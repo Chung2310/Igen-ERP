@@ -50,6 +50,7 @@ import { hasSquareBracketPlaceholders, renderPromptWithPlaceholderHighlights } f
 import { AssistantQuickHistoryDropdown } from "./AssistantQuickHistoryDropdown";
 import { AssistantConversationActionsMenu } from "./AssistantConversationActionsMenu";
 import { AssistantMessageActions, AssistantUserMessageActions } from "./AssistantMessageActions";
+import { AssistantAnswerFeedback } from "./AssistantAnswerFeedback";
 
 type SpeechWindow = Window & { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor };
 type VoiceStatus = "off" | "manual" | "auto" | "waiting" | "command";
@@ -2152,6 +2153,13 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                             <AssistantResearchSources sources={message.sources} />
                             {message.files?.length ? <AssistantGeneratedFiles files={message.files} branchId={branchId} /> : null}
                             <AssistantMessageActions content={message.content} />
+                            {assistantMode === "work" && message.createdAt && <AssistantAnswerFeedback
+                              key={`${conversationId}:${message.createdAt}`}
+                              conversationId={conversationId}
+                              answerAt={message.createdAt}
+                              branchId={branchId}
+                              initialFeedback={message.feedback}
+                            />}
                           </div>}
                         </div>
                       </React.Fragment>;

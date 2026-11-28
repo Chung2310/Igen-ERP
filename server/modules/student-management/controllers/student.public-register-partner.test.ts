@@ -126,6 +126,8 @@ it("tạo token đăng ký dựa trên công ty và chi nhánh đã được ki�
   expect(vi.mocked(createPublicRegistrationToken)).toHaveBeenCalledWith({
     teacherId: "teacher-1", companyCode: "ACME", branchId, entityPreset: "worker",
   });
+  expect(res.body.data.registrationUrl).toContain("/public/dang-ky?registrationToken=signed-token");
+  expect(res.body.data.registrationToken).toBe("signed-token");
 });
 
 it("từ chối tạo liên kết nếu người dùng cố chọn công ty khác", async () => {

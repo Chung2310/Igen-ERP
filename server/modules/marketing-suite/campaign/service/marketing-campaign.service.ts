@@ -506,7 +506,7 @@ export const marketingCampaignService = {
     };
   },
 
-  async listAssistantSummaries(companyCode: string, query?: { page?: number; limit?: number; search?: string }) {
+  async listAssistantSummaries(companyCode: string, query?: { page?: number; limit?: number; search?: string; status?: "draft" | "active" | "paused" | "completed" | "cancelled" | "failed" }) {
     return listAssistantCampaignSummaries(companyCode, query);
   },
 

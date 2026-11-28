@@ -4,6 +4,7 @@ type AssistantCampaignListQuery = {
   page?: number;
   limit?: number;
   search?: string;
+  status?: "draft" | "active" | "paused" | "completed" | "cancelled" | "failed";
 };
 
 const summaryFields = "_id title campaignType status startDate endDate postsPerDay createdAt";
@@ -22,8 +23,10 @@ export async function listAssistantCampaignSummaries(companyCode: string, query:
   const page = Math.max(1, Math.min(100, Math.floor(Number(query.page) || 1)));
   const limit = Math.max(1, Math.min(100, Math.floor(Number(query.limit) || 10)));
   const search = typeof query.search === "string" ? query.search.trim().slice(0, 100) : "";
+  const status = typeof query.status === "string" ? query.status : undefined;
   const filter = {
     companyCode,
+    ...(status ? { status } : {}),
     ...(search ? { title: { $regex: escapeRegex(search), $options: "i" } } : {}),
   };
   const fetchedRows = await MarketingCampaignModel.find(filter)

@@ -106,6 +106,7 @@ export const retailCouponService = {
           _id: coupon._id, code: coupon.code, name: coupon.name,
           discountType: coupon.discountType, value: coupon.value,
           minSubtotal: coupon.minSubtotal, maxDiscount: coupon.maxDiscount,
+          startsAt: coupon.startsAt, endsAt: coupon.endsAt,
           customerId: coupon.customerId, customerTierCodes: coupon.customerTierCodes,
         });
       } catch (error) { if ((error as { code?: string }).code !== "COUPON_SOURCE_INELIGIBLE") throw error; }

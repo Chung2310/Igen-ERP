@@ -87,3 +87,29 @@ test("partner payout rejects a stale balance write instead of overwriting a conc
     assert.equal(filter.branchId, "branch-1");
   } finally { stub.restore(); }
 });
+
+test("partner payout report groups in-range cash and transfer payouts using Vietnam's stored date format", async () => {
+  const originalFind = Partner.find;
+  let query: unknown;
+  (Partner as any).find = (filter: unknown) => {
+    query = filter;
+    return { select: () => ({ lean: async () => [
+      { name: "Đối tác A", payoutHistory: [
+        { amount: 1_200_000, date: "25/11/2026", method: "Chuyển khoản" },
+        { amount: 500_000, date: "10/11/2026", method: "Tiền mặt" },
+        { amount: 900_000, date: "31/10/2026", method: "Tiền mặt" },
+      ] },
+    ] }) };
+  };
+  try {
+    const report = await PartnerService.getPayoutReport(["owner-a", "owner-b"], "branch-hn", "2026-11-01", "2026-11-30");
+    assert.deepEqual(query, { ownerId: { $in: ["owner-a", "owner-b"] }, branchId: "branch-hn" });
+    assert.equal(report.payoutCount, 2);
+    assert.equal(report.totalAmount, 1_700_000);
+    assert.deepEqual(report.methodTotals, [
+      { method: "Chuyển khoản", payoutCount: 1, totalAmount: 1_200_000 },
+      { method: "Tiền mặt", payoutCount: 1, totalAmount: 500_000 },
+    ]);
+    assert.equal(report.payouts[0].date, "2026-11-10");
+  } finally { (Partner as any).find = originalFind; }
+});

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildRetailCategoryPath, buildRetailProductFilter, matchesScannedUnit, normalizeRetailProductSearch } from "./retail-product.service";
+import { buildRetailCategoryPath, buildRetailProductFilter, buildRetailVariantSearchConditions, filterRetailVariantsByBranchPrice, matchesScannedUnit, normalizeRetailProductSearch } from "./retail-product.service";
 
 test("POS products include the official three-level category path", () => {
   const categories = new Map([
@@ -34,6 +34,18 @@ test("product name search uses a case-insensitive escaped pattern", () => {
   );
 
   assert.deepEqual(filter.productNameFilter, { $regex: "ÁO \\(đỏ\\)", $options: "i" });
+});
+
+test("retail lookup excludes variants without a price in the selected branch", () => {
+  const variants = [{ _id: "variant-hn", sku: "SKU-HN" }, { _id: "variant-hcm", sku: "SKU-HCM" }];
+
+  assert.deepEqual(filterRetailVariantsByBranchPrice(variants, [{ variantId: "variant-hn" }]), [variants[0]]);
+});
+
+test("retail product lookup can find a variant by its display name", () => {
+  const conditions = buildRetailVariantSearchConditions("Titan Sa Mạc", []);
+
+  assert(conditions.some((condition) => "displayName" in condition && condition.displayName.$regex === "Titan Sa Mạc"));
 });
 
 test("barcode lookup is exact and normalized", () => {

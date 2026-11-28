@@ -82,6 +82,8 @@ function contextualSerialTransferActionIds(text: string, workflows: AssistantWor
 }
 function contextualInventoryReceiptCreateActionId(text: string, workflows: AssistantWorkflow[]) {
   const intent = normalizeIntentText(text);
+  if (/\b(?:hien co|gan nhat|lan nhap|nhap nhung may gi|nhap nhung gi|tao nhap|chua hoan thanh|chua xong|can xu ly|cho xu ly)\b/.test(intent)
+    && /\b(?:phieu nhap|dot nhap|nhap hang|nha cung cap)\b/.test(intent)) return "";
   if (/\b(?:xem|tra cuu|tim kiem|tim|kiem tra|danh sach|liet ke|bao cao|lich su|cap nhat|sua|huy|xoa|xac nhan|hoan tat)\b/.test(intent)) return "";
   const asksToReceive = /\b(?:nhap kho|nhap hang)\b/.test(intent)
     || /\b(?:tao|lap|them|ghi nhan)\b.{0,28}\bphieu nhap\b/.test(intent);
@@ -2234,6 +2236,21 @@ function directWorkerListRequest(text: string, workflows: AssistantWorkflow[], p
   if (broadRequest) return null;
   return { actionId: "worker.list", values: {}, ...(pending ? { newRequest: true } : {}) };
 }
+function directWorkerPermitExpiryRequest(text: string, workflows: AssistantWorkflow[], pending: unknown): AssistantInterpretation | null {
+  const intent = normalizeIntentText(text).replace(/[_-]+/g, " ");
+  if (!/\b(?:giay phep|gpld|visa)\b/.test(intent)
+    || !/\b(?:lao dong nuoc ngoai|nguoi lao dong nuoc ngoai|lao dong nuoc ngoai nao)\b/.test(intent)
+    || !/\b(?:het han|sap het|con han)\b/.test(intent)
+    || !/\b30 ngay\b/.test(intent)) return null;
+  const workflow = workflows.find(candidate => candidate.actionId === "worker.list");
+  const expiryField = workflow?.fields.find(field => field.apiKey === "permitExpiryWithinDays");
+  if (!workflow || !expiryField) return null;
+  return {
+    actionId: workflow.actionId,
+    values: { [expiryField.key]: 30 },
+    ...(pending ? { newRequest: true } : {}),
+  };
+}
 function directWorkerProfileSearchRequest(text: string, workflows: AssistantWorkflow[], pending: unknown): AssistantInterpretation | null {
   const intent = normalizeIntentText(text).replace(/[_-]+/g, " ");
   if (!/\b(?:lao dong|nguoi lao dong|cong nhan)\b/.test(intent)) return null;
@@ -2352,6 +2369,8 @@ export async function interpretRequest(text: string, workflows: AssistantWorkflo
     && !/\b(?:nhan su|nhan vien|can bo|hoc vien|hoc sinh|lop hoc|khoa hoc|khoa dao tao|dao tao|tuyen dung|ung vien|phong van|cham cong|bang luong|luong|lao dong|cong nhan|doi tac|cong tac vien|ban le|pos|ca thu ngan|phieu thu|phieu chi|so quy|nhap kho|xuat kho|ton kho|imei|serial|y te|benh nhan|luot kham|lich hen|bac si|phong kham)\b/.test(normalizedQuotationReply)) {
     workflows = workflows.filter(w => w.enabled && w.module === "quotation");
   }
+  const directWorkerPermitExpiry = directWorkerPermitExpiryRequest(text, workflows, pending);
+  if (directWorkerPermitExpiry) return directWorkerPermitExpiry;
   const directPayroll = directPayrollRequest(text, workflows, pending, messages);
   if (directPayroll) return directPayroll;
   const directTask = directTaskRequest(text, workflows, pending);

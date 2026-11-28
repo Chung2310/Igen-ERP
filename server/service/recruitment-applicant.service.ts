@@ -63,8 +63,16 @@ export async function getApplicant(scope: RecruitmentScope, id: string, includeD
   return applicant;
 }
 
-export function listApplicantHistory(scope: RecruitmentScope, applicantId: string) {
-  return RecruitmentStageHistoryModel.find({ ...scope, applicantId, isDeleted: false })
+function historyDateBounds(from?: string, to?: string) {
+  const createdAt: Record<string, Date> = {};
+  if (from) createdAt.$gte = new Date(`${from}T00:00:00+07:00`);
+  if (to) createdAt.$lt = new Date(new Date(`${to}T00:00:00+07:00`).valueOf() + 24 * 60 * 60 * 1000);
+  return Object.keys(createdAt).length ? createdAt : undefined;
+}
+
+export function listApplicantHistory(scope: RecruitmentScope, applicantId: string, filters: { from?: string; to?: string } = {}) {
+  const createdAt = historyDateBounds(filters.from, filters.to);
+  return RecruitmentStageHistoryModel.find({ ...scope, applicantId, isDeleted: false, ...(createdAt ? { createdAt } : {}) })
     .sort({ createdAt: 1 })
     .lean();
 }

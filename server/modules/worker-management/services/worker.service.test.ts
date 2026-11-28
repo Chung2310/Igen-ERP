@@ -2,11 +2,20 @@
 import { Types } from "mongoose";
 import { WorkerModel } from "../models/worker.model";
 import { WorkerProjectModel } from "../models/worker-project.model";
-import { WorkerService, buildWorkerQuery, normalizeWorkerInput, normalizeWorkerPhone } from "./worker.service";
+import { WorkerService, buildWorkerQuery, isWorkerPermitExpiringWithinDays, normalizeWorkerInput, normalizeWorkerPhone } from "./worker.service";
 
 afterEach(() => vi.restoreAllMocks());
 
 describe("worker service", () => {
+  it("filters foreign-worker permits expiring in the next N Vietnam calendar days", () => {
+    const now = new Date("2026-11-24T17:00:00.000Z"); // 2026-11-25 in Vietnam
+    expect(isWorkerPermitExpiringWithinDays("25/11/2026", 30, now)).toBe(true);
+    expect(isWorkerPermitExpiringWithinDays("2026-12-25", 30, now)).toBe(true);
+    expect(isWorkerPermitExpiringWithinDays("2026-12-26", 30, now)).toBe(false);
+    expect(isWorkerPermitExpiringWithinDays("24/11/2026", 30, now)).toBe(false);
+    expect(isWorkerPermitExpiringWithinDays("31/02/2027", 30, now)).toBe(false);
+  });
+
   it("scopes list by company, branch and active rows", async () => {
     const lean = vi.fn().mockResolvedValue([]);
     const sort = vi.fn().mockReturnValue({ lean });

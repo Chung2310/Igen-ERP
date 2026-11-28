@@ -1,9 +1,20 @@
 import { Response, NextFunction } from "express";
 import { NotificationService } from "../services/notification.service";
+import { StudentService } from "../services/student.service";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { getAllowedOwnerIds, resolveCreateOwnerId } from "../utils/auth.util";
 
 export class NotificationController {
+  static async getAudienceCounts(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const ownerId = await getAllowedOwnerIds(req.user!);
+      const data = await StudentService.getNotificationAudienceCounts(ownerId, req.user!.branchId);
+      res.json({ success: true, data });
+    } catch (error: unknown) {
+      next(error);
+    }
+  }
+
   static async create(req: AuthRequest, res: Response) {
     try {
       const ownerId = await resolveCreateOwnerId(
